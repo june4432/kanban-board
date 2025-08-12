@@ -1,0 +1,307 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html,
+body {
+  padding: 0;
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Oxygen,
+    Ubuntu, Cantarell, Fira Sans, Droid Sans, Helvetica Neue, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+
+/* Animation for card drag */
+.card-dragging {
+  transform: rotate(5deg);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+}
+
+/* WIP limit warning */
+.wip-warning {
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+/* Priority colors */
+.priority-green {
+  @apply bg-green-100 text-green-800 border-green-200;
+}
+
+.priority-yellow {
+  @apply bg-yellow-100 text-yellow-800 border-yellow-200;
+}
+
+.priority-orange {
+  @apply bg-orange-100 text-orange-800 border-orange-200;
+}
+
+.priority-red {
+  @apply bg-red-100 text-red-800 border-red-200;
+}
+
+/* Line clamp utilities */
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.line-clamp-3 {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Calendar styles */
+.rbc-calendar {
+  @apply bg-white rounded-lg shadow w-full;
+  min-width: 800px;
+}
+
+.rbc-header {
+  @apply bg-gray-50 font-semibold text-gray-700;
+}
+
+.rbc-today {
+  @apply bg-blue-50;
+}
+
+.rbc-event {
+  @apply rounded px-2 py-1;
+}
+
+.rbc-month-view,
+.rbc-time-view,
+.rbc-agenda-view {
+  @apply w-full;
+}
+
+.rbc-toolbar {
+  @apply mb-4;
+}
+
+.rbc-toolbar button {
+  @apply px-3 py-1 mx-1 border border-gray-300 rounded hover:bg-gray-100;
+}
+
+.rbc-toolbar button.rbc-active {
+  @apply bg-primary-600 text-white border-primary-600;
+}
+
+/* Gantt chart styles */
+.gantt-container {
+  @apply bg-white rounded-lg shadow overflow-hidden;
+}
+
+/* Markdown prose styles */
+.prose {
+  color: #374151;
+  max-width: none;
+}
+
+.prose h1 {
+  color: #111827;
+  font-weight: 800;
+  font-size: 2.25rem;
+  margin-top: 0;
+  margin-bottom: 1.5rem;
+}
+
+.prose h2 {
+  color: #1f2937;
+  font-weight: 700;
+  font-size: 1.875rem;
+  margin-top: 2rem;
+  margin-bottom: 1rem;
+}
+
+.prose h3 {
+  color: #374151;
+  font-weight: 600;
+  font-size: 1.5rem;
+  margin-top: 1.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.prose h4 {
+  color: #4b5563;
+  font-weight: 600;
+  font-size: 1.25rem;
+  margin-top: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.prose strong {
+  color: #111827;
+  font-weight: 600;
+}
+
+.prose code {
+  color: #3b82f6;
+  font-weight: 600;
+  font-size: 0.875rem;
+}
+
+.prose pre {
+  background-color: #1f2937;
+  border-radius: 0.5rem;
+  padding: 1rem;
+  overflow-x: auto;
+}
+
+.prose pre code {
+  background-color: transparent;
+  border-width: 0;
+  border-radius: 0;
+  padding: 0;
+  font-weight: 400;
+  color: inherit;
+  font-size: inherit;
+}
+
+.prose table {
+  width: 100%;
+  table-layout: auto;
+  text-align: left;
+  margin-top: 2rem;
+  margin-bottom: 2rem;
+  font-size: 0.875rem;
+  line-height: 1.7142857;
+}
+
+.prose thead {
+  color: #111827;
+  font-weight: 600;
+  border-bottom-width: 1px;
+  border-bottom-color: #d1d5db;
+}
+
+.prose thead th {
+  vertical-align: bottom;
+  padding-right: 0.75rem;
+  padding-bottom: 0.75rem;
+  padding-left: 0.75rem;
+}
+
+.prose tbody tr {
+  border-bottom-width: 1px;
+  border-bottom-color: #e5e7eb;
+}
+
+.prose tbody tr:last-child {
+  border-bottom-width: 0;
+}
+
+.prose tbody td {
+  vertical-align: top;
+  padding-top: 0.75rem;
+  padding-right: 0.75rem;
+  padding-bottom: 0.75rem;
+  padding-left: 0.75rem;
+}
+
+.prose blockquote {
+  font-weight: 500;
+  font-style: italic;
+  color: #111827;
+  border-left-width: 0.25rem;
+  border-left-color: #e5e7eb;
+  quotes: "\201C""\201D""\2018""\2019";
+  margin-top: 1.6rem;
+  margin-bottom: 1.6rem;
+  padding-left: 1rem;
+}
+
+.prose ul {
+  list-style-type: disc;
+  margin-top: 1.25rem;
+  margin-bottom: 1.25rem;
+  padding-left: 1.625rem;
+}
+
+.prose ol {
+  list-style-type: decimal;
+  margin-top: 1.25rem;
+  margin-bottom: 1.25rem;
+  padding-left: 1.625rem;
+}
+
+.prose li {
+  margin-top: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+/* Syntax highlighting */
+.hljs {
+  display: block;
+  overflow-x: auto;
+  padding: 0.5em;
+  background: #1f2937;
+  color: #f9fafb;
+}
+
+.hljs-comment,
+.hljs-quote {
+  color: #9ca3af;
+  font-style: italic;
+}
+
+.hljs-keyword,
+.hljs-selector-tag,
+.hljs-subst {
+  color: #f59e0b;
+  font-weight: bold;
+}
+
+.hljs-number,
+.hljs-literal,
+.hljs-variable,
+.hljs-template-variable,
+.hljs-tag .hljs-attr {
+  color: #10b981;
+}
+
+.hljs-string,
+.hljs-doctag {
+  color: #3b82f6;
+}
+
+.hljs-title,
+.hljs-section,
+.hljs-selector-id {
+  color: #ef4444;
+  font-weight: bold;
+}
