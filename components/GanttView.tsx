@@ -8,6 +8,17 @@ interface GanttViewProps {
 }
 
 const GanttView: React.FC<GanttViewProps> = ({ cards, onCardClick }) => {
+  // 안전한 날짜 변환 함수
+  const safeDate = (date: any): Date | null => {
+    try {
+      if (!date) return null;
+      if (date instanceof Date) return isNaN(date.getTime()) ? null : date;
+      const parsed = new Date(date);
+      return isNaN(parsed.getTime()) ? null : parsed;
+    } catch {
+      return null;
+    }
+  };
   const getProgressByColumn = (columnId: string): number => {
     switch (columnId) {
       case 'backlog': return 0;
@@ -26,41 +37,62 @@ const GanttView: React.FC<GanttViewProps> = ({ cards, onCardClick }) => {
       return { chartData: [], timelineHeader: [] };
     }
     
-    // 날짜 범위 계산
-    const allDates = cardsWithDates.flatMap(card => [card.createdAt, card.dueDate!]);
-    const minDate = startOfWeek(new Date(Math.min(...allDates.map(d => d.getTime()))));
-    const maxDate = endOfWeek(new Date(Math.max(...allDates.map(d => d.getTime()))));
-    
-    // 주 단위 헤더 생성
-    const weeks = [];
-    let currentDate = minDate;
-    while (currentDate <= maxDate) {
-      weeks.push(new Date(currentDate));
-      currentDate = addDays(currentDate, 7);
+    try {
+      // 날짜 안전성 검증 및 변환
+      const validCards = cardsWithDates.filter(card => {
+        const created = safeDate(card.createdAt);
+        const due = safeDate(card.dueDate);
+        return created !== null && due !== null;
+      });
+
+      if (validCards.length === 0) {
+        return { chartData: [], timelineHeader: [] };
+      }
+      
+      // 날짜 범위 계산
+      const allDates = validCards.flatMap(card => {
+        const created = safeDate(card.createdAt)!;
+        const due = safeDate(card.dueDate)!;
+        return [created, due];
+      });
+      
+      const minDate = startOfWeek(new Date(Math.min(...allDates.map(d => d.getTime()))));
+      const maxDate = endOfWeek(new Date(Math.max(...allDates.map(d => d.getTime()))));
+      
+      // 주 단위 헤더 생성
+      const weeks = [];
+      let currentDate = new Date(minDate);
+      while (currentDate <= maxDate) {
+        weeks.push(new Date(currentDate));
+        currentDate = addDays(currentDate, 7);
+      }
+      
+      // 차트 데이터 생성
+      const totalDays = differenceInDays(maxDate, minDate);
+      const chartTasks = validCards.map(card => {
+        const start = safeDate(card.createdAt)!;
+        const end = safeDate(card.dueDate)!;
+        const adjustedStart = start > end ? new Date(end.getTime() - 24 * 60 * 60 * 1000) : start;
+        
+        const startOffset = Math.max(0, differenceInDays(adjustedStart, minDate));
+        const duration = Math.max(1, differenceInDays(end, adjustedStart) + 1);
+        const progress = getProgressByColumn(card.columnId);
+        
+        return {
+          ...card,
+          startOffset: Math.max(0, startOffset),
+          duration: Math.max(1, duration),
+          progress,
+          adjustedStart
+        };
+      }).sort((a, b) => a.adjustedStart.getTime() - b.adjustedStart.getTime());
+      
+      return { chartData: chartTasks, timelineHeader: weeks };
+    } catch (error) {
+      console.error('Error in Gantt chart calculation:', error);
+      return { chartData: [], timelineHeader: [] };
     }
-    
-    // 차트 데이터 생성
-    const totalDays = differenceInDays(maxDate, minDate);
-    const chartTasks = cardsWithDates.map(card => {
-      const start = card.createdAt;
-      const end = card.dueDate!;
-      const adjustedStart = start > end ? new Date(end.getTime() - 24 * 60 * 60 * 1000) : start;
-      
-      const startOffset = differenceInDays(adjustedStart, minDate);
-      const duration = differenceInDays(end, adjustedStart) + 1;
-      const progress = getProgressByColumn(card.columnId);
-      
-      return {
-        ...card,
-        startOffset: Math.max(0, startOffset),
-        duration: Math.max(1, duration),
-        progress,
-        adjustedStart
-      };
-    }).sort((a, b) => a.adjustedStart.getTime() - b.adjustedStart.getTime());
-    
-    return { chartData: chartTasks, timelineHeader: weeks };
-  }, [cards, getProgressByColumn]);
+  }, [cards]);
 
   const getProgressColor = (priority: string): string => {
     switch (priority) {
@@ -116,7 +148,14 @@ const GanttView: React.FC<GanttViewProps> = ({ cards, onCardClick }) => {
                 key={index} 
                 className="min-w-20 p-2 bg-gray-50 text-center text-xs text-gray-600 border-r border-gray-200"
               >
-                {format(week, 'MM/dd')}
+                {(() => {
+                  try {
+                    const weekDate = week instanceof Date ? week : new Date(week);
+                    return format(weekDate, 'MM/dd');
+                  } catch {
+                    return '--/--';
+                  }
+                })()}
               </div>
             ))}
           </div>
@@ -168,10 +207,10 @@ const GanttView: React.FC<GanttViewProps> = ({ cards, onCardClick }) => {
                 <div 
                   className="absolute top-4 h-8 rounded cursor-pointer transition-all hover:shadow-md"
                   style={{
-                    left: `${(task.startOffset / 7) * 80}px`,
-                    width: `${Math.max((task.duration / 7) * 80, 20)}px`,
-                    backgroundColor: getBackgroundColor(task.priority),
-                    border: `2px solid ${getProgressColor(task.priority)}`
+                    left: `${Math.max(0, (task.startOffset || 0) / 7) * 80}px`,
+                    width: `${Math.max(20, ((task.duration || 1) / 7) * 80)}px`,
+                    backgroundColor: getBackgroundColor(task.priority || 'medium'),
+                    border: `2px solid ${getProgressColor(task.priority || 'medium')}`
                   }}
                   onClick={() => onCardClick(task.id)}
                 >
@@ -179,8 +218,8 @@ const GanttView: React.FC<GanttViewProps> = ({ cards, onCardClick }) => {
                   <div 
                     className="h-full rounded-sm"
                     style={{
-                      width: `${task.progress}%`,
-                      backgroundColor: getProgressColor(task.priority),
+                      width: `${Math.max(0, Math.min(100, task.progress || 0))}%`,
+                      backgroundColor: getProgressColor(task.priority || 'medium'),
                       opacity: 0.8
                     }}
                   />

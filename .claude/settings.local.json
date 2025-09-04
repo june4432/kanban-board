@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(/C:\\Users\\hansol\\Documents\\project\\kanban\\components/**)",
+      "Read(/C:\\Users\\hansol\\Documents\\project\\kanban\\types/**)",
+      "Read(/C:\\Users\\hansol\\Documents\\project\\kanban/**)",
+      "Read(/C:\\Users\\hansol\\Documents\\project\\kanban\\pages/**)",
+      "Read(/C:\\Users\\hansol\\Documents\\project\\kanban\\hooks/**)",
+      "Read(/C:\\Users\\hansol\\Documents\\project\\kanban\\utils/**)",
+      "Bash(npm run dev:*)",
+      "Read(/C:\\Users\\hansol\\Documents\\project\\kanban\\data/**)",
+      "Read(/C:\\Users\\hansol\\Documents\\project\\kanban\\pages\\api\\cards/**)",
+      "Bash(npm run build:*)",
+      "Read(/C:\\Users\\hansol\\Documents\\project\\kanban\\types/**)",
+      "Read(/C:\\Users\\hansol\\Documents\\project\\kanban\\components/**)",
+      "Read(/C:\\Users\\hansol\\Documents\\project\\kanban\\components/**)",
+      "Read(/C:\\Users\\hansol\\Documents\\project\\kanban\\components/**)",
+      "Read(/C:\\Users\\hansol\\Documents\\project\\kanban\\components/**)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

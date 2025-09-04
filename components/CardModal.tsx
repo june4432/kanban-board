@@ -10,8 +10,8 @@ interface CardModalProps {
   milestones: Milestone[];
   onSave: (cardData: Partial<Card>) => void;
   onClose: () => void;
-  onCreateLabel: (name: string, color: string) => Label;
-  onCreateMilestone: (name: string, dueDate: Date, description?: string) => Milestone;
+  onCreateLabel: (name: string, color: string) => Promise<Label>;
+  onCreateMilestone: (name: string, dueDate: Date, description?: string) => Promise<Milestone>;
 }
 
 const CardModal: React.FC<CardModalProps> = ({
@@ -84,9 +84,9 @@ const CardModal: React.FC<CardModalProps> = ({
     onClose();
   };
 
-  const handleCreateLabel = () => {
+  const handleCreateLabel = async () => {
     if (newLabelName.trim()) {
-      const label = onCreateLabel(newLabelName.trim(), newLabelColor);
+      const label = await onCreateLabel(newLabelName.trim(), newLabelColor);
       setFormData(prev => ({
         ...prev,
         labelIds: [...prev.labelIds, label.id]
@@ -97,9 +97,9 @@ const CardModal: React.FC<CardModalProps> = ({
     }
   };
 
-  const handleCreateMilestone = () => {
+  const handleCreateMilestone = async () => {
     if (newMilestoneName.trim() && newMilestoneDueDate) {
-      const milestone = onCreateMilestone(
+      const milestone = await onCreateMilestone(
         newMilestoneName.trim(),
         new Date(newMilestoneDueDate),
         newMilestoneDescription.trim() || undefined

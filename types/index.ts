@@ -3,6 +3,17 @@ export interface User {
   name: string;
   email: string;
   avatar: string;
+  password?: string; // 클라이언트에서는 보통 제외
+  role?: 'admin' | 'user';
+  createdAt?: Date;
+}
+
+export interface AuthUser {
+  id: string;
+  name: string;
+  email: string;
+  avatar: string;
+  role: 'admin' | 'user';
 }
 
 export interface Label {
@@ -50,6 +61,8 @@ export interface Board {
   users: User[];
   labels: Label[];
   milestones: Milestone[];
+  ownerId?: string; // 보드 소유자 ID
+  createdAt?: Date;
 }
 
 export interface FilterState {

@@ -1,0 +1,13 @@
+{
+  "users": [
+    {
+      "id": "admin",
+      "name": "관리자",
+      "email": "admin@admin.com",
+      "avatar": "https://ui-avatars.com/api/?name=Admin&background=2563eb&color=fff",
+      "password": "admin",
+      "role": "admin",
+      "createdAt": "2024-01-01T00:00:00.000Z"
+    }
+  ]
+}

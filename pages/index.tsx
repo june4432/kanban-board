@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useKanban } from '@/hooks/useKanban';
+import { useKanbanAPI } from '@/hooks/useKanbanAPI';
 import Layout from '@/components/Layout';
 import FilterPanel from '@/components/FilterPanel';
 import KanbanBoard from '@/components/KanbanBoard';
@@ -14,6 +14,8 @@ export default function Home() {
     board,
     filter,
     viewMode,
+    loading,
+    error,
     setFilter,
     setViewMode,
     moveCard,
@@ -23,7 +25,7 @@ export default function Home() {
     updateWipLimit,
     createLabel,
     createMilestone
-  } = useKanban();
+  } = useKanbanAPI();
 
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [isCardModalOpen, setIsCardModalOpen] = useState(false);
@@ -100,6 +102,22 @@ export default function Home() {
         );
     }
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="text-lg">로딩 중...</div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="text-red-500">오류: {error}</div>
+      </div>
+    );
+  }
 
   return (
     <Layout

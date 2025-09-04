@@ -1,6 +1,8 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { ViewMode } from '@/types';
-import { LayoutGrid, Calendar, BarChart3, BookOpen, Filter, Search, Plus } from 'lucide-react';
+import { LayoutGrid, Calendar, BarChart3, BookOpen, Filter, Search, Plus, LogOut, User } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
+import AuthModal from '@/components/AuthModal';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -17,6 +19,37 @@ const Layout: React.FC<LayoutProps> = ({
   onFilterToggle,
   onAddCard
 }) => {
+  const { user, logout, loading } = useAuth();
+  const [showAuthModal, setShowAuthModal] = useState(false);
+
+  if (loading) {
+    return (
+      <div className="h-screen flex items-center justify-center">
+        <div className="text-lg">로딩 중...</div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-3xl font-bold text-gray-900 mb-4">프로젝트 관리 보드</h1>
+          <p className="text-gray-600 mb-6">로그인이 필요합니다.</p>
+          <button
+            onClick={() => setShowAuthModal(true)}
+            className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            로그인 / 회원가입
+          </button>
+          <AuthModal 
+            isOpen={showAuthModal} 
+            onClose={() => setShowAuthModal(false)} 
+          />
+        </div>
+      </div>
+    );
+  }
   return (
     <div className="h-screen bg-gray-50 flex flex-col">
       {/* Header */}
@@ -92,6 +125,28 @@ const Layout: React.FC<LayoutProps> = ({
                 <Plus className="w-4 h-4 mr-1.5" />
                 카드 추가
               </button>
+
+              {/* User Menu */}
+              <div className="flex items-center space-x-3 border-l pl-4">
+                <img
+                  src={user.avatar}
+                  alt={user.name}
+                  className="w-8 h-8 rounded-full"
+                />
+                <div className="flex flex-col">
+                  <span className="text-sm font-medium text-gray-900">{user.name}</span>
+                  {user.role === 'admin' && (
+                    <span className="text-xs text-blue-600 font-medium">관리자</span>
+                  )}
+                </div>
+                <button
+                  onClick={logout}
+                  className="flex items-center px-2 py-1 text-gray-400 hover:text-gray-600 rounded-md transition-colors"
+                  title="로그아웃"
+                >
+                  <LogOut className="w-4 h-4" />
+                </button>
+              </div>
             </div>
           </div>
         </div>

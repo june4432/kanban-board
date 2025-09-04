@@ -114,7 +114,7 @@ const ManualView: React.FC = () => {
                   {children}
                 </blockquote>
               ),
-              code: ({ inline, children }) => 
+              code: ({ inline, children, ...props }: any) => 
                 inline ? (
                   <code className="bg-gray-100 text-primary-700 px-2 py-1 rounded text-sm font-mono">
                     {children}
