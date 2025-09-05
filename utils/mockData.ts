@@ -64,7 +64,7 @@ export const mockCards: Card[] = [
     id: '1',
     title: '사용자 인증 시스템 구현',
     description: 'JWT 기반 로그인/회원가입 기능 개발',
-    assignee: mockUsers[0],
+    assignees: [mockUsers[0].id],
     milestone: mockMilestones[2],
     priority: 'high' as Priority,
     labels: [mockLabels[1], mockLabels[4]],
@@ -78,7 +78,7 @@ export const mockCards: Card[] = [
     id: '2',
     title: '메인 대시보드 UI 디자인',
     description: '사용자 대시보드 인터페이스 디자인 및 프로토타입 제작',
-    assignee: mockUsers[3],
+    assignees: [mockUsers[3].id],
     milestone: mockMilestones[2],
     priority: 'medium' as Priority,
     labels: [mockLabels[6], mockLabels[5]],
@@ -92,7 +92,7 @@ export const mockCards: Card[] = [
     id: '3',
     title: 'API 엔드포인트 설계',
     description: 'RESTful API 설계 및 문서화',
-    assignee: mockUsers[1],
+    assignees: [mockUsers[1].id],
     milestone: mockMilestones[1],
     priority: 'high' as Priority,
     labels: [mockLabels[4], mockLabels[3]],
@@ -106,7 +106,7 @@ export const mockCards: Card[] = [
     id: '4',
     title: '데이터베이스 스키마 최적화',
     description: '성능 향상을 위한 DB 인덱스 추가 및 쿼리 최적화',
-    assignee: mockUsers[2],
+    assignees: [mockUsers[2].id],
     milestone: mockMilestones[1],
     priority: 'medium' as Priority,
     labels: [mockLabels[2], mockLabels[4]],
@@ -120,7 +120,7 @@ export const mockCards: Card[] = [
     id: '5',
     title: '단위 테스트 작성',
     description: '핵심 기능에 대한 단위 테스트 코드 작성',
-    assignee: mockUsers[0],
+    assignees: [mockUsers[0].id],
     milestone: mockMilestones[0],
     priority: 'low' as Priority,
     labels: [mockLabels[7]],
@@ -134,7 +134,7 @@ export const mockCards: Card[] = [
     id: '6',
     title: '모바일 반응형 UI 구현',
     description: '모바일 디바이스에서의 사용자 경험 최적화',
-    assignee: mockUsers[3],
+    assignees: [mockUsers[3].id],
     priority: 'medium' as Priority,
     labels: [mockLabels[5], mockLabels[6]],
     columnId: 'backlog',
@@ -146,8 +146,8 @@ export const mockCards: Card[] = [
 ];
 
 export const mockBoard: Board = {
-  id: '1',
-  title: '프로젝트 관리 보드',
+  boardId: '1',
+  projectId: '1',
   columns: [
     {
       id: 'backlog',
@@ -185,7 +185,6 @@ export const mockBoard: Board = {
       position: 4
     }
   ],
-  users: mockUsers,
   labels: mockLabels,
   milestones: mockMilestones
 };

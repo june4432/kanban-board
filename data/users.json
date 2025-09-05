@@ -8,6 +8,15 @@
       "password": "admin",
       "role": "admin",
       "createdAt": "2024-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "01719873-4e75-4450-86da-d2c773ef09c9",
+      "name": "이영준",
+      "email": "asdf@asdf.com",
+      "avatar": "https://ui-avatars.com/api/?name=%EC%9D%B4%EC%98%81%EC%A4%80&background=3b82f6&color=fff",
+      "password": "asdf",
+      "role": "user",
+      "createdAt": "2025-09-05T01:17:39.718Z"
     }
   ]
 }

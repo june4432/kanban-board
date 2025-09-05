@@ -1,15 +1,16 @@
 import React from 'react';
-import { Card } from '@/types';
-import { Calendar, User, Flag, Target, Edit, Trash2 } from 'lucide-react';
+import { Card, User } from '@/types';
+import { Calendar, User as UserIcon, Flag, Target, Edit, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 
 interface KanbanCardProps {
   card: Card;
+  users: User[];
   onEdit: (cardId: string) => void;
   onDelete: (cardId: string) => void;
 }
 
-const KanbanCard: React.FC<KanbanCardProps> = ({ card, onEdit, onDelete }) => {
+const KanbanCard: React.FC<KanbanCardProps> = ({ card, users, onEdit, onDelete }) => {
   const getPriorityColor = (priority: string) => {
     switch (priority) {
       case 'low': return 'bg-green-100 text-green-800 border-green-200';
@@ -96,15 +97,30 @@ const KanbanCard: React.FC<KanbanCardProps> = ({ card, onEdit, onDelete }) => {
               {getPriorityLabel(card.priority)}
             </span>
           </div>
-          {card.assignee && (
+          {card.assignees && card.assignees.length > 0 && (
             <div className="flex items-center space-x-1">
-              <User className="w-3 h-3 text-gray-400" />
-              <img
-                src={card.assignee.avatar}
-                alt={card.assignee.name}
-                className="w-6 h-6 rounded-full"
-                title={card.assignee.name}
-              />
+              <UserIcon className="w-3 h-3 text-gray-400" />
+              <div className="flex -space-x-1">
+                {card.assignees.slice(0, 3).map((userId, index) => {
+                  const user = users.find(u => u.id === userId);
+                  if (!user) return null;
+                  return (
+                    <img
+                      key={userId}
+                      src={user.avatar}
+                      alt={user.name}
+                      className="w-6 h-6 rounded-full border-2 border-white"
+                      title={user.name}
+                      style={{ zIndex: 10 - index }}
+                    />
+                  );
+                })}
+                {card.assignees.length > 3 && (
+                  <div className="w-6 h-6 rounded-full border-2 border-white bg-gray-100 flex items-center justify-center text-xs font-medium text-gray-600">
+                    +{card.assignees.length - 3}
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </div>

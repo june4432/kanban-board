@@ -1,20 +1,23 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { Board, Card, Column, FilterState, ViewMode, Priority, User, Label, Milestone } from '@/types';
+import { useSocket } from './useSocket';
 
 const API_BASE_URL = '/api';
 
-export const useKanbanAPI = () => {
+export const useKanbanAPI = (projectId?: string, user?: any) => {
   const [board, setBoard] = useState<Board>({
-    id: '',
-    title: '',
+    boardId: '',
+    projectId: '',
     columns: [],
-    users: [],
     labels: [],
     milestones: []
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  
+  const { socket, isConnected, joinProject, emitCardEvent } = useSocket();
+  const processedEvents = useRef<Set<string>>(new Set());
   
   const [filter, setFilter] = useState<FilterState>({
     searchText: '',
@@ -25,36 +28,186 @@ export const useKanbanAPI = () => {
   });
   const [viewMode, setViewMode] = useState<ViewMode>('kanban');
 
+  // 프로젝트 참여
+  useEffect(() => {
+    if (projectId && isConnected) {
+      joinProject(projectId);
+    }
+  }, [projectId, isConnected, joinProject]);
+
+  // 웹소켓 이벤트 리스너
+  useEffect(() => {
+    if (!socket) return;
+
+
+    const handleCardCreated = (data: { card: Card; user: User }) => {
+      const currentUser = getCurrentUser();
+      // 본인이 생성한 카드가 아닌 경우에만 보드 업데이트
+      if (data.user.id !== currentUser.id) {
+        setBoard(prevBoard => {
+          // 이미 해당 카드가 있는지 확인
+          const cardExists = prevBoard.columns.some(column => 
+            column.cards.some(card => card.id === data.card.id)
+          );
+          
+          if (cardExists) {
+            return prevBoard; // 이미 있으면 업데이트하지 않음
+          }
+
+          return {
+            ...prevBoard,
+            columns: prevBoard.columns.map(column =>
+              column.id === data.card.columnId
+                ? { ...column, cards: [...column.cards, data.card] }
+                : column
+            )
+          };
+        });
+      }
+    };
+
+    const handleCardUpdated = (data: { card: Card; user: User }) => {
+      const currentUser = getCurrentUser();
+      // 본인이 수정한 카드가 아닌 경우에만 보드 업데이트
+      if (data.user.id !== currentUser.id) {
+        setBoard(prevBoard => ({
+          ...prevBoard,
+          columns: prevBoard.columns.map(column => ({
+            ...column,
+            cards: column.cards.map(card =>
+              card.id === data.card.id
+                ? { ...data.card, updatedAt: new Date() }
+                : card
+            )
+          }))
+        }));
+      }
+    };
+
+
+
+    const handleCardMoved = (data: { card: Card; user: User; fromColumn: string; toColumn: string; destinationIndex: number }) => {
+      console.log('📨 [useKanbanAPI] Received card-moved:', data);
+      
+      // 중복 이벤트 방지
+      const eventKey = `card-moved-${data.card.id}-${data.user.id}-${data.fromColumn}-${data.toColumn}`;
+      if (processedEvents.current.has(eventKey)) {
+        console.log('🚫 [useKanbanAPI] Duplicate event ignored:', eventKey);
+        return;
+      }
+      processedEvents.current.add(eventKey);
+      
+      // 5초 후 이벤트 키 제거 (메모리 정리)
+      setTimeout(() => {
+        processedEvents.current.delete(eventKey);
+      }, 5000);
+      
+      // 본인이 이동시킨 카드가 아닌 경우에만 보드 업데이트 및 토스트 표시
+      const currentUser = getCurrentUser();
+      if (data.user.id !== currentUser.id) {
+        console.log('🔄 [useKanbanAPI] Updating board for card move');
+        
+        // 보드 상태 업데이트
+        setBoard(prevBoard => {
+          // 먼저 모든 컬럼에서 해당 카드를 제거
+          const columnsWithoutCard = prevBoard.columns.map(column => ({
+            ...column,
+            cards: column.cards.filter(card => card.id !== data.card.id)
+          }));
+
+          // 대상 컬럼에 카드 추가
+          const newColumns = columnsWithoutCard.map(column => {
+            if (column.id === data.toColumn) {
+              const updatedCard = {
+                ...data.card,
+                columnId: data.toColumn,
+                updatedAt: new Date()
+              };
+              const newCards = [...column.cards];
+              newCards.splice(data.destinationIndex, 0, updatedCard);
+              return {
+                ...column,
+                cards: newCards
+              };
+            }
+            return column;
+          });
+
+          return {
+            ...prevBoard,
+            columns: newColumns
+          };
+        });
+
+        // 토스트는 useGlobalWebSocketEvents에서 처리
+      } else {
+        console.log('🚫 [useKanbanAPI] Skipping board update for own action');
+      }
+    };
+
+
+    socket.on('card-created', handleCardCreated);
+    socket.on('card-updated', handleCardUpdated);
+    socket.on('card-moved', handleCardMoved);
+
+    return () => {
+      socket.off('card-created', handleCardCreated);
+      socket.off('card-updated', handleCardUpdated);
+      socket.off('card-moved', handleCardMoved);
+    };
+  }, [socket]);
+
   // 초기 데이터 로드
   const loadBoard = useCallback(async () => {
+    if (!projectId) {
+      console.log('🔍 No projectId provided, skipping board load');
+      setLoading(false);
+      return;
+    }
+
     try {
       setLoading(true);
       setError(null);
       
-      const response = await fetch(`${API_BASE_URL}/kanban`);
+      console.log(`🚀 Loading board for projectId: ${projectId}`);
+      const response = await fetch(`${API_BASE_URL}/kanban?projectId=${projectId}`);
+      
+      console.log(`📡 API response status: ${response.status}`);
+      
       if (!response.ok) {
         throw new Error('Failed to load board data');
       }
       
       const data = await response.json();
+      console.log('📦 Received board data:', data);
+      
       setBoard(data.board);
+      console.log('✅ Board state updated successfully');
     } catch (err) {
+      console.error('❌ Error loading board:', err);
       setError(err instanceof Error ? err.message : 'Unknown error occurred');
-      console.error('Error loading board:', err);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [projectId]);
 
   // 보드 데이터 저장
   const saveBoard = useCallback(async (boardData: Board) => {
     try {
+      // projectId가 없으면 현재 프로젝트 ID 추가
+      const boardToSave = {
+        ...boardData,
+        projectId: boardData.projectId || projectId || ''
+      };
+      
+      console.log('Saving board with projectId:', boardToSave.projectId); // 디버깅용
+      
       const response = await fetch(`${API_BASE_URL}/kanban`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ board: boardData }),
+        body: JSON.stringify({ board: boardToSave }),
       });
 
       if (!response.ok) {
@@ -64,7 +217,7 @@ export const useKanbanAPI = () => {
       setError(err instanceof Error ? err.message : 'Failed to save data');
       throw err;
     }
-  }, []);
+  }, [projectId]);
 
   // 컴포넌트 마운트 시 데이터 로드
   useEffect(() => {
@@ -94,7 +247,7 @@ export const useKanbanAPI = () => {
 
         // 담당자 필터
         if (filter.selectedAssignees.length > 0) {
-          if (!card.assignee || !filter.selectedAssignees.includes(card.assignee.id)) {
+          if (!card.assignees || !card.assignees.some(assigneeId => filter.selectedAssignees.includes(assigneeId))) {
             return false;
           }
         }
@@ -117,8 +270,34 @@ export const useKanbanAPI = () => {
     }));
   }, [board.columns, filter.searchText, filter.selectedLabels, filter.selectedAssignees, filter.priorities, filter.dateRange]);
 
+  // 현재 사용자 정보 가져오기
+  const getCurrentUser = useCallback(() => {
+    // user prop이 있으면 사용, 없으면 localStorage에서 가져오기
+    if (user) {
+      return user;
+    }
+    
+    if (typeof window !== 'undefined') {
+      const userStr = localStorage.getItem('user');
+      if (userStr) {
+        try {
+          return JSON.parse(userStr);
+        } catch (e) {
+          console.error('Failed to parse user from localStorage:', e);
+        }
+      }
+    }
+    return { id: 'unknown', name: '알 수 없는 사용자' };
+  }, [user]);
+
   // 카드 이동
   const moveCard = useCallback(async (cardId: string, sourceColumnId: string, destinationColumnId: string, destinationIndex: number) => {
+    console.log('🎯 [useKanbanAPI] moveCard called');
+    console.log('🎯 [useKanbanAPI] cardId:', cardId);
+    console.log('🎯 [useKanbanAPI] sourceColumnId:', sourceColumnId);
+    console.log('🎯 [useKanbanAPI] destinationColumnId:', destinationColumnId);
+    console.log('🎯 [useKanbanAPI] destinationIndex:', destinationIndex);
+    console.log('🎯 [useKanbanAPI] projectId:', projectId);
     // 현재 상태 백업 (롤백용)
     const previousBoard = { ...board };
     
@@ -167,12 +346,17 @@ export const useKanbanAPI = () => {
 
       return {
         ...prevBoard,
+        projectId: prevBoard.projectId || projectId || '',
         columns: finalColumns
       };
     });
 
     // 백그라운드에서 API 호출
     try {
+      const currentUser = getCurrentUser();
+      console.log('🌐 [useKanbanAPI] Making API call to /api/cards/move');
+      console.log('🌐 [useKanbanAPI] Current user:', currentUser);
+      
       const response = await fetch(`${API_BASE_URL}/cards/move`, {
         method: 'PUT',
         headers: {
@@ -182,7 +366,10 @@ export const useKanbanAPI = () => {
           cardId,
           sourceColumnId,
           destinationColumnId,
-          destinationIndex
+          destinationIndex,
+          projectId,
+          userId: currentUser.id,
+          userName: currentUser.name
         }),
       });
 
@@ -217,7 +404,7 @@ export const useKanbanAPI = () => {
       id: tempId,
       title: cardData.title || '',
       description: cardData.description || '',
-      assignee: cardData.assignee,
+      assignees: cardData.assignees || [],
       milestone: cardData.milestone,
       priority: cardData.priority || 'medium',
       labels: cardData.labels || [],
@@ -231,6 +418,7 @@ export const useKanbanAPI = () => {
     // 즉시 로컬 상태 업데이트
     setBoard(prevBoard => ({
       ...prevBoard,
+      projectId: prevBoard.projectId || projectId || '',
       columns: prevBoard.columns.map(col =>
         col.id === columnId
           ? { ...col, cards: [...col.cards, newCard] }
@@ -239,6 +427,7 @@ export const useKanbanAPI = () => {
     }));
 
     try {
+      const currentUser = getCurrentUser();
       const response = await fetch(`${API_BASE_URL}/cards`, {
         method: 'POST',
         headers: {
@@ -246,7 +435,12 @@ export const useKanbanAPI = () => {
         },
         body: JSON.stringify({
           columnId,
-          cardData
+          cardData: {
+            ...cardData,
+            projectId
+          },
+          userId: currentUser.id,
+          userName: currentUser.name
         }),
       });
 
@@ -260,6 +454,7 @@ export const useKanbanAPI = () => {
       // 임시 카드를 실제 서버 카드로 교체
       setBoard(prevBoard => ({
         ...prevBoard,
+        projectId: prevBoard.projectId || projectId || '',
         columns: prevBoard.columns.map(col =>
           col.id === columnId
             ? { ...col, cards: col.cards.map(card => 
@@ -268,10 +463,22 @@ export const useKanbanAPI = () => {
             : col
         )
       }));
+
+      // 웹소켓 이벤트 전송
+      if (projectId) {
+        const currentUser = getCurrentUser();
+        emitCardEvent('card-created', {
+          projectId,
+          card: result.card,
+          user: currentUser,
+          timestamp: Date.now()
+        });
+      }
     } catch (err) {
       // 실패 시 임시 카드 제거
       setBoard(prevBoard => ({
         ...prevBoard,
+        projectId: prevBoard.projectId || projectId || '',
         columns: prevBoard.columns.map(col =>
           col.id === columnId
             ? { ...col, cards: col.cards.filter(card => card.id !== tempId) }
@@ -290,6 +497,7 @@ export const useKanbanAPI = () => {
     // 옵티미스틱 업데이트: 즉시 로컬 상태 변경
     setBoard(prevBoard => ({
       ...prevBoard,
+      projectId: prevBoard.projectId || projectId || '',
       columns: prevBoard.columns.map(column => ({
         ...column,
         cards: column.cards.map(card =>
@@ -301,12 +509,18 @@ export const useKanbanAPI = () => {
     }));
 
     try {
-      const response = await fetch(`${API_BASE_URL}/cards/${cardId}`, {
+      const currentUser = getCurrentUser();
+      const response = await fetch(`${API_BASE_URL}/cards/${cardId}?projectId=${projectId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(updates),
+        body: JSON.stringify({
+          ...updates,
+          projectId,
+          userId: currentUser.id,
+          userName: currentUser.name
+        }),
       });
 
       if (!response.ok) {
@@ -330,6 +544,7 @@ export const useKanbanAPI = () => {
     // 옵티미스틱 업데이트: 즉시 로컬에서 삭제
     setBoard(prevBoard => ({
       ...prevBoard,
+      projectId: prevBoard.projectId || projectId || '',
       columns: prevBoard.columns.map(column => ({
         ...column,
         cards: column.cards.filter(card => card.id !== cardId)
@@ -337,7 +552,7 @@ export const useKanbanAPI = () => {
     }));
 
     try {
-      const response = await fetch(`${API_BASE_URL}/cards/${cardId}`, {
+      const response = await fetch(`${API_BASE_URL}/cards/${cardId}?projectId=${projectId}`, {
         method: 'DELETE',
       });
 
@@ -360,6 +575,7 @@ export const useKanbanAPI = () => {
     try {
       const updatedBoard = {
         ...board,
+        projectId: board.projectId || projectId || '',
         columns: board.columns.map(column =>
           column.id === columnId
             ? { ...column, wipLimit: newLimit }
@@ -386,6 +602,7 @@ export const useKanbanAPI = () => {
       
       const updatedBoard = {
         ...board,
+        projectId: board.projectId || projectId || '',
         labels: [...board.labels, newLabel]
       };
 
@@ -410,6 +627,7 @@ export const useKanbanAPI = () => {
       
       const updatedBoard = {
         ...board,
+        projectId: board.projectId || projectId || '',
         milestones: [...board.milestones, newMilestone]
       };
 

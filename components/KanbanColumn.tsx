@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import { Draggable, Droppable } from '@hello-pangea/dnd';
-import { Column } from '@/types';
+import { Column, User } from '@/types';
 import { Plus, Settings, AlertTriangle } from 'lucide-react';
 import KanbanCard from './KanbanCard';
 
 interface KanbanColumnProps {
   column: Column;
+  users: User[];
   onCardEdit: (cardId: string) => void;
   onCardDelete: (cardId: string) => void;
   onWipLimitChange: (columnId: string, newLimit: number) => void;
@@ -14,6 +15,7 @@ interface KanbanColumnProps {
 
 const KanbanColumn: React.FC<KanbanColumnProps> = ({
   column,
+  users,
   onCardEdit,
   onCardDelete,
   onWipLimitChange,
@@ -39,7 +41,7 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({
   };
 
   return (
-    <div className="w-80 h-full bg-gray-100 rounded-lg flex flex-col">
+    <div className="w-full h-full bg-gray-100 rounded-lg flex flex-col min-w-0">
       {/* Column Header */}
       <div className="p-4 border-b border-gray-200 flex-shrink-0">
         <div className="flex items-center justify-between mb-2">
@@ -130,6 +132,7 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({
                   >
                     <KanbanCard
                       card={card}
+                      users={users}
                       onEdit={onCardEdit}
                       onDelete={onCardDelete}
                     />

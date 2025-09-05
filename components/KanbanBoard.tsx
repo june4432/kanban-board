@@ -1,10 +1,11 @@
 import React from 'react';
 import { DragDropContext, DropResult } from '@hello-pangea/dnd';
-import { Column } from '@/types';
+import { Column, User } from '@/types';
 import KanbanColumn from './KanbanColumn';
 
 interface KanbanBoardProps {
   columns: Column[];
+  users: User[];
   onCardMove: (cardId: string, sourceColumnId: string, destinationColumnId: string, destinationIndex: number) => void;
   onCardEdit: (cardId: string) => void;
   onCardDelete: (cardId: string) => void;
@@ -14,6 +15,7 @@ interface KanbanBoardProps {
 
 const KanbanBoard: React.FC<KanbanBoardProps> = ({
   columns,
+  users,
   onCardMove,
   onCardEdit,
   onCardDelete,
@@ -42,11 +44,12 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
 
   return (
     <DragDropContext onDragEnd={handleDragEnd}>
-      <div className="flex space-x-4 overflow-x-auto h-full pb-4">
+      <div className="flex space-x-2 h-full pb-2 min-w-0">
         {columns.map((column, index) => (
-          <div key={column.id} className="flex-shrink-0">
+          <div key={column.id} className="flex-1 min-w-0">
             <KanbanColumn
               column={column}
+              users={users}
               onCardEdit={onCardEdit}
               onCardDelete={onCardDelete}
               onWipLimitChange={onWipLimitChange}

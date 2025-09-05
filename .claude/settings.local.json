@@ -15,7 +15,20 @@
       "Read(/C:\\Users\\hansol\\Documents\\project\\kanban\\components/**)",
       "Read(/C:\\Users\\hansol\\Documents\\project\\kanban\\components/**)",
       "Read(/C:\\Users\\hansol\\Documents\\project\\kanban\\components/**)",
-      "Read(/C:\\Users\\hansol\\Documents\\project\\kanban\\components/**)"
+      "Read(/C:\\Users\\hansol\\Documents\\project\\kanban\\components/**)",
+      "Read(/C:\\Users\\hansol\\Documents\\project\\kanban\\components/**)",
+      "Read(/C:\\Users\\hansol\\Documents\\project\\kanban\\types/**)",
+      "Read(/C:\\Users\\hansol\\Documents\\project\\kanban\\pages/**)",
+      "Read(/C:\\Users\\hansol\\Documents\\project\\kanban/**)",
+      "Read(/C:\\Users\\hansol\\Documents\\project\\kanban\\data/**)",
+      "Read(/C:\\Users\\hansol\\Documents\\project\\kanban\\types/**)",
+      "Read(/C:\\Users\\hansol\\Documents\\project\\kanban\\data/**)",
+      "Read(/C:\\Users\\hansol\\Documents\\project\\kanban\\pages\\api\\cards/**)",
+      "Read(/C:\\Users\\hansol\\Documents\\project\\kanban\\pages\\api\\cards/**)",
+      "Read(/C:\\Users\\hansol\\Documents\\project\\kanban\\hooks/**)",
+      "Read(/C:\\Users\\hansol\\Documents\\project\\kanban\\hooks/**)",
+      "Bash(sed:*)",
+      "Bash(npx tsc:*)"
     ],
     "deny": [],
     "ask": []

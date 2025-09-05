@@ -175,7 +175,7 @@ const GanttView: React.FC<GanttViewProps> = ({ cards, onCardClick }) => {
                     {task.title}
                   </div>
                   <div className="text-xs text-gray-500 mt-1">
-                    {task.assignee?.name || '담당자 없음'}
+                    {task.assignees?.[0] || '담당자 없음'}
                   </div>
                   <div className="flex items-center mt-1 space-x-2">
                     <span className={`px-2 py-1 text-xs rounded-full ${

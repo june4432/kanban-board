@@ -30,7 +30,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ cards, onCardClick }) => {
         start: new Date(card.dueDate!),
         end: new Date(card.dueDate!),
         priority: card.priority,
-        assignee: card.assignee?.name,
+        assignee: card.assignees?.[0],
         allDay: true
       }));
   }, [cards]);

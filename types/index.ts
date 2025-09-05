@@ -35,7 +35,7 @@ export interface Card {
   id: string;
   title: string;
   description: string;
-  assignee?: User;
+  assignees: string[]; // 여러 담당자 지원 (userId 배열)
   milestone?: Milestone;
   priority: Priority;
   labels: Label[];
@@ -54,15 +54,42 @@ export interface Column {
   position: number;
 }
 
-export interface Board {
+export interface ProjectMember {
+  userId: string;
+  role: 'owner' | 'member';
+  joinedAt: Date;
+}
+
+export interface Project {
+  projectId: string;  // id → projectId 통일
+  name: string;
+  description?: string;
+  ownerId: string;
+  members: User[];  // UI용으로 User[] 사용 (API에서 변환해서 보냄)
+  createdAt: Date;
+  updatedAt: Date;
+  color?: string;
+  isPublic: boolean;  // 프로젝트 공개 여부
+  pendingRequests: ProjectJoinRequest[];  // 대기 중인 가입 신청
+}
+
+export interface ProjectJoinRequest {
   id: string;
-  title: string;
+  userId: string;
+  user: User;
+  projectId: string;
+  message?: string;  // 신청 메시지
+  status: 'pending' | 'approved' | 'rejected';
+  createdAt: Date;
+}
+
+export interface Board {
+  boardId: string;     // id → boardId 통일
+  projectId: string;   // 프로젝트 연결
   columns: Column[];
-  users: User[];
   labels: Label[];
   milestones: Milestone[];
-  ownerId?: string; // 보드 소유자 ID
-  createdAt?: Date;
+  // title, users, ownerId, createdAt 제거 (projects에 있음)
 }
 
 export interface FilterState {

@@ -1,5 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
+import { useProject, ProjectProvider } from '@/contexts/ProjectContext';
 import { useKanbanAPI } from '@/hooks/useKanbanAPI';
+import GlobalWebSocketManager from '@/components/GlobalWebSocketManager';
+import { useToast } from '@/contexts/ToastContext';
+import ToastContainer from '@/components/ToastContainer';
 import Layout from '@/components/Layout';
 import FilterPanel from '@/components/FilterPanel';
 import KanbanBoard from '@/components/KanbanBoard';
@@ -7,9 +12,41 @@ import CalendarView from '@/components/CalendarView';
 import GanttView from '@/components/GanttView';
 import ManualView from '@/components/ManualView';
 import CardModal from '@/components/CardModal';
-import { Card } from '@/types';
+import ProjectSelector from '@/components/ProjectSelector';
+import AuthModal from '@/components/AuthModal';
+import ProjectQuickSettings from '@/components/ProjectQuickSettings';
+import { Card, User, Project } from '@/types';
 
-export default function Home() {
+function KanbanApp() {
+  const { user } = useAuth();
+  const { currentProject, selectProject, createProject, projects, fetchProjects } = useProject();
+  const [showProjectSelector, setShowProjectSelector] = useState(false);
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [isCardModalOpen, setIsCardModalOpen] = useState(false);
+  const [editingCard, setEditingCard] = useState<Card | undefined>();
+  const [newCardColumnId, setNewCardColumnId] = useState<string>('');  
+  const [isProjectSettingsOpen, setIsProjectSettingsOpen] = useState(false);
+  const [allUsers, setAllUsers] = useState<User[]>([]);
+
+  // 사용자 정보 가져오기
+  useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        const response = await fetch('/api/users');
+        const data = await response.json();
+        setAllUsers(data.users || []);
+      } catch (error) {
+        console.error('Failed to fetch users:', error);
+      }
+    };
+
+    fetchUsers();
+  }, []);
+
+  // 현재 프로젝트의 사용자 목록 (프로젝트 멤버들)
+  const projectUsers = currentProject?.members || [];
+  
+  // hooks는 항상 같은 순서로 호출되어야 함
   const {
     board,
     filter,
@@ -25,12 +62,24 @@ export default function Home() {
     updateWipLimit,
     createLabel,
     createMilestone
-  } = useKanbanAPI();
+  } = useKanbanAPI(currentProject?.projectId, user);
 
-  const [isFilterOpen, setIsFilterOpen] = useState(false);
-  const [isCardModalOpen, setIsCardModalOpen] = useState(false);
-  const [editingCard, setEditingCard] = useState<Card | undefined>();
-  const [newCardColumnId, setNewCardColumnId] = useState<string>('');
+  // 전역 WebSocket 이벤트 처리는 GlobalWebSocketManager에서 담당
+
+  // 프로젝트가 선택되지 않았거나 프로젝트 선택기를 표시해야 할 때
+  if (!currentProject || showProjectSelector) {
+    return (
+      <ProjectSelector
+        user={user!}
+        selectedProject={currentProject || undefined}
+        onProjectSelect={(project) => {
+          selectProject(project);
+          setShowProjectSelector(false);
+        }}
+        onProjectCreate={createProject}
+      />
+    );
+  }
 
   const allCards = board.columns.flatMap(column => column.cards);
 
@@ -71,6 +120,11 @@ export default function Home() {
     setNewCardColumnId('');
   };
 
+  const handleProjectUpdate = (updatedProject: Project) => {
+    selectProject(updatedProject);
+    fetchProjects(); // 프로젝트 목록 새로고침
+  };
+
   const renderContent = () => {
     switch (viewMode) {
       case 'calendar':
@@ -93,6 +147,7 @@ export default function Home() {
         return (
           <KanbanBoard
             columns={board.columns}
+            users={allUsers}
             onCardMove={moveCard}
             onCardEdit={handleEditCard}
             onCardDelete={handleDeleteCard}
@@ -125,12 +180,17 @@ export default function Home() {
       onViewModeChange={setViewMode}
       onFilterToggle={() => setIsFilterOpen(true)}
       onAddCard={() => handleAddCard()}
+      currentProject={currentProject}
+      onProjectChange={() => setShowProjectSelector(true)}
+      onProjectSettings={() => setIsProjectSettingsOpen(true)}
+      allProjects={projects}
+      onProjectSelect={selectProject}
     >
       {renderContent()}
 
       <FilterPanel
         filter={filter}
-        users={board.users}
+        users={allUsers}
         labels={board.labels}
         isOpen={isFilterOpen}
         onFilterChange={setFilter}
@@ -140,7 +200,7 @@ export default function Home() {
       <CardModal
         card={editingCard}
         isOpen={isCardModalOpen}
-        users={board.users}
+        users={allUsers}
         labels={board.labels}
         milestones={board.milestones}
         onSave={handleCardSave}
@@ -148,6 +208,55 @@ export default function Home() {
         onCreateLabel={createLabel}
         onCreateMilestone={createMilestone}
       />
+
+      <ProjectQuickSettings
+        project={currentProject}
+        currentUser={user!}
+        isOpen={isProjectSettingsOpen}
+        onClose={() => setIsProjectSettingsOpen(false)}
+        onProjectUpdate={handleProjectUpdate}
+      />
     </Layout>
+  );
+}
+
+export default function Home() {
+  const { user, loading } = useAuth();
+  const [showAuthModal, setShowAuthModal] = useState(false);
+
+  if (loading) {
+    return (
+      <div className="h-screen flex items-center justify-center">
+        <div className="text-lg">로딩 중...</div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-3xl font-bold text-gray-900 mb-4">프로젝트 관리 보드</h1>
+          <p className="text-gray-600 mb-6">로그인이 필요합니다.</p>
+          <button
+            onClick={() => setShowAuthModal(true)}
+            className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            로그인 / 회원가입
+          </button>
+          <AuthModal 
+            isOpen={showAuthModal} 
+            onClose={() => setShowAuthModal(false)} 
+          />
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <ProjectProvider user={user}>
+      <GlobalWebSocketManager />
+      <KanbanApp />
+    </ProjectProvider>
   );
 }

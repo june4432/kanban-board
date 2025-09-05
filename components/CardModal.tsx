@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Card, User, Label, Milestone, Priority } from '@/types';
-import { X, Calendar, User as UserIcon, Flag, Target, Tag, Plus } from 'lucide-react';
+import { X, Calendar, User as UserIcon, Flag, Target, Tag, Plus, Check } from 'lucide-react';
 
 interface CardModalProps {
   card?: Card;
@@ -28,7 +28,7 @@ const CardModal: React.FC<CardModalProps> = ({
   const [formData, setFormData] = useState({
     title: '',
     description: '',
-    assigneeId: '',
+    assigneeIds: [] as string[], // 여러 담당자 지원
     milestoneId: '',
     priority: 'medium' as Priority,
     labelIds: [] as string[],
@@ -42,23 +42,25 @@ const CardModal: React.FC<CardModalProps> = ({
   const [newMilestoneName, setNewMilestoneName] = useState('');
   const [newMilestoneDueDate, setNewMilestoneDueDate] = useState('');
   const [newMilestoneDescription, setNewMilestoneDescription] = useState('');
+  const [assigneeSearch, setAssigneeSearch] = useState('');
+  const [showAssigneeDropdown, setShowAssigneeDropdown] = useState(false);
 
   useEffect(() => {
     if (card) {
       setFormData({
         title: card.title,
         description: card.description,
-        assigneeId: card.assignee?.id || '',
+        assigneeIds: card.assignees || [], // 여러 담당자 지원
         milestoneId: card.milestone?.id || '',
         priority: card.priority,
         labelIds: card.labels.map(label => label.id),
-        dueDate: card.dueDate ? card.dueDate.toISOString().split('T')[0] : ''
+        dueDate: card.dueDate ? new Date(card.dueDate).toISOString().split('T')[0] : ''
       });
     } else {
       setFormData({
         title: '',
         description: '',
-        assigneeId: '',
+        assigneeIds: [],
         milestoneId: '',
         priority: 'medium',
         labelIds: [],
@@ -73,7 +75,7 @@ const CardModal: React.FC<CardModalProps> = ({
     const cardData: Partial<Card> = {
       title: formData.title,
       description: formData.description,
-      assignee: formData.assigneeId ? users.find(u => u.id === formData.assigneeId) : undefined,
+      assignees: formData.assigneeIds, // 여러 담당자 지원
       milestone: formData.milestoneId ? milestones.find(m => m.id === formData.milestoneId) : undefined,
       priority: formData.priority,
       labels: labels.filter(label => formData.labelIds.includes(label.id)),
@@ -124,6 +126,22 @@ const CardModal: React.FC<CardModalProps> = ({
     }));
   };
 
+  // 검색된 사용자 목록 필터링
+  const filteredUsers = users.filter(user => 
+    user.name.toLowerCase().includes(assigneeSearch.toLowerCase()) ||
+    user.email.toLowerCase().includes(assigneeSearch.toLowerCase())
+  );
+
+  // 선택된 사용자들
+  const selectedUsers = users.filter(user => formData.assigneeIds.includes(user.id));
+
+  // 드롭다운 외부 클릭 시 닫기
+  const handleClickOutside = (e: React.MouseEvent) => {
+    if (e.target === e.currentTarget) {
+      setShowAssigneeDropdown(false);
+    }
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -131,7 +149,10 @@ const CardModal: React.FC<CardModalProps> = ({
       <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
         <div className="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75" onClick={onClose} />
 
-        <div className="inline-block w-full max-w-md p-6 my-8 overflow-hidden text-left align-middle transition-all transform bg-white shadow-xl rounded-lg sm:max-w-lg">
+        <div 
+          className="inline-block w-full max-w-md p-6 my-8 overflow-hidden text-left align-middle transition-all transform bg-white shadow-xl rounded-lg sm:max-w-lg"
+          onClick={() => setShowAssigneeDropdown(false)}
+        >
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-medium text-gray-900">
               {card ? '카드 편집' : '새 카드 생성'}
@@ -172,22 +193,114 @@ const CardModal: React.FC<CardModalProps> = ({
               />
             </div>
 
-            {/* Assignee */}
+            {/* Assignees */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 <UserIcon className="w-4 h-4 inline mr-1" />
-                담당자
+                담당자 (여러 명 선택 가능)
               </label>
-              <select
-                value={formData.assigneeId}
-                onChange={(e) => setFormData(prev => ({ ...prev, assigneeId: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              
+              {/* 선택된 담당자들 표시 */}
+              {selectedUsers.length > 0 && (
+                <div className="mb-2 flex flex-wrap gap-1">
+                  {selectedUsers.map(user => (
+                    <span
+                      key={user.id}
+                      className="inline-flex items-center px-2 py-1 text-xs bg-primary-100 text-primary-700 rounded-full"
+                    >
+                      <img
+                        src={user.avatar}
+                        alt={user.name}
+                        className="w-4 h-4 rounded-full mr-1"
+                      />
+                      {user.name}
+                      <button
+                        type="button"
+                        onClick={() => setFormData(prev => ({
+                          ...prev,
+                          assigneeIds: prev.assigneeIds.filter(id => id !== user.id)
+                        }))}
+                        className="ml-1 text-primary-500 hover:text-primary-700"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              {/* 검색 입력 */}
+              <div 
+                className="relative"
+                onClick={(e) => e.stopPropagation()}
               >
-                <option value="">담당자 선택</option>
-                {users.map(user => (
-                  <option key={user.id} value={user.id}>{user.name}</option>
-                ))}
-              </select>
+                <input
+                  type="text"
+                  placeholder="담당자 검색..."
+                  value={assigneeSearch}
+                  onChange={(e) => {
+                    setAssigneeSearch(e.target.value);
+                    setShowAssigneeDropdown(true);
+                  }}
+                  onFocus={() => setShowAssigneeDropdown(true)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Escape') {
+                      setShowAssigneeDropdown(false);
+                    }
+                    // Enter 키는 드롭다운을 유지
+                  }}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                />
+                
+                {/* 드롭다운 */}
+                {showAssigneeDropdown && (
+                  <div 
+                    className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-y-auto"
+                  >
+                    {filteredUsers.length > 0 ? (
+                      filteredUsers.map(user => (
+                        <div
+                          key={user.id}
+                          onClick={() => {
+                            if (formData.assigneeIds.includes(user.id)) {
+                              setFormData(prev => ({
+                                ...prev,
+                                assigneeIds: prev.assigneeIds.filter(id => id !== user.id)
+                              }));
+                            } else {
+                              setFormData(prev => ({
+                                ...prev,
+                                assigneeIds: [...prev.assigneeIds, user.id]
+                              }));
+                            }
+                            // 드롭다운을 유지하고 검색 입력도 유지
+                          }}
+                          className={`flex items-center space-x-3 px-3 py-2 hover:bg-gray-50 cursor-pointer ${
+                            formData.assigneeIds.includes(user.id) ? 'bg-primary-50' : ''
+                          }`}
+                        >
+                          <img
+                            src={user.avatar}
+                            alt={user.name}
+                            className="w-6 h-6 rounded-full"
+                          />
+                          <div className="flex-1">
+                            <div className="text-sm font-medium text-gray-900">{user.name}</div>
+                            <div className="text-xs text-gray-500">{user.email}</div>
+                          </div>
+                          {formData.assigneeIds.includes(user.id) && (
+                            <div className="text-primary-600">
+                              <Check className="w-4 h-4" />
+                            </div>
+                          )}
+                        </div>
+                      ))
+                    ) : (
+                      <div className="px-3 py-2 text-sm text-gray-500">검색 결과가 없습니다</div>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Priority */}

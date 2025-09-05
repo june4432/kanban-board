@@ -1,0 +1,86 @@
+{
+  "projects": [
+    {
+      "projectId": "test-project-1",
+      "name": "테스트 칸반 프로젝트",
+      "description": "칸반보드 기능 개발 및 테스트를 위한 프로젝트",
+      "ownerId": "admin",
+      "members": [
+        {
+          "userId": "admin",
+          "role": "owner",
+          "joinedAt": "2025-09-05T01:39:20.344Z"
+        },
+        {
+          "userId": "01719873-4e75-4450-86da-d2c773ef09c9",
+          "role": "user",
+          "joinedAt": "2025-09-05T01:17:39.718Z"
+        }
+      ],
+      "createdAt": "2024-01-01T00:00:00.000Z",
+      "updatedAt": "2025-09-05T01:34:30.230Z",
+      "color": "#3b82f6",
+      "isPublic": true,
+      "pendingRequests": []
+    },
+    {
+      "projectId": "1757036360344",
+      "name": "테스트프로젝트",
+      "description": "1111111111111111",
+      "ownerId": "admin",
+      "members": [
+        {
+          "userId": "admin",
+          "role": "owner",
+          "joinedAt": "2025-09-05T01:39:20.344Z"
+        },
+        {
+          "userId": "01719873-4e75-4450-86da-d2c773ef09c9",
+          "role": "member",
+          "joinedAt": "2025-09-05T02:31:52.775Z"
+        }
+      ],
+      "createdAt": "2025-09-05T01:39:20.344Z",
+      "updatedAt": "2025-09-05T02:31:52.775Z",
+      "color": "#73f73b",
+      "isPublic": true,
+      "pendingRequests": []
+    },
+    {
+      "projectId": "1757036709865",
+      "name": "비공개",
+      "description": "비공개",
+      "ownerId": "admin",
+      "members": [
+        {
+          "userId": "admin",
+          "role": "owner",
+          "joinedAt": "2025-09-05T01:45:09.865Z"
+        }
+      ],
+      "createdAt": "2025-09-05T01:45:09.865Z",
+      "updatedAt": "2025-09-05T06:10:37.974Z",
+      "color": "#f73b3b",
+      "isPublic": true,
+      "pendingRequests": []
+    },
+    {
+      "projectId": "1757044932293",
+      "name": "ㅇㅇㅇㅇ",
+      "description": "ㅁㄴㅇㄹㄴㅁㅇㄻㄴㅇㄹ",
+      "ownerId": "admin",
+      "members": [
+        {
+          "userId": "admin",
+          "role": "owner",
+          "joinedAt": "2025-09-05T04:02:12.293Z"
+        }
+      ],
+      "createdAt": "2025-09-05T04:02:12.293Z",
+      "updatedAt": "2025-09-05T06:10:45.399Z",
+      "color": "#3b82f6",
+      "isPublic": true,
+      "pendingRequests": []
+    }
+  ]
+}

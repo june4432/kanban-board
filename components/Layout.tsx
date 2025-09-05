@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
-import { ViewMode } from '@/types';
-import { LayoutGrid, Calendar, BarChart3, BookOpen, Filter, Search, Plus, LogOut, User } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { ViewMode, Project } from '@/types';
+import { LayoutGrid, Calendar, BarChart3, BookOpen, Filter, Search, Plus, LogOut, User, FolderOpen, Settings, ChevronDown, ChevronUp } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import AuthModal from '@/components/AuthModal';
 
@@ -10,6 +10,11 @@ interface LayoutProps {
   onViewModeChange: (mode: ViewMode) => void;
   onFilterToggle: () => void;
   onAddCard: () => void;
+  currentProject?: Project;
+  onProjectChange?: () => void;
+  onProjectSettings?: () => void;
+  allProjects?: Project[];
+  onProjectSelect?: (project: Project) => void;
 }
 
 const Layout: React.FC<LayoutProps> = ({
@@ -17,10 +22,31 @@ const Layout: React.FC<LayoutProps> = ({
   viewMode,
   onViewModeChange,
   onFilterToggle,
-  onAddCard
+  onAddCard,
+  currentProject,
+  onProjectChange,
+  onProjectSettings,
+  allProjects = [],
+  onProjectSelect
 }) => {
   const { user, logout, loading } = useAuth();
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const [showProjectDropdown, setShowProjectDropdown] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // 드롭다운 외부 클릭 시 닫기
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setShowProjectDropdown(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
 
   if (loading) {
     return (
@@ -54,10 +80,93 @@ const Layout: React.FC<LayoutProps> = ({
     <div className="h-screen bg-gray-50 flex flex-col">
       {/* Header */}
       <header className="bg-white shadow-sm border-b flex-shrink-0">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="w-full px-2 sm:px-4 lg:px-6">
           <div className="flex justify-between items-center h-14">
-            <div className="flex items-center">
+            <div className="flex items-center space-x-4">
               <h1 className="text-2xl font-bold text-gray-900">프로젝트 관리 보드</h1>
+              {currentProject && (
+                <div className="relative" ref={dropdownRef}>
+                  <button
+                    onClick={() => setShowProjectDropdown(!showProjectDropdown)}
+                    className="flex items-center space-x-2 px-3 py-1 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors cursor-pointer"
+                    title="프로젝트 선택"
+                  >
+                    <div 
+                      className="w-6 h-6 rounded flex items-center justify-center"
+                      style={{ backgroundColor: `${currentProject.color}20` }}
+                    >
+                      <FolderOpen 
+                        className="w-4 h-4"
+                        style={{ color: currentProject.color }}
+                      />
+                    </div>
+                    <span className="text-sm font-medium text-gray-700">{currentProject.name}</span>
+                    {showProjectDropdown ? (
+                      <ChevronUp className="w-4 h-4 text-gray-500" />
+                    ) : (
+                      <ChevronDown className="w-4 h-4 text-gray-500" />
+                    )}
+                  </button>
+
+                  {/* 프로젝트 드롭다운 메뉴 */}
+                  {showProjectDropdown && (
+                    <div className="absolute top-full left-0 mt-1 w-64 bg-white rounded-lg shadow-lg border py-2 z-50">
+                      <div className="px-3 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                        내 프로젝트
+                      </div>
+                      <div className="max-h-64 overflow-y-auto">
+                        {allProjects.map((project) => (
+                          <button
+                            key={project.projectId}
+                            onClick={() => {
+                              if (onProjectSelect) {
+                                onProjectSelect(project);
+                              }
+                              setShowProjectDropdown(false);
+                            }}
+                            className={`w-full flex items-center space-x-3 px-3 py-2 text-left hover:bg-gray-50 transition-colors ${
+                              project.projectId === currentProject.projectId ? 'bg-blue-50' : ''
+                            }`}
+                          >
+                            <div 
+                              className="w-6 h-6 rounded flex items-center justify-center flex-shrink-0"
+                              style={{ backgroundColor: `${project.color}20` }}
+                            >
+                              <FolderOpen 
+                                className="w-4 h-4"
+                                style={{ color: project.color }}
+                              />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="text-sm font-medium text-gray-900 truncate">{project.name}</div>
+                              {project.description && (
+                                <div className="text-xs text-gray-500 truncate">{project.description}</div>
+                              )}
+                            </div>
+                            {project.projectId === currentProject.projectId && (
+                              <div className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0"></div>
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                      <div className="border-t mt-2 pt-2">
+                        <button
+                          onClick={() => {
+                            if (onProjectChange) {
+                              onProjectChange();
+                            }
+                            setShowProjectDropdown(false);
+                          }}
+                          className="w-full flex items-center space-x-3 px-3 py-2 text-left hover:bg-gray-50 transition-colors"
+                        >
+                          <Settings className="w-4 h-4 text-gray-500" />
+                          <span className="text-sm text-gray-700">프로젝트 관리</span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
             
             <div className="flex items-center space-x-4">
@@ -126,6 +235,18 @@ const Layout: React.FC<LayoutProps> = ({
                 카드 추가
               </button>
 
+              {/* 프로젝트 설정 버튼 */}
+              {currentProject && onProjectSettings && (
+                <button
+                  onClick={onProjectSettings}
+                  className="flex items-center px-3 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-colors"
+                  title="프로젝트 설정"
+                >
+                  <Settings className="w-4 h-4 mr-1.5" />
+                  설정
+                </button>
+              )}
+
               {/* User Menu */}
               <div className="flex items-center space-x-3 border-l pl-4">
                 <img
@@ -153,7 +274,7 @@ const Layout: React.FC<LayoutProps> = ({
       </header>
 
       {/* Main Content */}
-      <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 overflow-hidden">
+      <main className="flex-1 w-full px-2 sm:px-4 lg:px-6 py-2 overflow-hidden">
         <div className="h-full">
           {children}
         </div>

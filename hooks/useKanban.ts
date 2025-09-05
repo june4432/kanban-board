@@ -37,7 +37,10 @@ export const useKanban = () => {
 
         // 담당자 필터
         if (filter.selectedAssignees.length > 0) {
-          if (!card.assignee || !filter.selectedAssignees.includes(card.assignee.id)) {
+          const hasAssignee = card.assignees?.some(assigneeId => 
+            filter.selectedAssignees.includes(assigneeId)
+          );
+          if (!hasAssignee) {
             return false;
           }
         }
@@ -124,7 +127,7 @@ export const useKanban = () => {
       id: uuidv4(),
       title: cardData.title || '',
       description: cardData.description || '',
-      assignee: cardData.assignee,
+      assignees: cardData.assignees || [],
       milestone: cardData.milestone,
       priority: cardData.priority || 'medium',
       labels: cardData.labels || [],
