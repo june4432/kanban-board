@@ -2,7 +2,8 @@
 #    (태그는 Python 버전에 맞춰 선택: 예: v1.40.0-jammy)
 #    - Jammy (Ubuntu 22.04 기반) 또는 Focal (Ubuntu 20.04 기반)을 권장합니다.
 #    - https://mcr.microsoft.com/en-us/product/playwright/python/tags 에서 태그 확인 가능
-FROM mcr.microsoft.com/playwright/python:v1.55.0-jammy
+#FROM mcr.microsoft.com/playwright/python:v1.55.0-jammy
+FROM mcr.microsoft.com/playwright/python:v1.40.0-focal
 
 # 2. 작업 디렉토리 설정
 WORKDIR /var/task

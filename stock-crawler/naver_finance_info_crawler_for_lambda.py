@@ -9,6 +9,7 @@ import json
 from datetime import datetime
 import re
 from playwright.async_api import async_playwright
+import traceback
 
 
 class NaverFinancePERCrawlerForLambda:
@@ -26,6 +27,25 @@ class NaverFinancePERCrawlerForLambda:
         self.page = None
         self.start_time = None
         self.end_time = None
+
+        # --- 여기에 브라우저 인수 정의 추가 ---
+        self.browser_args = [
+            '--no-sandbox',
+            '--disable-dev-shm-usage',
+            '--disable-gpu',
+            '--disable-web-security',
+            '--disable-blink-features=AutomationControlled'
+
+            # --- 추가 플래그 ---
+            '--disable-setuid-sandbox',     # SUID 샌드박스 비활성화 (no-sandbox와 함께 사용)
+            '--disable-infobars',           # 정보 표시줄 비활성화
+            '--disable-extensions',         # 확장 기능 비활성화
+            '--disable-background-networking', # 백그라운드 네트워크 작업 비활성화
+            '--disable-component-extensions-with-background-pages',
+            '--single-process',             # [최후의 수단] 싱글 프로세스 모드로 실행 (메모리 사용량을 줄일 수 있으나 불안정할 수 있음)
+            '--no-zygote',                  # Zygote 프로세스 비활성화 (메S모리 절약 시도)
+        ]
+        # --- 여기까지 ---
     
     def start_timer(self):
         """크롤링 시작 시간 기록"""
@@ -60,29 +80,27 @@ class NaverFinancePERCrawlerForLambda:
             self.playwright = await async_playwright().start()
             print("▶ [2/4] Playwright_async started successfully.") # 로그 추가
 
-            print(f"▶ [3/4] Launching browser with args: {self.browser_args}") # 로그 추가 (args 변수화 필요)
+            # --- 수정된 부분: self.browser_args 사용 ---
+            print(f"▶ [3/4] Launching browser with args: {self.browser_args}")
             self.browser = await self.playwright.chromium.launch(
                 headless=self.headless,
-                args=[ # self.browser_args로 대체해도 좋습니다.
-                    '--no-sandbox',
-                    '--disable-dev-shm-usage',
-                    '--disable-gpu',
-                    '--disable-web-security',
-                    '--disable-blink-features=AutomationControlled'
-                ]
+                args=self.browser_args # 하드코딩된 리스트 대신 변수 사용
             )
-            print("▶ [4/4] Browser launched successfully.") # 로그 추가
+            print("▶ [4.1/5] Browser object created.") # 로그 추가
 
-            # --- 여기서 오류 발생 ---
-            print("▶ [5/5] Creating new page...") # 로그 추가
+            print("▶ [4.2/5] Creating new page...")
             self.page = await self.browser.new_page()
-            print("▶ [6/6] New page created successfully.") # 로그 추가
+            print("▶ [5/5] New page created successfully.")
+            # --- 여기까지 ---
 
-            # ... (생략) ...
+            # User-Agent 설정 등 나머지 코드...
+            await self.page.set_extra_http_headers({
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+            })
+            print("✅ 브라우저 초기화 완료")
+            return True
 
         except Exception as e:
-            # 오류 발생 시 더 자세한 스택 트레이스를 출력하도록 수정
-            import traceback
             print(f"❌ 브라우저 초기화 실패: {str(e)}")
             print(traceback.format_exc()) # 스택 트레이스 전체 출력
             return False

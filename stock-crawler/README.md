@@ -326,3 +326,16 @@ print("📈 변환할 분석 컬럼들:", analysis_columns)
 ---
 
 **🎯 개발 목표**: 네이버 와이즈리포트의 투자분석 데이터를 효율적이고 안정적으로 수집하고, **즉시 분석 가능한 형태로 변환**하여 투자 의사결정을 지원합니다.
+
+
+# 도커 이미지 생성(윈도우)
+docker build --no-cache -f Dockerfile.pw -t youngjunlee/test-stock-crawler .
+
+# 도커 이미지 생성(맥)
+docker build --platform linux/amd64 -f Dockerfile.pw -t youngjunlee/test-stock-crawler .
+
+# 도커 태그 생성
+docker tag youngjunlee/test-stock-crawler:latest 818263291911.dkr.ecr.ap-northeast-2.amazonaws.com/youngjunlee/test-stock-crawler:latest
+
+# 도커 이미지 푸시
+docker push 818263291911.dkr.ecr.ap-northeast-2.amazonaws.com/youngjunlee/test-stock-crawler:latest
