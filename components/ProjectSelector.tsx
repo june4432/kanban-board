@@ -144,44 +144,44 @@ const ProjectSelector: React.FC<ProjectSelectorProps> = ({
   if (loading) {
     return (
       <div className="flex items-center justify-center p-8">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+    <div className="min-h-screen bg-gradient-to-br from-background to-muted">
       {/* Top Navigation Bar */}
-      <nav className="bg-white border-b border-gray-200 sticky top-0 z-40 backdrop-blur-sm bg-white/95">
+      <nav className="bg-card/80 border-b border-border sticky top-0 z-40 backdrop-blur-sm">
         <div className="max-w-6xl mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
-              <div className="w-8 h-8 bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">
+              <div className="w-8 h-8 bg-gradient-to-r from-primary to-purple-600 rounded-lg flex items-center justify-center">
                 <FolderOpen className="w-5 h-5 text-white" />
               </div>
               <div>
-                <h1 className="text-xl font-bold text-gray-900">프로젝트 관리</h1>
-                <p className="text-sm text-gray-500">팀과 함께 협업하세요</p>
+                <h1 className="text-xl font-bold text-card-foreground">프로젝트 관리</h1>
+                <p className="text-sm text-muted-foreground">팀과 함께 협업하세요</p>
               </div>
             </div>
             
             {/* User Menu */}
             <div className="flex items-center space-x-3">
-              <div className="flex items-center space-x-3 px-4 py-2 bg-gray-50 rounded-full hover:bg-gray-100 transition-colors">
+              <div className="flex items-center space-x-3 px-4 py-2 bg-muted rounded-full hover:bg-accent transition-colors">
                 <img
                   src={user.avatar}
                   alt={user.name}
-                  className="w-8 h-8 rounded-full ring-2 ring-white shadow-sm"
+                  className="w-8 h-8 rounded-full ring-2 ring-card shadow-sm"
                 />
                 <div className="text-sm hidden sm:block">
-                  <div className="font-medium text-gray-900">{user.name}</div>
-                  <div className="text-gray-500 text-xs">{user.email}</div>
+                  <div className="font-medium text-card-foreground">{user.name}</div>
+                  <div className="text-muted-foreground text-xs">{user.email}</div>
                 </div>
               </div>
               
               <button
                 onClick={logout}
-                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
+                className="p-2 text-muted-foreground hover:text-foreground hover:bg-accent rounded-full transition-colors"
                 title="로그아웃"
               >
                 <LogOut className="w-5 h-5" />
@@ -196,13 +196,13 @@ const ProjectSelector: React.FC<ProjectSelectorProps> = ({
         {/* Welcome Section */}
         <div className="mb-8">
           <div className="text-center mb-6">
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">
+            <h2 className="text-2xl font-bold text-foreground mb-2">
               {filteredMyProjects.length === 0 && activeTab === 'my' 
                 ? '프로젝트를 시작해보세요' 
                 : '프로젝트 선택'
               }
             </h2>
-            <p className="text-gray-600 max-w-2xl mx-auto">
+            <p className="text-muted-foreground max-w-2xl mx-auto">
               {filteredMyProjects.length === 0 && activeTab === 'my' 
                 ? '새로운 프로젝트를 생성하거나 팀원들과 함께 공개 프로젝트에 참여할 수 있습니다.'
                 : '참여 중인 프로젝트를 선택하거나 새로운 프로젝트를 만들어보세요.'
@@ -214,29 +214,29 @@ const ProjectSelector: React.FC<ProjectSelectorProps> = ({
         {/* Action Bar */}
         <div className="relative mb-8">
           {/* Background with subtle gradient */}
-          <div className="absolute inset-0 bg-gradient-to-r from-blue-50/50 to-purple-50/50 rounded-2xl"></div>
+          <div className="absolute inset-0 bg-gradient-to-r from-accent/30 to-accent/10 rounded-2xl"></div>
           
-          <div className="relative bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-white/20 p-8">
+          <div className="relative bg-card/80 backdrop-blur-sm rounded-2xl shadow-lg border border-border/20 p-8">
             <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-6 lg:space-y-0 lg:space-x-8">
               
               {/* Search Section */}
               <div className="flex-1 max-w-lg">
                 <div className="relative group">
                   <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                    <Search className="h-5 w-5 text-gray-400 group-focus-within:text-blue-500 transition-colors" />
+                    <Search className="h-5 w-5 text-muted-foreground group-focus-within:text-primary transition-colors" />
                   </div>
                   <input
                     type="text"
                     placeholder="프로젝트를 검색해보세요..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="block w-full pl-12 pr-4 py-4 text-gray-900 placeholder-gray-500 bg-white/60 border border-gray-200/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 focus:bg-white transition-all duration-200 shadow-sm hover:shadow-md"
+                    className="block w-full pl-12 pr-4 py-4 text-foreground placeholder:text-muted-foreground bg-input/60 border border-border/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring focus:bg-input transition-all duration-200 shadow-sm hover:shadow-md"
                   />
                   {searchQuery && (
                     <div className="absolute inset-y-0 right-0 pr-3 flex items-center">
                       <button
                         onClick={() => setSearchQuery('')}
-                        className="text-gray-400 hover:text-gray-600 transition-colors"
+                        className="text-muted-foreground hover:text-foreground transition-colors"
                       >
                         <X className="h-5 w-5" />
                       </button>
@@ -262,19 +262,19 @@ const ProjectSelector: React.FC<ProjectSelectorProps> = ({
 
         {/* Tabs */}
         <div className="mb-8">
-          <div className="flex space-x-1 p-1 bg-gray-100 rounded-xl">
+          <div className="flex space-x-1 p-1 bg-muted rounded-xl">
             <button
               onClick={() => setActiveTab('my')}
               className={`flex-1 flex items-center justify-center space-x-2 px-4 py-3 rounded-lg font-medium transition-all ${
                 activeTab === 'my'
-                  ? 'bg-white text-gray-900 shadow-sm'
-                  : 'text-gray-600 hover:text-gray-900'
+                  ? 'bg-background text-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground'
               }`}
             >
               <User className="w-4 h-4" />
               <span>내 프로젝트</span>
               <span className={`px-2 py-1 text-xs rounded-full ${
-                activeTab === 'my' ? 'bg-blue-100 text-blue-600' : 'bg-gray-200 text-gray-600'
+                activeTab === 'my' ? 'bg-primary/10 text-primary' : 'bg-muted-foreground/20 text-muted-foreground'
               }`}>
                 {filteredMyProjects.length}
               </span>
@@ -283,14 +283,14 @@ const ProjectSelector: React.FC<ProjectSelectorProps> = ({
               onClick={() => setActiveTab('public')}
               className={`flex-1 flex items-center justify-center space-x-2 px-4 py-3 rounded-lg font-medium transition-all ${
                 activeTab === 'public'
-                  ? 'bg-white text-gray-900 shadow-sm'
-                  : 'text-gray-600 hover:text-gray-900'
+                  ? 'bg-background text-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground'
               }`}
             >
               <Globe className="w-4 h-4" />
               <span>공개 프로젝트</span>
               <span className={`px-2 py-1 text-xs rounded-full ${
-                activeTab === 'public' ? 'bg-green-100 text-green-600' : 'bg-gray-200 text-gray-600'
+                activeTab === 'public' ? 'bg-success/10 text-success-foreground' : 'bg-muted-foreground/20 text-muted-foreground'
               }`}>
                 {filteredPublicProjects.length}
               </span>
@@ -300,30 +300,30 @@ const ProjectSelector: React.FC<ProjectSelectorProps> = ({
 
         {/* Create Project Form */}
         {showCreateForm && (
-          <div className="mb-8 bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
-            <div className="bg-gradient-to-r from-blue-50 to-purple-50 px-6 py-4 border-b border-gray-200">
-              <h3 className="text-lg font-bold text-gray-900">새 프로젝트 생성</h3>
-              <p className="text-sm text-gray-600 mt-1">팀과 함께할 새로운 프로젝트를 만들어보세요</p>
+          <div className="mb-8 bg-background rounded-2xl shadow-lg border border-border overflow-hidden">
+            <div className="bg-gradient-to-r from-primary/5 to-accent px-6 py-4 border-b border-border">
+              <h3 className="text-lg font-bold text-foreground">새 프로젝트 생성</h3>
+              <p className="text-sm text-muted-foreground mt-1">팀과 함께할 새로운 프로젝트를 만들어보세요</p>
             </div>
             <div className="p-6">
               <form onSubmit={handleCreateProject} className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="md:col-span-2">
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    <label className="block text-sm font-semibold text-foreground mb-2">
                   프로젝트 이름 *
                 </label>
                 <input
                   type="text"
                   value={formData.name}
                   onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                      className="w-full px-4 py-3 bg-gray-50 border-0 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all"
+                      className="w-full px-4 py-3 bg-input border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:bg-background transition-all text-foreground placeholder:text-muted-foreground"
                       placeholder="멋진 프로젝트 이름을 지어주세요"
                   required
                 />
               </div>
                   
                   <div className="md:col-span-2">
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    <label className="block text-sm font-semibold text-foreground mb-2">
                       프로젝트 설명
                 </label>
                 <textarea
@@ -336,7 +336,7 @@ const ProjectSelector: React.FC<ProjectSelectorProps> = ({
               </div>
                   
               <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    <label className="block text-sm font-semibold text-foreground mb-2">
                       테마 색상
                 </label>
                     <div className="flex items-center space-x-3">
@@ -345,7 +345,7 @@ const ProjectSelector: React.FC<ProjectSelectorProps> = ({
                     type="color"
                     value={formData.color}
                     onChange={(e) => setFormData(prev => ({ ...prev, color: e.target.value }))}
-                          className="w-12 h-12 rounded-xl border-2 border-gray-200 cursor-pointer"
+                          className="w-12 h-12 rounded-xl border-2 border-border cursor-pointer"
                   />
                       </div>
                   <input
@@ -358,28 +358,28 @@ const ProjectSelector: React.FC<ProjectSelectorProps> = ({
               </div>
                   
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    <label className="block text-sm font-semibold text-foreground mb-2">
                       공개 설정
                     </label>
                     <div className="space-y-3">
-                      <label className="flex items-center p-3 bg-gray-50 rounded-xl cursor-pointer hover:bg-gray-100 transition-colors">
+                      <label className="flex items-center p-3 bg-muted rounded-xl cursor-pointer hover:bg-accent transition-colors">
                         <input
                           type="checkbox"
                           checked={formData.isPublic}
                           onChange={(e) => setFormData(prev => ({ ...prev, isPublic: e.target.checked }))}
-                          className="w-5 h-5 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                          className="w-5 h-5 text-primary focus:ring-primary border-border rounded"
                         />
                         <div className="ml-3 flex items-center space-x-2">
                           {formData.isPublic ? (
-                            <Globe className="w-5 h-5 text-green-600" />
+                            <Globe className="w-5 h-5 text-success-foreground" />
                           ) : (
-                            <Lock className="w-5 h-5 text-gray-600" />
+                            <Lock className="w-5 h-5 text-muted-foreground" />
                           )}
                           <div>
-                            <span className="text-sm font-medium text-gray-900">
+                            <span className="text-sm font-medium text-foreground">
                               {formData.isPublic ? '공개 프로젝트' : '비공개 프로젝트'}
                             </span>
-                            <p className="text-xs text-gray-500 mt-1">
+                            <p className="text-xs text-muted-foreground mt-1">
                               {formData.isPublic 
                                 ? '다른 사용자가 검색하고 참여 신청할 수 있습니다'
                                 : '초대받은 사용자만 참여할 수 있습니다'
@@ -402,7 +402,7 @@ const ProjectSelector: React.FC<ProjectSelectorProps> = ({
                 <button
                   type="button"
                   onClick={() => setShowCreateForm(false)}
-                    className="flex-1 sm:flex-none px-6 py-3 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-colors font-medium"
+                    className="flex-1 sm:flex-none px-6 py-3 bg-secondary text-secondary-foreground rounded-xl hover:bg-secondary/80 transition-colors font-medium"
                 >
                   취소
                 </button>
@@ -422,7 +422,7 @@ const ProjectSelector: React.FC<ProjectSelectorProps> = ({
             return (
             <div
               key={project.projectId}
-                className="bg-white rounded-xl shadow-sm hover:shadow-lg transition-all duration-300 border border-gray-100 overflow-hidden group"
+                className="bg-background rounded-xl shadow-sm hover:shadow-lg transition-all duration-300 border border-border overflow-hidden group"
               >
                 {/* Header with color stripe */}
                 <div 
@@ -449,21 +449,21 @@ const ProjectSelector: React.FC<ProjectSelectorProps> = ({
                   </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center space-x-2 mb-2">
-                          <h3 className="text-xl font-bold text-gray-900 truncate">{project.name}</h3>
+                          <h3 className="text-xl font-bold text-foreground truncate">{project.name}</h3>
                           {project.isPublic ? (
-                            <div className="flex items-center space-x-1 px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs">
+                            <div className="flex items-center space-x-1 px-2 py-1 bg-success/10 text-success-foreground rounded-full text-xs">
                               <Globe className="w-3 h-3" />
                               <span>공개</span>
                             </div>
                           ) : (
-                            <div className="flex items-center space-x-1 px-2 py-1 bg-gray-100 text-gray-600 rounded-full text-xs">
+                            <div className="flex items-center space-x-1 px-2 py-1 bg-muted text-muted-foreground rounded-full text-xs">
                               <Lock className="w-3 h-3" />
                               <span>비공개</span>
                             </div>
                           )}
                         </div>
                     {project.description && (
-                          <p className="text-gray-600 text-sm line-clamp-2 leading-relaxed">{project.description}</p>
+                          <p className="text-muted-foreground text-sm line-clamp-2 leading-relaxed">{project.description}</p>
                     )}
                   </div>
                 </div>
@@ -475,7 +475,7 @@ const ProjectSelector: React.FC<ProjectSelectorProps> = ({
                     e.stopPropagation();
                             setSettingsProject(project);
                   }}
-                          className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
+                          className="p-2 text-muted-foreground hover:text-foreground hover:bg-accent rounded-lg transition-colors opacity-0 group-hover:opacity-100"
                           title="프로젝트 설정"
                 >
                   <Settings className="w-4 h-4" />
@@ -485,8 +485,8 @@ const ProjectSelector: React.FC<ProjectSelectorProps> = ({
                   </div>
                   
                   {/* Project Stats */}
-                  <div className="flex items-center justify-between py-3 border-t border-gray-50">
-                    <div className="flex items-center space-x-4 text-sm text-gray-500">
+                  <div className="flex items-center justify-between py-3 border-t border-border">
+                    <div className="flex items-center space-x-4 text-sm text-muted-foreground">
                       <div className="flex items-center space-x-1">
                         <Users className="w-4 h-4" />
                         <span>{project.members.length} 멤버</span>
@@ -497,7 +497,7 @@ const ProjectSelector: React.FC<ProjectSelectorProps> = ({
                     </div>
                     
                     {isOwner && (
-                      <div className="flex items-center space-x-1 px-2 py-1 bg-blue-50 text-blue-700 rounded-full text-xs">
+                      <div className="flex items-center space-x-1 px-2 py-1 bg-primary/10 text-primary rounded-full text-xs">
                         <span>관리자</span>
                       </div>
                     )}
@@ -507,7 +507,7 @@ const ProjectSelector: React.FC<ProjectSelectorProps> = ({
                   <div className="space-y-2">
                     {activeTab === 'public' && !userInProject && (
                       userRequested ? (
-                        <div className="flex items-center justify-center space-x-2 w-full py-3 bg-yellow-50 text-yellow-700 rounded-lg text-sm font-medium">
+                        <div className="flex items-center justify-center space-x-2 w-full py-3 bg-warning/10 text-warning-foreground rounded-lg text-sm font-medium">
                           <Clock className="w-4 h-4" />
                           <span>가입 신청 대기 중</span>
                         </div>
@@ -517,7 +517,7 @@ const ProjectSelector: React.FC<ProjectSelectorProps> = ({
                             e.stopPropagation();
                             handleJoinRequest(project.projectId);
                           }}
-                          className="flex items-center justify-center space-x-2 w-full py-3 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors text-sm font-medium"
+                          className="flex items-center justify-center space-x-2 w-full py-3 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors text-sm font-medium"
                         >
                           <UserPlus className="w-4 h-4" />
                           <span>프로젝트 참여 신청</span>
@@ -528,7 +528,7 @@ const ProjectSelector: React.FC<ProjectSelectorProps> = ({
                     {userInProject && (
                       <button
                         onClick={() => onProjectSelect(project)}
-                        className="flex items-center justify-center space-x-2 w-full py-3 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors text-sm font-medium group-hover:shadow-md"
+                        className="flex items-center justify-center space-x-2 w-full py-3 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors text-sm font-medium group-hover:shadow-md"
                       >
                         <FolderOpen className="w-4 h-4" />
                         <span>{activeTab === 'my' ? '프로젝트로 이동' : '프로젝트 열기'}</span>
@@ -543,16 +543,16 @@ const ProjectSelector: React.FC<ProjectSelectorProps> = ({
 
         {(activeTab === 'my' ? filteredMyProjects : filteredPublicProjects).length === 0 && (
           <div className="text-center py-12">
-            <FolderOpen className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+            <FolderOpen className="w-16 h-16 text-muted-foreground/50 mx-auto mb-4" />
             {activeTab === 'my' ? (
               <>
-                <h3 className="text-lg font-medium text-gray-900 mb-2">내 프로젝트가 없습니다</h3>
-                <p className="text-gray-500 mb-6">첫 번째 프로젝트를 생성하거나 다른 프로젝트에 참여해보세요</p>
+                <h3 className="text-lg font-medium text-foreground mb-2">내 프로젝트가 없습니다</h3>
+                <p className="text-muted-foreground mb-6">첫 번째 프로젝트를 생성하거나 다른 프로젝트에 참여해보세요</p>
                 
                 <div className="flex flex-col sm:flex-row gap-3 justify-center items-center">
             <button
               onClick={() => setShowCreateForm(true)}
-                    className="inline-flex items-center space-x-2 px-6 py-3 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
+                    className="inline-flex items-center space-x-2 px-6 py-3 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
                   >
                     <Plus className="w-4 h-4" />
                     <span>새 프로젝트 생성</span>
@@ -560,7 +560,7 @@ const ProjectSelector: React.FC<ProjectSelectorProps> = ({
                   
                   <button
                     onClick={() => setActiveTab('public')}
-                    className="inline-flex items-center space-x-2 px-6 py-3 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+                    className="inline-flex items-center space-x-2 px-6 py-3 bg-secondary text-secondary-foreground rounded-lg hover:bg-secondary/80 transition-colors"
                   >
                     <Search className="w-4 h-4" />
                     <span>공개 프로젝트 찾기</span>
@@ -569,10 +569,10 @@ const ProjectSelector: React.FC<ProjectSelectorProps> = ({
               </>
             ) : (
               <>
-                <h3 className="text-lg font-medium text-gray-900 mb-2">
+                <h3 className="text-lg font-medium text-foreground mb-2">
                   {searchQuery ? '검색 결과가 없습니다' : '공개 프로젝트가 없습니다'}
                 </h3>
-                <p className="text-gray-500 mb-4">
+                <p className="text-muted-foreground mb-4">
                   {searchQuery 
                     ? '다른 검색어를 시도해보세요' 
                     : '아직 공개된 프로젝트가 없습니다. 새 프로젝트를 생성해보세요!'
@@ -585,7 +585,7 @@ const ProjectSelector: React.FC<ProjectSelectorProps> = ({
                       setActiveTab('my');
                       setShowCreateForm(true);
                     }}
-                    className="inline-flex items-center space-x-2 px-6 py-3 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
+                    className="inline-flex items-center space-x-2 px-6 py-3 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
             >
               <Plus className="w-4 h-4" />
                     <span>첫 번째 프로젝트 생성하기</span>

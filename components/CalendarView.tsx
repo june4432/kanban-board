@@ -96,7 +96,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ cards, onCardClick }) => {
   };
 
   return (
-    <div className="bg-white rounded-lg shadow p-6 h-full w-full flex flex-col">
+    <div className="bg-background rounded-lg shadow p-6 h-full w-full flex flex-col border border-border">
       <div className="flex-1 w-full" style={{ minHeight: '600px' }}>
         <Calendar
           localizer={localizer}
@@ -117,22 +117,22 @@ const CalendarView: React.FC<CalendarViewProps> = ({ cards, onCardClick }) => {
       
       {/* Legend */}
       <div className="mt-4 flex items-center space-x-4 text-sm">
-        <span className="text-gray-600">우선순위:</span>
+        <span className="text-muted-foreground">우선순위:</span>
         <div className="flex items-center space-x-1">
           <div className="w-3 h-3 bg-green-500 rounded"></div>
-          <span>낮음</span>
+          <span className="text-foreground">낮음</span>
         </div>
         <div className="flex items-center space-x-1">
           <div className="w-3 h-3 bg-yellow-500 rounded"></div>
-          <span>보통</span>
+          <span className="text-foreground">보통</span>
         </div>
         <div className="flex items-center space-x-1">
           <div className="w-3 h-3 bg-orange-500 rounded"></div>
-          <span>높음</span>
+          <span className="text-foreground">높음</span>
         </div>
         <div className="flex items-center space-x-1">
           <div className="w-3 h-3 bg-red-500 rounded"></div>
-          <span>긴급</span>
+          <span className="text-foreground">긴급</span>
         </div>
       </div>
     </div>

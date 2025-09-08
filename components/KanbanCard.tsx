@@ -13,11 +13,11 @@ interface KanbanCardProps {
 const KanbanCard: React.FC<KanbanCardProps> = ({ card, users, onEdit, onDelete }) => {
   const getPriorityColor = (priority: string) => {
     switch (priority) {
-      case 'low': return 'bg-green-100 text-green-800 border-green-200';
-      case 'medium': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-      case 'high': return 'bg-orange-100 text-orange-800 border-orange-200';
-      case 'urgent': return 'bg-red-100 text-red-800 border-red-200';
-      default: return 'bg-gray-100 text-gray-800 border-gray-200';
+      case 'low': return 'bg-green-500/10 text-green-500 border-green-500/20 dark:bg-green-400/10 dark:text-green-400 dark:border-green-400/20';
+      case 'medium': return 'bg-yellow-500/10 text-yellow-600 border-yellow-500/20 dark:bg-yellow-400/10 dark:text-yellow-400 dark:border-yellow-400/20';
+      case 'high': return 'bg-orange-500/10 text-orange-600 border-orange-500/20 dark:bg-orange-400/10 dark:text-orange-400 dark:border-orange-400/20';
+      case 'urgent': return 'bg-red-500/10 text-red-600 border-red-500/20 dark:bg-red-400/10 dark:text-red-400 dark:border-red-400/20';
+      default: return 'bg-muted text-muted-foreground border-border';
     }
   };
 
@@ -37,10 +37,10 @@ const KanbanCard: React.FC<KanbanCardProps> = ({ card, users, onEdit, onDelete }
     new Date(card.dueDate) <= new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
 
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 hover:shadow-md transition-shadow cursor-pointer">
+    <div className="bg-card rounded-lg shadow-sm border border-border p-4 hover:shadow-md transition-shadow cursor-pointer">
       {/* Card Header */}
       <div className="flex items-start justify-between mb-3">
-        <h4 className="font-medium text-gray-900 line-clamp-2 flex-1 mr-2">
+        <h4 className="font-medium text-card-foreground line-clamp-2 flex-1 mr-2">
           {card.title}
         </h4>
         <div className="flex items-center space-x-1 flex-shrink-0">
@@ -49,7 +49,7 @@ const KanbanCard: React.FC<KanbanCardProps> = ({ card, users, onEdit, onDelete }
               e.stopPropagation();
               onEdit(card.id);
             }}
-            className="text-gray-400 hover:text-gray-600 p-1"
+            className="text-muted-foreground hover:text-foreground p-1"
           >
             <Edit className="w-3 h-3" />
           </button>
@@ -58,7 +58,7 @@ const KanbanCard: React.FC<KanbanCardProps> = ({ card, users, onEdit, onDelete }
               e.stopPropagation();
               onDelete(card.id);
             }}
-            className="text-gray-400 hover:text-red-600 p-1"
+            className="text-muted-foreground hover:text-destructive p-1"
           >
             <Trash2 className="w-3 h-3" />
           </button>
@@ -67,7 +67,7 @@ const KanbanCard: React.FC<KanbanCardProps> = ({ card, users, onEdit, onDelete }
 
       {/* Description */}
       {card.description && (
-        <p className="text-sm text-gray-600 mb-3 line-clamp-3">
+        <p className="text-sm text-muted-foreground mb-3 line-clamp-3">
           {card.description}
         </p>
       )}
@@ -92,14 +92,14 @@ const KanbanCard: React.FC<KanbanCardProps> = ({ card, users, onEdit, onDelete }
         {/* Priority */}
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-2">
-            <Flag className="w-4 h-4 text-gray-400" />
+            <Flag className="w-4 h-4 text-muted-foreground" />
             <span className={`px-2 py-1 text-xs font-medium rounded-full border ${getPriorityColor(card.priority)}`}>
               {getPriorityLabel(card.priority)}
             </span>
           </div>
           {card.assignees && card.assignees.length > 0 && (
             <div className="flex items-center space-x-1">
-              <UserIcon className="w-3 h-3 text-gray-400" />
+              <UserIcon className="w-3 h-3 text-muted-foreground" />
               <div className="flex -space-x-1">
                 {card.assignees.slice(0, 3).map((userId, index) => {
                   const user = users.find(u => u.id === userId);
@@ -109,14 +109,14 @@ const KanbanCard: React.FC<KanbanCardProps> = ({ card, users, onEdit, onDelete }
                       key={userId}
                       src={user.avatar}
                       alt={user.name}
-                      className="w-6 h-6 rounded-full border-2 border-white"
+                      className="w-6 h-6 rounded-full border-2 border-card"
                       title={user.name}
                       style={{ zIndex: 10 - index }}
                     />
                   );
                 })}
                 {card.assignees.length > 3 && (
-                  <div className="w-6 h-6 rounded-full border-2 border-white bg-gray-100 flex items-center justify-center text-xs font-medium text-gray-600">
+                  <div className="w-6 h-6 rounded-full border-2 border-card bg-muted flex items-center justify-center text-xs font-medium text-muted-foreground">
                     +{card.assignees.length - 3}
                   </div>
                 )}
@@ -128,13 +128,13 @@ const KanbanCard: React.FC<KanbanCardProps> = ({ card, users, onEdit, onDelete }
         {/* Due Date */}
         {card.dueDate && (
           <div className="flex items-center space-x-2">
-            <Calendar className="w-4 h-4 text-gray-400" />
+            <Calendar className="w-4 h-4 text-muted-foreground" />
             <span className={`text-xs ${
               isOverdue 
-                ? 'text-red-600 font-medium' 
+                ? 'text-destructive font-medium' 
                 : isDueSoon 
-                ? 'text-yellow-600 font-medium' 
-                : 'text-gray-600'
+                ? 'text-warning font-medium' 
+                : 'text-muted-foreground'
             }`}>
               {format(new Date(card.dueDate), 'MM/dd')}
               {isOverdue && ' (지연)'}
@@ -146,8 +146,8 @@ const KanbanCard: React.FC<KanbanCardProps> = ({ card, users, onEdit, onDelete }
         {/* Milestone */}
         {card.milestone && (
           <div className="flex items-center space-x-2">
-            <Target className="w-4 h-4 text-gray-400" />
-            <span className="text-xs text-gray-600">{card.milestone.name}</span>
+            <Target className="w-4 h-4 text-muted-foreground" />
+            <span className="text-xs text-muted-foreground">{card.milestone.name}</span>
           </div>
         )}
       </div>

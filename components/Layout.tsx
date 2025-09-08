@@ -3,6 +3,7 @@ import { ViewMode, Project } from '@/types';
 import { LayoutGrid, Calendar, BarChart3, BookOpen, Filter, Search, Plus, LogOut, User, FolderOpen, Settings, ChevronDown, ChevronUp } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import AuthModal from '@/components/AuthModal';
+import { ThemeToggleDropdown } from '@/components/ThemeToggle';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -58,13 +59,16 @@ const Layout: React.FC<LayoutProps> = ({
 
   if (!user) {
     return (
-      <div className="h-screen bg-gray-50 flex items-center justify-center">
+      <div className="h-screen bg-background flex items-center justify-center">
         <div className="text-center">
-          <h1 className="text-3xl font-bold text-gray-900 mb-4">프로젝트 관리 보드</h1>
-          <p className="text-gray-600 mb-6">로그인이 필요합니다.</p>
+          <div className="absolute top-4 right-4">
+            <ThemeToggleDropdown />
+          </div>
+          <h1 className="text-3xl font-bold text-foreground mb-4">프로젝트 관리 보드</h1>
+          <p className="text-muted-foreground mb-6">로그인이 필요합니다.</p>
           <button
             onClick={() => setShowAuthModal(true)}
-            className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors"
+            className="bg-primary text-primary-foreground px-6 py-3 rounded-lg hover:bg-primary/90 transition-colors"
           >
             로그인 / 회원가입
           </button>
@@ -77,18 +81,18 @@ const Layout: React.FC<LayoutProps> = ({
     );
   }
   return (
-    <div className="h-screen bg-gray-50 flex flex-col">
+    <div className="h-screen bg-background flex flex-col">
       {/* Header */}
-      <header className="bg-white shadow-sm border-b flex-shrink-0">
+      <header className="bg-card shadow-sm border-b border-border flex-shrink-0">
         <div className="w-full px-2 sm:px-4 lg:px-6">
           <div className="flex justify-between items-center h-14">
             <div className="flex items-center space-x-4">
-              <h1 className="text-2xl font-bold text-gray-900">프로젝트 관리 보드</h1>
+              <h1 className="text-2xl font-bold text-card-foreground">프로젝트 관리 보드</h1>
               {currentProject && (
                 <div className="relative" ref={dropdownRef}>
                   <button
                     onClick={() => setShowProjectDropdown(!showProjectDropdown)}
-                    className="flex items-center space-x-2 px-3 py-1 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors cursor-pointer"
+                    className="flex items-center space-x-2 px-3 py-1 bg-muted rounded-lg hover:bg-muted/80 transition-colors cursor-pointer"
                     title="프로젝트 선택"
                   >
                     <div 
@@ -100,18 +104,18 @@ const Layout: React.FC<LayoutProps> = ({
                         style={{ color: currentProject.color }}
                       />
                     </div>
-                    <span className="text-sm font-medium text-gray-700">{currentProject.name}</span>
+                    <span className="text-sm font-medium text-card-foreground">{currentProject.name}</span>
                     {showProjectDropdown ? (
-                      <ChevronUp className="w-4 h-4 text-gray-500" />
+                      <ChevronUp className="w-4 h-4 text-muted-foreground" />
                     ) : (
-                      <ChevronDown className="w-4 h-4 text-gray-500" />
+                      <ChevronDown className="w-4 h-4 text-muted-foreground" />
                     )}
                   </button>
 
                   {/* 프로젝트 드롭다운 메뉴 */}
                   {showProjectDropdown && (
-                    <div className="absolute top-full left-0 mt-1 w-64 bg-white rounded-lg shadow-lg border py-2 z-50">
-                      <div className="px-3 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                    <div className="absolute top-full left-0 mt-1 w-64 bg-popover border border-border rounded-lg shadow-lg py-2 z-50">
+                      <div className="px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                         내 프로젝트
                       </div>
                       <div className="max-h-64 overflow-y-auto">
@@ -124,8 +128,8 @@ const Layout: React.FC<LayoutProps> = ({
                               }
                               setShowProjectDropdown(false);
                             }}
-                            className={`w-full flex items-center space-x-3 px-3 py-2 text-left hover:bg-gray-50 transition-colors ${
-                              project.projectId === currentProject.projectId ? 'bg-blue-50' : ''
+                            className={`w-full flex items-center space-x-3 px-3 py-2 text-left hover:bg-accent hover:text-accent-foreground transition-colors ${
+                              project.projectId === currentProject.projectId ? 'bg-accent text-accent-foreground' : 'text-popover-foreground'
                             }`}
                           >
                             <div 
@@ -138,9 +142,9 @@ const Layout: React.FC<LayoutProps> = ({
                               />
                             </div>
                             <div className="flex-1 min-w-0">
-                              <div className="text-sm font-medium text-gray-900 truncate">{project.name}</div>
+                              <div className="text-sm font-medium truncate">{project.name}</div>
                               {project.description && (
-                                <div className="text-xs text-gray-500 truncate">{project.description}</div>
+                                <div className="text-xs text-muted-foreground truncate">{project.description}</div>
                               )}
                             </div>
                             {project.projectId === currentProject.projectId && (
@@ -157,10 +161,10 @@ const Layout: React.FC<LayoutProps> = ({
                             }
                             setShowProjectDropdown(false);
                           }}
-                          className="w-full flex items-center space-x-3 px-3 py-2 text-left hover:bg-gray-50 transition-colors"
+                          className="w-full flex items-center space-x-3 px-3 py-2 text-left hover:bg-accent hover:text-accent-foreground transition-colors"
                         >
-                          <Settings className="w-4 h-4 text-gray-500" />
-                          <span className="text-sm text-gray-700">프로젝트 관리</span>
+                          <Settings className="w-4 h-4 text-muted-foreground" />
+                          <span className="text-sm text-popover-foreground">프로젝트 관리</span>
                         </button>
                       </div>
                     </div>
@@ -171,13 +175,13 @@ const Layout: React.FC<LayoutProps> = ({
             
             <div className="flex items-center space-x-4">
               {/* View Mode Toggle */}
-              <div className="flex items-center bg-gray-100 rounded-lg p-1">
+              <div className="flex items-center bg-muted rounded-lg p-1">
                 <button
                   onClick={() => onViewModeChange('kanban')}
                   className={`flex items-center px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
                     viewMode === 'kanban'
-                      ? 'bg-white text-gray-900 shadow-sm'
-                      : 'text-gray-600 hover:text-gray-900'
+                      ? 'bg-background text-foreground shadow-sm'
+                      : 'text-muted-foreground hover:text-foreground'
                   }`}
                 >
                   <LayoutGrid className="w-4 h-4 mr-1.5" />
@@ -187,8 +191,8 @@ const Layout: React.FC<LayoutProps> = ({
                   onClick={() => onViewModeChange('calendar')}
                   className={`flex items-center px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
                     viewMode === 'calendar'
-                      ? 'bg-white text-gray-900 shadow-sm'
-                      : 'text-gray-600 hover:text-gray-900'
+                      ? 'bg-background text-foreground shadow-sm'
+                      : 'text-muted-foreground hover:text-foreground'
                   }`}
                 >
                   <Calendar className="w-4 h-4 mr-1.5" />
@@ -198,8 +202,8 @@ const Layout: React.FC<LayoutProps> = ({
                   onClick={() => onViewModeChange('gantt')}
                   className={`flex items-center px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
                     viewMode === 'gantt'
-                      ? 'bg-white text-gray-900 shadow-sm'
-                      : 'text-gray-600 hover:text-gray-900'
+                      ? 'bg-background text-foreground shadow-sm'
+                      : 'text-muted-foreground hover:text-foreground'
                   }`}
                 >
                   <BarChart3 className="w-4 h-4 mr-1.5" />
@@ -209,8 +213,8 @@ const Layout: React.FC<LayoutProps> = ({
                   onClick={() => onViewModeChange('manual')}
                   className={`flex items-center px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
                     viewMode === 'manual'
-                      ? 'bg-white text-gray-900 shadow-sm'
-                      : 'text-gray-600 hover:text-gray-900'
+                      ? 'bg-background text-foreground shadow-sm'
+                      : 'text-muted-foreground hover:text-foreground'
                   }`}
                 >
                   <BookOpen className="w-4 h-4 mr-1.5" />
@@ -221,7 +225,7 @@ const Layout: React.FC<LayoutProps> = ({
               {/* Actions */}
               <button
                 onClick={onFilterToggle}
-                className="flex items-center px-3 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-colors"
+                className="flex items-center px-3 py-2 text-muted-foreground hover:text-foreground hover:bg-accent rounded-md transition-colors"
               >
                 <Filter className="w-4 h-4 mr-1.5" />
                 필터
@@ -229,7 +233,7 @@ const Layout: React.FC<LayoutProps> = ({
 
               <button
                 onClick={onAddCard}
-                className="flex items-center px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700 transition-colors"
+                className="flex items-center px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
               >
                 <Plus className="w-4 h-4 mr-1.5" />
                 카드 추가
@@ -239,13 +243,16 @@ const Layout: React.FC<LayoutProps> = ({
               {currentProject && onProjectSettings && (
                 <button
                   onClick={onProjectSettings}
-                  className="flex items-center px-3 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-colors"
+                  className="flex items-center px-3 py-2 text-muted-foreground hover:text-foreground hover:bg-accent rounded-md transition-colors"
                   title="프로젝트 설정"
                 >
                   <Settings className="w-4 h-4 mr-1.5" />
                   설정
                 </button>
               )}
+
+              {/* 테마 토글 */}
+              <ThemeToggleDropdown />
 
               {/* User Menu */}
               <div className="flex items-center space-x-3 border-l pl-4">
@@ -255,14 +262,14 @@ const Layout: React.FC<LayoutProps> = ({
                   className="w-8 h-8 rounded-full"
                 />
                 <div className="flex flex-col">
-                  <span className="text-sm font-medium text-gray-900">{user.name}</span>
+                  <span className="text-sm font-medium text-card-foreground">{user.name}</span>
                   {user.role === 'admin' && (
-                    <span className="text-xs text-blue-600 font-medium">관리자</span>
+                    <span className="text-xs text-primary font-medium">관리자</span>
                   )}
                 </div>
                 <button
                   onClick={logout}
-                  className="flex items-center px-2 py-1 text-gray-400 hover:text-gray-600 rounded-md transition-colors"
+                  className="flex items-center px-2 py-1 text-muted-foreground hover:text-foreground rounded-md transition-colors"
                   title="로그아웃"
                 >
                   <LogOut className="w-4 h-4" />

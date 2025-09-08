@@ -183,26 +183,26 @@ const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl mx-4 max-h-[90vh] overflow-hidden">
+      <div className="bg-card border border-border rounded-xl shadow-xl w-full max-w-2xl mx-4 max-h-[90vh] overflow-hidden">
         {/* 헤더 */}
-        <div className="flex items-center justify-between p-6 border-b">
-          <h2 className="text-xl font-semibold text-gray-900">프로젝트 설정</h2>
+        <div className="flex items-center justify-between p-6 border-b border-border">
+          <h2 className="text-xl font-semibold text-card-foreground">프로젝트 설정</h2>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
+            className="text-muted-foreground hover:text-foreground transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* 탭 네비게이션 */}
-        <div className="flex border-b">
+        <div className="flex border-b border-border">
           <button
             onClick={() => setActiveTab('general')}
             className={`px-6 py-3 font-medium text-sm border-b-2 transition-colors ${
               activeTab === 'general'
-                ? 'border-blue-500 text-blue-600 bg-blue-50'
-                : 'border-transparent text-gray-500 hover:text-gray-700'
+                ? 'border-primary text-primary bg-accent'
+                : 'border-transparent text-muted-foreground hover:text-foreground'
             }`}
           >
             <Settings className="w-4 h-4 inline mr-2" />
@@ -212,8 +212,8 @@ const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
             onClick={() => setActiveTab('members')}
             className={`px-6 py-3 font-medium text-sm border-b-2 transition-colors ${
               activeTab === 'members'
-                ? 'border-blue-500 text-blue-600 bg-blue-50'
-                : 'border-transparent text-gray-500 hover:text-gray-700'
+                ? 'border-primary text-primary bg-accent'
+                : 'border-transparent text-muted-foreground hover:text-foreground'
             }`}
           >
             <Users className="w-4 h-4 inline mr-2" />
@@ -224,8 +224,8 @@ const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
               onClick={() => setActiveTab('requests')}
               className={`px-6 py-3 font-medium text-sm border-b-2 transition-colors ${
                 activeTab === 'requests'
-                  ? 'border-blue-500 text-blue-600 bg-blue-50'
-                  : 'border-transparent text-gray-500 hover:text-gray-700'
+                  ? 'border-primary text-primary bg-accent'
+                  : 'border-transparent text-muted-foreground hover:text-foreground'
               }`}
             >
               <UserPlus className="w-4 h-4 inline mr-2" />
@@ -239,15 +239,15 @@ const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
           {activeTab === 'general' && (
             <div className="p-6 space-y-6">
               {/* 권한 표시 */}
-              <div className="bg-gray-50 rounded-lg p-4">
+              <div className="bg-muted rounded-lg p-4">
                 <div className="flex items-center space-x-2">
-                  <Users className="w-4 h-4 text-gray-500" />
-                  <span className="text-sm font-medium text-gray-700">
+                  <Users className="w-4 h-4 text-muted-foreground" />
+                  <span className="text-sm font-medium text-foreground">
                     {isOwner ? '프로젝트 소유자' : isMember ? '프로젝트 멤버' : '권한 없음'}
                   </span>
                 </div>
                 {!isOwner && (
-                  <p className="text-xs text-gray-500 mt-1">
+                  <p className="text-xs text-muted-foreground mt-1">
                     일부 설정은 프로젝트 소유자만 변경할 수 있습니다.
                   </p>
                 )}
@@ -255,7 +255,7 @@ const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
 
               {/* 프로젝트 이름 */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-card-foreground mb-2">
                   프로젝트 이름
                 </label>
                 <input
@@ -263,21 +263,21 @@ const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
                   value={settings.name}
                   onChange={(e) => setSettings(prev => ({ ...prev, name: e.target.value }))}
                   disabled={!isOwner}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                  className="w-full px-3 py-2 bg-input border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring disabled:bg-muted disabled:cursor-not-allowed text-foreground placeholder:text-muted-foreground"
                   placeholder="프로젝트 이름을 입력하세요"
                 />
               </div>
 
               {/* 프로젝트 설명 */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-card-foreground mb-2">
                   설명
                 </label>
                 <textarea
                   value={settings.description}
                   onChange={(e) => setSettings(prev => ({ ...prev, description: e.target.value }))}
                   disabled={!isOwner && !isMember}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                  className="w-full px-3 py-2 bg-input border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring disabled:bg-muted disabled:cursor-not-allowed text-foreground placeholder:text-muted-foreground"
                   rows={3}
                   placeholder="프로젝트 설명을 입력하세요"
                 />
@@ -286,7 +286,7 @@ const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
               {/* 색상 (소유자만) */}
               {isOwner && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-card-foreground mb-2">
                     프로젝트 색상
                   </label>
                   <div className="flex items-center space-x-2">
@@ -294,9 +294,9 @@ const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
                       type="color"
                       value={settings.color}
                       onChange={(e) => setSettings(prev => ({ ...prev, color: e.target.value }))}
-                      className="w-10 h-10 rounded border border-gray-300 cursor-pointer"
+                      className="w-10 h-10 rounded border border-border cursor-pointer"
                     />
-                    <span className="text-sm text-gray-600">{settings.color}</span>
+                    <span className="text-sm text-muted-foreground">{settings.color}</span>
                   </div>
                 </div>
               )}
@@ -304,7 +304,7 @@ const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
               {/* 공개 설정 (소유자만) */}
               {isOwner && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-3">
+                  <label className="block text-sm font-medium text-card-foreground mb-3">
                     프로젝트 공개 설정
                   </label>
                   <div className="space-y-3">
@@ -314,12 +314,12 @@ const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
                         name="visibility"
                         checked={!settings.isPublic}
                         onChange={() => setSettings(prev => ({ ...prev, isPublic: false }))}
-                        className="text-blue-600"
+                        className="text-primary focus:ring-primary border-border"
                       />
-                      <Lock className="w-4 h-4 text-gray-500" />
+                      <Lock className="w-4 h-4 text-muted-foreground" />
                       <div>
-                        <div className="text-sm font-medium text-gray-900">비공개</div>
-                        <div className="text-xs text-gray-500">초대된 멤버만 접근 가능</div>
+                        <div className="text-sm font-medium text-card-foreground">비공개</div>
+                        <div className="text-xs text-muted-foreground">초대된 멤버만 접근 가능</div>
                       </div>
                     </label>
                     <label className="flex items-center space-x-3 cursor-pointer">
@@ -328,12 +328,12 @@ const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
                         name="visibility"
                         checked={settings.isPublic}
                         onChange={() => setSettings(prev => ({ ...prev, isPublic: true }))}
-                        className="text-blue-600"
+                        className="text-primary focus:ring-primary border-border"
                       />
-                      <Globe className="w-4 h-4 text-gray-500" />
+                      <Globe className="w-4 h-4 text-muted-foreground" />
                       <div>
-                        <div className="text-sm font-medium text-gray-900">공개</div>
-                        <div className="text-xs text-gray-500">누구나 찾아서 참여 신청 가능</div>
+                        <div className="text-sm font-medium text-card-foreground">공개</div>
+                        <div className="text-xs text-muted-foreground">누구나 찾아서 참여 신청 가능</div>
                       </div>
                     </label>
                   </div>
@@ -347,13 +347,13 @@ const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
             <div className="p-6">
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-medium text-gray-900">프로젝트 멤버</h3>
-                  <span className="text-sm text-gray-500">{project.members?.length || 0}명</span>
+                  <h3 className="text-lg font-medium text-card-foreground">프로젝트 멤버</h3>
+                  <span className="text-sm text-muted-foreground">{project.members?.length || 0}명</span>
                 </div>
 
                 <div className="space-y-3">
                   {project.members?.map((member) => (
-                    <div key={member.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <div key={member.id} className="flex items-center justify-between p-3 bg-muted rounded-lg">
                       <div className="flex items-center space-x-3">
                         <img
                           src={member.avatar || '/default-avatar.png'}
@@ -362,14 +362,14 @@ const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
                         />
                         <div>
                           <div className="flex items-center space-x-2">
-                            <span className="font-medium text-gray-900">{member.name}</span>
+                            <span className="font-medium text-card-foreground">{member.name}</span>
                             {member.id === project.ownerId && (
-                              <span className="px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded-full">
+                              <span className="px-2 py-1 text-xs bg-primary/10 text-primary rounded-full">
                                 소유자
                               </span>
                             )}
                           </div>
-                          <span className="text-sm text-gray-500">{member.email}</span>
+                          <span className="text-sm text-muted-foreground">{member.email}</span>
                         </div>
                       </div>
                       
@@ -380,7 +380,7 @@ const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
                               removeMember(member.id);
                             }
                           }}
-                          className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                          className="p-2 text-destructive hover:bg-destructive/10 rounded-lg transition-colors"
                           title="멤버 제거"
                         >
                           <UserX className="w-4 h-4" />
@@ -390,7 +390,7 @@ const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
                   ))}
 
                   {(!project.members || project.members.length === 0) && (
-                    <div className="text-center py-8 text-gray-500">
+                    <div className="text-center py-8 text-muted-foreground">
                       프로젝트 멤버가 없습니다.
                     </div>
                   )}
@@ -404,13 +404,13 @@ const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
             <div className="p-6">
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-medium text-gray-900">가입 신청</h3>
-                  <span className="text-sm text-gray-500">{pendingRequests.length}건</span>
+                  <h3 className="text-lg font-medium text-card-foreground">가입 신청</h3>
+                  <span className="text-sm text-muted-foreground">{pendingRequests.length}건</span>
                 </div>
 
                 <div className="space-y-3">
                   {pendingRequests.map((request) => (
-                    <div key={request.id} className="p-4 border border-gray-200 rounded-lg">
+                    <div key={request.id} className="p-4 border border-border rounded-lg">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center space-x-3">
                           <img
@@ -420,12 +420,12 @@ const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
                           />
                           <div>
                             <div className="flex items-center space-x-2">
-                              <span className="font-medium text-gray-900">{request.user.name}</span>
-                              <Clock className="w-4 h-4 text-gray-400" />
+                              <span className="font-medium text-card-foreground">{request.user.name}</span>
+                              <Clock className="w-4 h-4 text-muted-foreground" />
                             </div>
-                            <span className="text-sm text-gray-500">{request.user.email}</span>
+                            <span className="text-sm text-muted-foreground">{request.user.email}</span>
                             {request.message && (
-                              <p className="text-sm text-gray-600 mt-1">{request.message}</p>
+                              <p className="text-sm text-card-foreground mt-1">{request.message}</p>
                             )}
                           </div>
                         </div>
@@ -433,14 +433,14 @@ const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
                         <div className="flex items-center space-x-2">
                           <button
                             onClick={() => handleJoinRequestResponse(request.id, 'approve')}
-                            className="flex items-center px-3 py-1 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-colors"
+                            className="flex items-center px-3 py-1 bg-success/10 text-success-foreground rounded-lg hover:bg-success/20 transition-colors"
                           >
                             <UserCheck className="w-4 h-4 mr-1" />
                             승인
                           </button>
                           <button
                             onClick={() => handleJoinRequestResponse(request.id, 'reject')}
-                            className="flex items-center px-3 py-1 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors"
+                            className="flex items-center px-3 py-1 bg-destructive/10 text-destructive-foreground rounded-lg hover:bg-destructive/20 transition-colors"
                           >
                             <UserX className="w-4 h-4 mr-1" />
                             거부
@@ -451,7 +451,7 @@ const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
                   ))}
 
                   {pendingRequests.length === 0 && (
-                    <div className="text-center py-8 text-gray-500">
+                    <div className="text-center py-8 text-muted-foreground">
                       대기 중인 가입 신청이 없습니다.
                     </div>
                   )}
@@ -462,10 +462,10 @@ const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
         </div>
 
         {/* 푸터 */}
-        <div className="flex items-center justify-end space-x-3 p-6 border-t bg-gray-50 rounded-b-xl">
+        <div className="flex items-center justify-end space-x-3 p-6 border-t border-border bg-muted rounded-b-xl">
           <button
             onClick={onClose}
-            className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
+            className="px-4 py-2 text-muted-foreground hover:text-foreground transition-colors"
           >
             {activeTab === 'general' ? '취소' : '닫기'}
           </button>
@@ -473,10 +473,10 @@ const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
             <button
               onClick={handleSave}
               disabled={loading || (!isOwner && !isMember)}
-              className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="flex items-center px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               {loading && (
-                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+                <div className="w-4 h-4 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin mr-2"></div>
               )}
               <Save className="w-4 h-4 mr-1.5" />
               저장

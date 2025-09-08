@@ -74,21 +74,21 @@ const FilterPanel: React.FC<FilterPanelProps> = ({
   return (
     <div className="fixed inset-0 z-50 overflow-hidden">
       <div className="absolute inset-0 bg-black bg-opacity-50" onClick={onClose} />
-      <div className="absolute right-0 top-0 h-full w-96 bg-white shadow-xl">
+      <div className="absolute right-0 top-0 h-full w-96 bg-background shadow-xl">
         <div className="flex flex-col h-full">
           {/* Header */}
-          <div className="flex items-center justify-between p-6 border-b">
-            <h2 className="text-lg font-semibold text-gray-900">필터</h2>
+          <div className="flex items-center justify-between p-6 border-b border-border">
+            <h2 className="text-lg font-semibold text-foreground">필터</h2>
             <div className="flex items-center space-x-2">
               <button
                 onClick={clearAllFilters}
-                className="text-sm text-gray-500 hover:text-gray-700"
+                className="text-sm text-muted-foreground hover:text-foreground"
               >
                 모두 지우기
               </button>
               <button
                 onClick={onClose}
-                className="text-gray-400 hover:text-gray-600"
+                className="text-muted-foreground hover:text-foreground"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -99,7 +99,7 @@ const FilterPanel: React.FC<FilterPanelProps> = ({
           <div className="flex-1 overflow-y-auto p-6 space-y-6">
             {/* Search */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-foreground mb-2">
                 <Search className="w-4 h-4 inline mr-1" />
                 텍스트 검색
               </label>
@@ -108,13 +108,13 @@ const FilterPanel: React.FC<FilterPanelProps> = ({
                 value={filter.searchText}
                 onChange={(e) => handleSearchChange(e.target.value)}
                 placeholder="제목 또는 설명 검색..."
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent bg-input text-foreground"
               />
             </div>
 
             {/* Date Range */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-foreground mb-2">
                 <Calendar className="w-4 h-4 inline mr-1" />
                 기한 범위
               </label>
@@ -123,14 +123,14 @@ const FilterPanel: React.FC<FilterPanelProps> = ({
                   type="date"
                   value={filter.dateRange.start ? filter.dateRange.start.toISOString().split('T')[0] : ''}
                   onChange={(e) => handleDateRangeChange('start', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent bg-input text-foreground"
                   placeholder="시작일"
                 />
                 <input
                   type="date"
                   value={filter.dateRange.end ? filter.dateRange.end.toISOString().split('T')[0] : ''}
                   onChange={(e) => handleDateRangeChange('end', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent bg-input text-foreground"
                   placeholder="종료일"
                 />
               </div>
@@ -138,7 +138,7 @@ const FilterPanel: React.FC<FilterPanelProps> = ({
 
             {/* Assignees */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-foreground mb-2">
                 <Users className="w-4 h-4 inline mr-1" />
                 담당자
               </label>
@@ -149,7 +149,7 @@ const FilterPanel: React.FC<FilterPanelProps> = ({
                       type="checkbox"
                       checked={filter.selectedAssignees.includes(user.id)}
                       onChange={() => handleAssigneeToggle(user.id)}
-                      className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                      className="h-4 w-4 text-primary focus:ring-primary border-border rounded"
                     />
                     <div className="ml-3 flex items-center">
                       <img
@@ -157,7 +157,7 @@ const FilterPanel: React.FC<FilterPanelProps> = ({
                         alt={user.name}
                         className="w-6 h-6 rounded-full"
                       />
-                      <span className="ml-2 text-sm text-gray-700">{user.name}</span>
+                      <span className="ml-2 text-sm text-foreground">{user.name}</span>
                     </div>
                   </label>
                 ))}
@@ -166,7 +166,7 @@ const FilterPanel: React.FC<FilterPanelProps> = ({
 
             {/* Priority */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-foreground mb-2">
                 <AlertCircle className="w-4 h-4 inline mr-1" />
                 우선순위
               </label>
@@ -177,7 +177,7 @@ const FilterPanel: React.FC<FilterPanelProps> = ({
                       type="checkbox"
                       checked={filter.priorities.includes(priority.value)}
                       onChange={() => handlePriorityToggle(priority.value)}
-                      className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                      className="h-4 w-4 text-primary focus:ring-primary border-border rounded"
                     />
                     <span className={`ml-3 px-2 py-1 rounded-full text-xs font-medium priority-${priority.color}`}>
                       {priority.label}
@@ -189,7 +189,7 @@ const FilterPanel: React.FC<FilterPanelProps> = ({
 
             {/* Labels */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-foreground mb-2">
                 <Tag className="w-4 h-4 inline mr-1" />
                 라벨
               </label>
@@ -200,7 +200,7 @@ const FilterPanel: React.FC<FilterPanelProps> = ({
                       type="checkbox"
                       checked={filter.selectedLabels.includes(label.id)}
                       onChange={() => handleLabelToggle(label.id)}
-                      className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                      className="h-4 w-4 text-primary focus:ring-primary border-border rounded"
                     />
                     <span
                       className="ml-3 px-2 py-1 rounded-full text-xs font-medium text-white"

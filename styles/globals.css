@@ -2,6 +2,85 @@
 @tailwind components;
 @tailwind utilities;
 
+/* CSS 변수 기반 색상 팔레트 */
+:root {
+  /* Light theme colors */
+  --color-background: 249 250 251;        /* bg-gray-50 */
+  --color-foreground: 17 24 39;           /* text-gray-900 */
+  --color-muted: 243 244 246;             /* bg-gray-100 */
+  --color-muted-foreground: 107 114 128;   /* text-gray-500 */
+  --color-border: 229 231 235;            /* border-gray-200 */
+  --color-input: 255 255 255;             /* bg-white */
+  --color-ring: 59 130 246;               /* ring-blue-500 */
+  
+  /* 카드와 표면 */
+  --color-card: 255 255 255;              /* bg-white */
+  --color-card-foreground: 17 24 39;      /* text-gray-900 */
+  --color-popover: 255 255 255;           /* bg-white */
+  --color-popover-foreground: 17 24 39;   /* text-gray-900 */
+  
+  /* Primary 브랜드 색상 */
+  --color-primary: 59 130 246;            /* bg-blue-500 */
+  --color-primary-600: 37 99 235;         /* bg-blue-600 */
+  --color-primary-700: 29 78 216;         /* bg-blue-700 */
+  --color-primary-foreground: 255 255 255; /* text-white */
+  
+  /* Secondary 색상 */
+  --color-secondary: 243 244 246;         /* bg-gray-100 */
+  --color-secondary-foreground: 17 24 39; /* text-gray-900 */
+  
+  /* 상태 색상 */
+  --color-destructive: 239 68 68;         /* bg-red-500 */
+  --color-destructive-foreground: 255 255 255; /* text-white */
+  --color-warning: 245 158 11;            /* bg-amber-500 */
+  --color-warning-foreground: 255 255 255; /* text-white */
+  --color-success: 34 197 94;             /* bg-green-500 */
+  --color-success-foreground: 255 255 255; /* text-white */
+  
+  /* 액센트 색상 */
+  --color-accent: 243 244 246;            /* bg-gray-100 */
+  --color-accent-foreground: 17 24 39;    /* text-gray-900 */
+}
+
+/* Dark theme colors */
+.dark {
+  --color-background: 3 7 18;             /* bg-slate-950 */
+  --color-foreground: 248 250 252;        /* text-slate-50 */
+  --color-muted: 15 23 42;                /* bg-slate-800 */
+  --color-muted-foreground: 148 163 184;  /* text-slate-400 */
+  --color-border: 30 41 59;               /* border-slate-700 */
+  --color-input: 30 41 59;                /* bg-slate-700 */
+  --color-ring: 59 130 246;               /* ring-blue-500 */
+  
+  /* 카드와 표면 */
+  --color-card: 15 23 42;                 /* bg-slate-800 */
+  --color-card-foreground: 248 250 252;   /* text-slate-50 */
+  --color-popover: 15 23 42;              /* bg-slate-800 */
+  --color-popover-foreground: 248 250 252; /* text-slate-50 */
+  
+  /* Primary 브랜드 색상 (다크모드에서도 유지) */
+  --color-primary: 59 130 246;            /* bg-blue-500 */
+  --color-primary-600: 37 99 235;         /* bg-blue-600 */
+  --color-primary-700: 29 78 216;         /* bg-blue-700 */
+  --color-primary-foreground: 255 255 255; /* text-white */
+  
+  /* Secondary 색상 */
+  --color-secondary: 30 41 59;            /* bg-slate-700 */
+  --color-secondary-foreground: 248 250 252; /* text-slate-50 */
+  
+  /* 상태 색상 */
+  --color-destructive: 239 68 68;         /* bg-red-500 */
+  --color-destructive-foreground: 255 255 255; /* text-white */
+  --color-warning: 245 158 11;            /* bg-amber-500 */
+  --color-warning-foreground: 17 24 39;   /* text-gray-900 */
+  --color-success: 34 197 94;             /* bg-green-500 */
+  --color-success-foreground: 255 255 255; /* text-white */
+  
+  /* 액센트 색상 */
+  --color-accent: 30 41 59;               /* bg-slate-700 */
+  --color-accent-foreground: 248 250 252; /* text-slate-50 */
+}
+
 html,
 body {
   padding: 0;
@@ -20,17 +99,17 @@ body {
 }
 
 ::-webkit-scrollbar-track {
-  background: #f1f1f1;
+  background: rgb(var(--color-muted));
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #c1c1c1;
+  background: rgb(var(--color-muted-foreground) / 0.5);
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #a8a8a8;
+  background: rgb(var(--color-muted-foreground) / 0.7);
 }
 
 /* Animation for card drag */
@@ -55,19 +134,52 @@ body {
 
 /* Priority colors */
 .priority-green {
-  @apply bg-green-100 text-green-800 border-green-200;
+  background-color: rgb(var(--color-success) / 0.1);
+  color: rgb(var(--color-success-foreground));
+  border-color: rgb(var(--color-success) / 0.2);
 }
 
 .priority-yellow {
-  @apply bg-yellow-100 text-yellow-800 border-yellow-200;
+  background-color: rgb(var(--color-warning) / 0.1);
+  color: rgb(var(--color-warning-foreground));
+  border-color: rgb(var(--color-warning) / 0.2);
 }
 
 .priority-orange {
-  @apply bg-orange-100 text-orange-800 border-orange-200;
+  background-color: rgb(245 158 11 / 0.1);
+  color: rgb(245 158 11);
+  border-color: rgb(245 158 11 / 0.2);
 }
 
 .priority-red {
-  @apply bg-red-100 text-red-800 border-red-200;
+  background-color: rgb(var(--color-destructive) / 0.1);
+  color: rgb(var(--color-destructive-foreground));
+  border-color: rgb(var(--color-destructive) / 0.2);
+}
+
+.dark .priority-green {
+  color: rgb(34 197 94);
+}
+
+.dark .priority-yellow {
+  color: rgb(245 158 11);
+}
+
+.dark .priority-orange {
+  color: rgb(251 146 60);
+}
+
+.dark .priority-red {
+  color: rgb(239 68 68);
+}
+
+/* Calendar 월별 날짜 셀 개선 */
+.rbc-date-cell:hover {
+  background-color: rgb(var(--color-accent) / 0.5);
+}
+
+.rbc-off-range:hover {
+  background-color: rgb(var(--color-muted) / 0.5) !important;
 }
 
 /* Line clamp utilities */
@@ -85,22 +197,33 @@ body {
   overflow: hidden;
 }
 
-/* Calendar styles */
+/* Calendar styles - 칸반과 동일한 모노톤 디자인 */
 .rbc-calendar {
-  @apply bg-white rounded-lg shadow w-full;
+  @apply rounded-lg w-full;
+  background-color: rgb(var(--color-background));
+  color: rgb(var(--color-foreground));
+  border: 1px solid rgb(var(--color-border));
   min-width: 800px;
+  overflow: hidden;
 }
 
 .rbc-header {
-  @apply bg-gray-50 font-semibold text-gray-700;
+  @apply font-semibold py-3 px-2 text-center;
+  background-color: rgb(var(--color-card));
+  color: rgb(var(--color-foreground));
+  border-bottom: 1px solid rgb(var(--color-border)) !important;
+  border-right: 1px solid rgb(var(--color-border)) !important;
+  font-size: 0.875rem;
 }
 
-.rbc-today {
-  @apply bg-blue-50;
+/* 마지막 헤더의 오른쪽 테두리 제거 */
+.rbc-header:last-child {
+  border-right: none !important;
 }
 
 .rbc-event {
   @apply rounded px-2 py-1;
+  font-size: 0.75rem;
 }
 
 .rbc-month-view,
@@ -109,21 +232,168 @@ body {
   @apply w-full;
 }
 
+/* 모든 행 - 아래쪽 테두리만 */
+.rbc-month-row {
+  border-bottom: 1px solid rgb(var(--color-border)) !important;
+  min-height: 120px; /* 카드 표시를 위해 높이 증가 */
+}
+
+/* 마지막 행의 아래쪽 테두리 제거 */
+.rbc-month-row:last-child {
+  border-bottom: none !important;
+}
+
+/* 전체 셀 배경 */
+.rbc-day-bg {
+  background-color: rgb(var(--color-card)) !important;
+  border-right: 1px solid rgb(var(--color-border)) !important;
+  border-bottom: none !important;
+  border-top: none !important;
+  border-left: none !important;
+}
+
+/* 날짜 셀 - 날짜 숫자만 표시 */
+.rbc-date-cell,
+.rbc-off-range {
+  position: relative;
+  background: transparent !important;
+  border: none !important;
+  padding: 8px;
+  width: auto;
+  height: auto;
+  z-index: 1;
+}
+
+/* 각 행의 마지막 배경 셀 - 오른쪽 테두리 제거 */
+.rbc-row .rbc-day-bg:last-child {
+  border-right: none !important;
+}
+
+/* 날짜 숫자 스타일 */
+.rbc-date-cell > a,
+.rbc-off-range > a {
+  color: rgb(var(--color-foreground));
+  font-weight: 500;
+  text-decoration: none;
+  font-size: 0.875rem;
+  display: block;
+  width: auto;
+  height: 20px;
+  line-height: 20px;
+}
+
+/* 이전달/다음달 날짜 - 텍스트만 연하게 */
+.rbc-off-range > a {
+  color: rgb(var(--color-muted-foreground)) !important;
+  font-weight: 400;
+}
+
+/* 오늘 날짜 - 텍스트만 강조 */
+.rbc-today > a {
+  color: rgb(var(--color-primary));
+  font-weight: 700;
+  background-color: rgb(var(--color-primary) / 0.1);
+  padding: 4px 8px;
+  border-radius: 50%;
+  min-width: 24px;
+  text-align: center;
+}
+
+/* 전체 행에서 카드 영역 설정 */
+.rbc-month-view .rbc-row {
+  position: relative;
+  overflow: visible;
+}
+
+/* 카드 전용 영역 - 날짜 아래 전체 공간 */
+.rbc-row .rbc-events-container {
+  position: absolute;
+  top: 36px; /* 날짜 영역 아래부터 시작 */
+  left: 8px;
+  right: 8px;
+  bottom: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  overflow: hidden;
+  pointer-events: none; /* 배경 클릭 방지 */
+}
+
+/* 이벤트 카드 스타일 */
+.rbc-row .rbc-event {
+  margin: 0 !important;
+  width: 100% !important;
+  position: relative !important;
+  flex-shrink: 0;
+  max-height: 24px;
+  overflow: hidden;
+  pointer-events: auto; /* 카드 클릭 허용 */
+}
+
 .rbc-toolbar {
-  @apply mb-4;
+  @apply mb-6 flex items-center justify-between;
+  color: rgb(var(--color-foreground));
+  padding: 0 8px;
+}
+
+.rbc-toolbar-label {
+  color: rgb(var(--color-foreground));
+  font-weight: 600;
+  font-size: 1.125rem;
+}
+
+.rbc-btn-group {
+  @apply flex gap-1;
 }
 
 .rbc-toolbar button {
-  @apply px-3 py-1 mx-1 border border-gray-300 rounded hover:bg-gray-100;
+  @apply px-3 py-2 rounded-md;
+  background-color: rgb(var(--color-background));
+  color: rgb(var(--color-foreground));
+  border: 1px solid rgb(var(--color-border));
+  transition: all 0.2s;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.rbc-toolbar button:hover {
+  background-color: rgb(var(--color-muted));
+  border-color: rgb(var(--color-border));
 }
 
 .rbc-toolbar button.rbc-active {
-  @apply bg-primary-600 text-white border-primary-600;
+  background-color: rgb(var(--color-foreground));
+  color: rgb(var(--color-background));
+  border-color: rgb(var(--color-foreground));
+}
+
+.rbc-show-more {
+  background-color: transparent;
+  color: rgb(var(--color-primary));
+  font-size: 0.75rem;
+  padding: 2px 4px;
+  text-decoration: none;
+  border-radius: 4px;
+  font-weight: 500;
+}
+
+.rbc-show-more:hover {
+  color: rgb(var(--color-primary));
+  text-decoration: underline;
+}
+
+/* 호버 효과도 칸반과 동일한 색상 유지 */
+.rbc-date-cell:hover,
+.rbc-off-range:hover,
+.rbc-off-range-bg:hover,
+.rbc-day-bg:hover {
+  background-color: rgb(var(--color-card)) !important;
 }
 
 /* Gantt chart styles */
 .gantt-container {
-  @apply bg-white rounded-lg shadow overflow-hidden;
+  @apply rounded-lg shadow overflow-hidden;
+  background-color: rgb(var(--color-background));
 }
 
 /* Markdown prose styles */

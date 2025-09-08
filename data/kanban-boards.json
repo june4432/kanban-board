@@ -179,14 +179,14 @@
               "position": 0
             },
             {
-              "id": "0e13fa37-6a49-47e3-8e9b-e6936d301549",
-              "title": "부농부농1",
+              "id": "b84cdcc0-ebe9-4b6d-a2d4-26421795ef54",
+              "title": "부농부농2",
               "description": "",
               "priority": "medium",
               "labels": [],
               "columnId": "todo",
-              "createdAt": "2025-09-04T23:45:05.772Z",
-              "updatedAt": "2025-09-05T02:40:30.890Z",
+              "createdAt": "2025-09-04T23:45:11.937Z",
+              "updatedAt": "2025-09-05T10:20:00.714Z",
               "position": 1
             }
           ],
@@ -198,17 +198,6 @@
           "title": "In Progress",
           "cards": [
             {
-              "id": "b84cdcc0-ebe9-4b6d-a2d4-26421795ef54",
-              "title": "부농부농2",
-              "description": "",
-              "priority": "medium",
-              "labels": [],
-              "columnId": "inprogress",
-              "createdAt": "2025-09-04T23:45:11.937Z",
-              "updatedAt": "2025-09-05T06:20:01.910Z",
-              "position": 1
-            },
-            {
               "id": "061224c9-df4f-43a2-99ce-0170b3978594",
               "title": "토스트2",
               "description": "1232134",
@@ -219,6 +208,17 @@
               "updatedAt": "2025-09-05T06:34:19.594Z",
               "dueDate": "2025-09-11T00:00:00.000Z",
               "position": 4
+            },
+            {
+              "id": "0e13fa37-6a49-47e3-8e9b-e6936d301549",
+              "title": "부농부농1",
+              "description": "",
+              "priority": "medium",
+              "labels": [],
+              "columnId": "inprogress",
+              "createdAt": "2025-09-04T23:45:05.772Z",
+              "updatedAt": "2025-09-05T10:19:55.858Z",
+              "position": 1
             }
           ],
           "wipLimit": 3,
