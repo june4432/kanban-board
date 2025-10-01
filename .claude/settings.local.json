@@ -28,7 +28,10 @@
       "Read(/C:\\Users\\hansol\\Documents\\project\\kanban\\hooks/**)",
       "Read(/C:\\Users\\hansol\\Documents\\project\\kanban\\hooks/**)",
       "Bash(sed:*)",
-      "Bash(npx tsc:*)"
+      "Bash(npx tsc:*)",
+      "mcp__sequential-thinking__sequentialthinking",
+      "Bash(npm install:*)",
+      "Bash(npx tailwindcss init:*)"
     ],
     "deny": [],
     "ask": []

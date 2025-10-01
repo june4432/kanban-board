@@ -5,7 +5,7 @@ import { useSocket } from './useSocket';
 
 const API_BASE_URL = '/api';
 
-export const useKanbanAPI = (projectId?: string, user?: any) => {
+export const useKanbanAPI = (projectId?: string, user?: User | null) => {
   const [board, setBoard] = useState<Board>({
     boardId: '',
     projectId: '',
