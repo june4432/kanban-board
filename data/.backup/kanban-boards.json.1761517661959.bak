@@ -1,0 +1,589 @@
+{
+  "boards": [
+    {
+      "boardId": "board-test-project-1",
+      "projectId": "test-project-1",
+      "columns": [
+        {
+          "id": "backlog",
+          "title": "Backlog",
+          "cards": [
+            {
+              "id": "1",
+              "title": "사용자 인증 시스템 구현",
+              "description": "JWT 기반 로그인/회원가입 기능 개발",
+              "assignee": {
+                "id": "1",
+                "name": "김철수",
+                "email": "kim@example.com",
+                "avatar": "https://ui-avatars.com/api/?name=김철수&background=3b82f6&color=fff"
+              },
+              "milestone": {
+                "id": "3",
+                "name": "Alpha Release",
+                "dueDate": "2024-02-15T00:00:00.000Z",
+                "description": "알파 버전 출시"
+              },
+              "priority": "high",
+              "labels": [
+                {
+                  "id": "2",
+                  "name": "Feature",
+                  "color": "#3b82f6"
+                },
+                {
+                  "id": "5",
+                  "name": "Backend",
+                  "color": "#8b5cf6"
+                }
+              ],
+              "columnId": "backlog",
+              "createdAt": "2024-01-10T00:00:00.000Z",
+              "updatedAt": "2025-09-04T06:00:52.528Z",
+              "dueDate": "2024-02-10T00:00:00.000Z",
+              "position": 0
+            },
+            {
+              "id": "81837b3f-a326-49de-bb5d-70e9f0c63951",
+              "title": "복수담당자",
+              "description": "ㅁㄴㅇㄻㄴㅇㄹㄴㅁㅇㄹㄴㅁㅇㄹ",
+              "priority": "medium",
+              "labels": [
+                {
+                  "id": "2",
+                  "name": "Feature",
+                  "color": "#3b82f6"
+                },
+                {
+                  "id": "7",
+                  "name": "Design",
+                  "color": "#ec4899"
+                }
+              ],
+              "columnId": "backlog",
+              "createdAt": "2025-09-05T01:50:10.520Z",
+              "updatedAt": "2025-09-05T03:37:41.955Z",
+              "dueDate": "2025-09-26T00:00:00.000Z",
+              "position": 3,
+              "assignees": [
+                "01719873-4e75-4450-86da-d2c773ef09c9",
+                "admin"
+              ],
+              "projectId": "test-project-1"
+            },
+            {
+              "id": "6",
+              "title": "모바일 반응형 UI 구현",
+              "description": "모바일 디바이스에서의 사용자 경험 최적화",
+              "assignee": {
+                "id": "4",
+                "name": "정수진",
+                "email": "jung@example.com",
+                "avatar": "https://ui-avatars.com/api/?name=정수진&background=ef4444&color=fff"
+              },
+              "priority": "medium",
+              "labels": [
+                {
+                  "id": "6",
+                  "name": "Frontend",
+                  "color": "#06b6d4"
+                },
+                {
+                  "id": "7",
+                  "name": "Design",
+                  "color": "#ec4899"
+                }
+              ],
+              "columnId": "backlog",
+              "createdAt": "2024-01-16T00:00:00.000Z",
+              "updatedAt": "2025-09-05T02:46:09.745Z",
+              "dueDate": "2024-03-01T00:00:00.000Z",
+              "position": 1
+            },
+            {
+              "id": "3",
+              "title": "API 엔드포인트 설계",
+              "description": "RESTful API 설계 및 문서화",
+              "assignee": {
+                "id": "2",
+                "name": "박영희",
+                "email": "park@example.com",
+                "avatar": "https://ui-avatars.com/api/?name=박영희&background=10b981&color=fff"
+              },
+              "milestone": {
+                "id": "2",
+                "name": "Beta Release",
+                "dueDate": "2024-02-28T00:00:00.000Z",
+                "description": "베타 버전 출시"
+              },
+              "priority": "high",
+              "labels": [
+                {
+                  "id": "5",
+                  "name": "Backend",
+                  "color": "#8b5cf6"
+                },
+                {
+                  "id": "4",
+                  "name": "Documentation",
+                  "color": "#f59e0b"
+                }
+              ],
+              "columnId": "backlog",
+              "createdAt": "2024-01-12T00:00:00.000Z",
+              "updatedAt": "2025-09-05T00:28:00.569Z",
+              "dueDate": "2024-02-20T00:00:00.000Z",
+              "position": 0
+            }
+          ],
+          "wipLimit": 10,
+          "position": 0
+        },
+        {
+          "id": "todo",
+          "title": "To Do",
+          "cards": [
+            {
+              "id": "2",
+              "title": "메인 대시보드 UI 디자인",
+              "description": "사용자 대시보드 인터페이스 디자인 및 프로토타입 제작",
+              "assignee": {
+                "id": "4",
+                "name": "정수진",
+                "email": "jung@example.com",
+                "avatar": "https://ui-avatars.com/api/?name=정수진&background=ef4444&color=fff"
+              },
+              "milestone": {
+                "id": "3",
+                "name": "Alpha Release",
+                "dueDate": "2024-02-15T00:00:00.000Z",
+                "description": "알파 버전 출시"
+              },
+              "priority": "medium",
+              "labels": [
+                {
+                  "id": "7",
+                  "name": "Design",
+                  "color": "#ec4899"
+                },
+                {
+                  "id": "6",
+                  "name": "Frontend",
+                  "color": "#06b6d4"
+                }
+              ],
+              "columnId": "todo",
+              "createdAt": "2024-01-11T00:00:00.000Z",
+              "updatedAt": "2025-09-05T06:34:50.392Z",
+              "dueDate": "2024-02-05T00:00:00.000Z",
+              "position": 0
+            },
+            {
+              "id": "061224c9-df4f-43a2-99ce-0170b3978594",
+              "title": "토스트2",
+              "description": "1232134",
+              "priority": "medium",
+              "labels": [],
+              "columnId": "todo",
+              "createdAt": "2025-09-05T02:18:50.747Z",
+              "updatedAt": "2025-09-27T14:07:44.719Z",
+              "dueDate": "2025-09-11T00:00:00.000Z",
+              "position": 4
+            },
+            {
+              "id": "2573a694-edff-47af-8ad6-db9603473b57",
+              "title": "ㅇㅣㄴ증 고도화",
+              "description": "",
+              "assignees": [],
+              "priority": "medium",
+              "labels": [],
+              "columnId": "todo",
+              "createdAt": "2025-09-27T14:39:28.380Z",
+              "updatedAt": "2025-09-27T14:39:35.456Z",
+              "position": 4
+            }
+          ],
+          "wipLimit": 5,
+          "position": 1
+        },
+        {
+          "id": "inprogress",
+          "title": "In Progress",
+          "cards": [
+            {
+              "id": "0e13fa37-6a49-47e3-8e9b-e6936d301549",
+              "title": "부농부농1",
+              "description": "",
+              "priority": "medium",
+              "labels": [
+                {
+                  "id": "3",
+                  "name": "Enhancement",
+                  "color": "#10b981"
+                },
+                {
+                  "id": "7",
+                  "name": "Design",
+                  "color": "#ec4899"
+                }
+              ],
+              "columnId": "inprogress",
+              "createdAt": "2025-09-04T23:45:05.772Z",
+              "updatedAt": "2025-09-27T14:38:29.694Z",
+              "position": 1,
+              "assignees": [
+                "admin"
+              ],
+              "dueDate": "2025-09-30T00:00:00.000Z",
+              "projectId": "test-project-1",
+              "userId": "admin",
+              "userName": "관리자"
+            },
+            {
+              "id": "b84cdcc0-ebe9-4b6d-a2d4-26421795ef54",
+              "title": "부농부농2",
+              "description": "",
+              "priority": "medium",
+              "labels": [],
+              "columnId": "inprogress",
+              "createdAt": "2025-09-04T23:45:11.937Z",
+              "updatedAt": "2025-09-27T14:07:41.874Z",
+              "position": 1
+            }
+          ],
+          "wipLimit": 3,
+          "position": 2
+        },
+        {
+          "id": "review",
+          "title": "Review",
+          "cards": [
+            {
+              "id": "4",
+              "title": "데이터베이스 스키마 최적화",
+              "description": "성능 향상을 위한 DB 인덱스 추가 및 쿼리 최적화",
+              "assignee": {
+                "id": "3",
+                "name": "이민수",
+                "email": "lee@example.com",
+                "avatar": "https://ui-avatars.com/api/?name=이민수&background=f59e0b&color=fff"
+              },
+              "milestone": {
+                "id": "2",
+                "name": "Beta Release",
+                "dueDate": "2024-02-28T00:00:00.000Z",
+                "description": "베타 버전 출시"
+              },
+              "priority": "medium",
+              "labels": [
+                {
+                  "id": "3",
+                  "name": "Enhancement",
+                  "color": "#10b981"
+                },
+                {
+                  "id": "5",
+                  "name": "Backend",
+                  "color": "#8b5cf6"
+                }
+              ],
+              "columnId": "review",
+              "createdAt": "2024-01-08T00:00:00.000Z",
+              "updatedAt": "2025-09-04T06:25:37.308Z",
+              "dueDate": "2024-01-25T00:00:00.000Z",
+              "position": 0
+            },
+            {
+              "id": "72ee8c4f-3f26-48a3-8a83-4580595d67df",
+              "title": "노랑이",
+              "description": "노랭이",
+              "priority": "medium",
+              "labels": [],
+              "columnId": "review",
+              "createdAt": "2025-09-04T23:44:55.974Z",
+              "updatedAt": "2025-09-05T06:09:42.802Z",
+              "dueDate": "2025-09-18T00:00:00.000Z",
+              "position": 2
+            }
+          ],
+          "wipLimit": 3,
+          "position": 3
+        },
+        {
+          "id": "done",
+          "title": "Done",
+          "cards": [
+            {
+              "id": "5",
+              "title": "단위 테스트 작성",
+              "description": "핵심 기능에 대한 단위 테스트 코드 작성",
+              "assignee": {
+                "id": "1",
+                "name": "김철수",
+                "email": "kim@example.com",
+                "avatar": "https://ui-avatars.com/api/?name=김철수&background=3b82f6&color=fff"
+              },
+              "milestone": {
+                "id": "1",
+                "name": "MVP Release",
+                "dueDate": "2024-03-15T00:00:00.000Z",
+                "description": "최소 기능 제품 출시"
+              },
+              "priority": "low",
+              "labels": [
+                {
+                  "id": "8",
+                  "name": "Testing",
+                  "color": "#84cc16"
+                }
+              ],
+              "columnId": "done",
+              "createdAt": "2024-01-05T00:00:00.000Z",
+              "updatedAt": "2024-01-13T00:00:00.000Z",
+              "dueDate": "2024-01-20T00:00:00.000Z",
+              "position": 0
+            }
+          ],
+          "wipLimit": 2100,
+          "position": 4
+        }
+      ],
+      "labels": [
+        {
+          "id": "1",
+          "name": "Bug",
+          "color": "#ef4444"
+        },
+        {
+          "id": "2",
+          "name": "Feature",
+          "color": "#3b82f6"
+        },
+        {
+          "id": "3",
+          "name": "Enhancement",
+          "color": "#10b981"
+        },
+        {
+          "id": "4",
+          "name": "Documentation",
+          "color": "#f59e0b"
+        },
+        {
+          "id": "5",
+          "name": "Backend",
+          "color": "#8b5cf6"
+        },
+        {
+          "id": "6",
+          "name": "Frontend",
+          "color": "#06b6d4"
+        },
+        {
+          "id": "7",
+          "name": "Design",
+          "color": "#ec4899"
+        },
+        {
+          "id": "8",
+          "name": "Testing",
+          "color": "#84cc16"
+        }
+      ],
+      "milestones": [
+        {
+          "id": "1",
+          "name": "MVP Release",
+          "dueDate": "2024-03-15T00:00:00.000Z",
+          "description": "최소 기능 제품 출시"
+        },
+        {
+          "id": "2",
+          "name": "Beta Release",
+          "dueDate": "2024-02-28T00:00:00.000Z",
+          "description": "베타 버전 출시"
+        },
+        {
+          "id": "3",
+          "name": "Alpha Release",
+          "dueDate": "2024-02-15T00:00:00.000Z",
+          "description": "알파 버전 출시"
+        }
+      ]
+    },
+    {
+      "boardId": "board-1757029383643",
+      "projectId": "1757029383643",
+      "columns": [
+        {
+          "id": "backlog",
+          "title": "Backlog",
+          "cards": [
+            {
+              "id": "cec8aac2-2bb1-41c9-9ab9-fa37f7d721ee",
+              "title": "vvvvvvvvvvvvvvvvvvvv",
+              "description": "vvvvvvvvvvvvvvvvvvv",
+              "priority": "medium",
+              "labels": [],
+              "columnId": "backlog",
+              "createdAt": "2025-09-05T00:25:15.896Z",
+              "updatedAt": "2025-09-05T00:25:15.896Z",
+              "position": 0
+            }
+          ],
+          "wipLimit": 10,
+          "position": 0
+        },
+        {
+          "id": "todo",
+          "title": "To Do",
+          "cards": [],
+          "wipLimit": 5,
+          "position": 1
+        },
+        {
+          "id": "inprogress",
+          "title": "In Progress",
+          "cards": [],
+          "wipLimit": 3,
+          "position": 2
+        },
+        {
+          "id": "review",
+          "title": "Review",
+          "cards": [],
+          "wipLimit": 3,
+          "position": 3
+        },
+        {
+          "id": "done",
+          "title": "Done",
+          "cards": [],
+          "wipLimit": 20,
+          "position": 4
+        }
+      ],
+      "labels": [],
+      "milestones": []
+    },
+    {
+      "boardId": "board-1757036709865",
+      "projectId": "1757036709865",
+      "columns": [
+        {
+          "id": "backlog",
+          "title": "Backlog",
+          "cards": [
+            {
+              "id": "75996096-9ee8-441a-92a6-68deb2d4ebe3",
+              "title": "ㅍㅍㅍㅍㅍㅍㅍㅍㅍㅍㅍㅍ",
+              "description": "ㅍㅍㅍㅍㅍㅍㅍㅍㅍㅍㅍㅍㅍㅍㅍ",
+              "assignees": [
+                "admin"
+              ],
+              "priority": "medium",
+              "labels": [],
+              "columnId": "backlog",
+              "createdAt": "2025-09-05T05:59:15.587Z",
+              "updatedAt": "2025-09-05T06:20:11.932Z",
+              "dueDate": "2025-09-12T00:00:00.000Z",
+              "position": 0
+            }
+          ],
+          "wipLimit": 10,
+          "position": 0
+        },
+        {
+          "id": "todo",
+          "title": "To Do",
+          "cards": [],
+          "wipLimit": 5,
+          "position": 1
+        },
+        {
+          "id": "inprogress",
+          "title": "In Progress",
+          "cards": [],
+          "wipLimit": 3,
+          "position": 2
+        },
+        {
+          "id": "review",
+          "title": "Review",
+          "cards": [],
+          "wipLimit": 3,
+          "position": 3
+        },
+        {
+          "id": "done",
+          "title": "Done",
+          "cards": [],
+          "wipLimit": 20,
+          "position": 4
+        }
+      ],
+      "labels": [],
+      "milestones": []
+    },
+    {
+      "boardId": "board-1757036360344",
+      "projectId": "1757036360344",
+      "columns": [
+        {
+          "id": "backlog",
+          "title": "Backlog",
+          "cards": [],
+          "wipLimit": 10,
+          "position": 0
+        },
+        {
+          "id": "todo",
+          "title": "To Do",
+          "cards": [
+            {
+              "id": "3819a0ab-3f0b-443c-8cd6-a516ab1b31be",
+              "title": "asdfsadfasd",
+              "description": "fasdfasdfadf",
+              "assignees": [
+                "admin",
+                "01719873-4e75-4450-86da-d2c773ef09c9"
+              ],
+              "priority": "medium",
+              "labels": [],
+              "columnId": "todo",
+              "createdAt": "2025-09-05T06:22:14.100Z",
+              "updatedAt": "2025-09-05T06:24:36.397Z",
+              "dueDate": "2025-09-10T00:00:00.000Z",
+              "position": 0
+            }
+          ],
+          "wipLimit": 5,
+          "position": 1
+        },
+        {
+          "id": "inprogress",
+          "title": "In Progress",
+          "cards": [],
+          "wipLimit": 3,
+          "position": 2
+        },
+        {
+          "id": "review",
+          "title": "Review",
+          "cards": [],
+          "wipLimit": 3,
+          "position": 3
+        },
+        {
+          "id": "done",
+          "title": "Done",
+          "cards": [],
+          "wipLimit": 20,
+          "position": 4
+        }
+      ],
+      "labels": [],
+      "milestones": []
+    }
+  ]
+}

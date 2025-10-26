@@ -1,39 +1,8 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import fs from 'fs';
-import path from 'path';
-import { v4 as uuidv4 } from 'uuid';
-import { User, AuthUser } from '@/types';
+import { AuthUser } from '@/types';
+import { getRepositories } from '@/lib/repositories';
 
-const USERS_FILE_PATH = path.join(process.cwd(), 'data', 'users.json');
-
-// 사용자 데이터 읽기
-const readUsers = (): { users: User[] } => {
-  try {
-    const fileContents = fs.readFileSync(USERS_FILE_PATH, 'utf8');
-    const data = JSON.parse(fileContents);
-    
-    data.users.forEach((user: any) => {
-      if (user.createdAt) user.createdAt = new Date(user.createdAt);
-    });
-    
-    return data;
-  } catch (error) {
-    console.error('Error reading users file:', error);
-    return { users: [] };
-  }
-};
-
-// 사용자 데이터 쓰기
-const writeUsers = (data: { users: User[] }): void => {
-  try {
-    fs.writeFileSync(USERS_FILE_PATH, JSON.stringify(data, null, 2), 'utf8');
-  } catch (error) {
-    console.error('Error writing users file:', error);
-    throw new Error('Failed to write users file');
-  }
-};
-
-export default function handler(req: NextApiRequest, res: NextApiResponse) {
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') {
     res.setHeader('Allow', ['POST']);
     return res.status(405).end(`Method ${req.method} Not Allowed`);
@@ -57,27 +26,21 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
       return res.status(400).json({ error: '비밀번호는 4자리 이상이어야 합니다.' });
     }
 
-    const usersData = readUsers();
-    
+    const { users } = getRepositories();
+
     // 이메일 중복 검사
-    const existingUser = usersData.users.find(u => u.email === email);
+    const existingUser = users.findByEmail(email);
     if (existingUser) {
       return res.status(409).json({ error: '이미 사용중인 이메일입니다.' });
     }
 
-    // 새 사용자 생성
-    const newUser: User = {
-      id: uuidv4(),
+    // 새 사용자 생성 (비밀번호는 자동으로 해싱됨)
+    const newUser = await users.create({
       name,
       email,
-      avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=3b82f6&color=fff`,
       password,
       role: 'user',
-      createdAt: new Date()
-    };
-
-    usersData.users.push(newUser);
-    writeUsers(usersData);
+    });
 
     // 비밀번호 제외하고 반환
     const authUser: AuthUser = {
