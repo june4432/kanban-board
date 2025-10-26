@@ -1,25 +1,5 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import fs from 'fs';
-import path from 'path';
-import { Project } from '@/types';
-
-const projectsFilePath = path.join(process.cwd(), 'data', 'projects.json');
-
-// 프로젝트 데이터 읽기
-const getProjects = (): Project[] => {
-  try {
-    const data = fs.readFileSync(projectsFilePath, 'utf8');
-    return JSON.parse(data).projects || [];
-  } catch (error) {
-    return [];
-  }
-};
-
-// 프로젝트 데이터 저장
-const saveProjects = (projects: Project[]) => {
-  const data = { projects };
-  fs.writeFileSync(projectsFilePath, JSON.stringify(data, null, 2));
-};
+import { getRepositories } from '@/lib/repositories';
 
 export default function handler(req: NextApiRequest, res: NextApiResponse) {
   const { projectId, userId } = req.query;
@@ -34,14 +14,12 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
   }
 
   try {
-    const projects = getProjects();
-    const projectIndex = projects.findIndex(p => p.projectId === projectId);
+    const { projects } = getRepositories();
+    const project = projects.findById(projectId);
 
-    if (projectIndex === -1) {
+    if (!project) {
       return res.status(404).json({ error: 'Project not found' });
     }
-
-    const project = projects[projectIndex];
 
     // TODO: 권한 체크 (프로젝트 소유자만 멤버 제거 가능)
 
@@ -50,21 +28,24 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
       return res.status(400).json({ error: 'Cannot remove project owner' });
     }
 
-    // 멤버에서 제거
-    const memberIndex = project.members.findIndex(member => member.id === userId);
-    
-    if (memberIndex === -1) {
+    // 멤버인지 확인
+    if (!projects.isMember(projectId, userId)) {
       return res.status(404).json({ error: 'Member not found' });
     }
 
-    project.members.splice(memberIndex, 1);
-    project.updatedAt = new Date();
+    // 멤버에서 제거
+    const removed = projects.removeMember(projectId, userId);
 
-    projects[projectIndex] = project;
-    saveProjects(projects);
+    if (!removed) {
+      return res.status(500).json({ error: 'Failed to remove member' });
+    }
 
-    res.status(200).json({ project });
+    // 업데이트된 프로젝트 반환
+    const updatedProject = projects.findById(projectId);
+
+    res.status(200).json({ project: updatedProject });
   } catch (error) {
+    console.error('Error removing member:', error);
     res.status(500).json({ error: 'Failed to remove member' });
   }
 }

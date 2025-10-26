@@ -1,43 +1,13 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import fs from 'fs';
-import path from 'path';
-import { Project, ProjectJoinRequest, User } from '@/types';
+import { getRepositories } from '@/lib/repositories';
 
+// WebSocket server extension type
 type NextApiResponseWithSocket = NextApiResponse & {
   socket?: {
     server?: {
       io: any;
     };
   };
-}
-
-const projectsFilePath = path.join(process.cwd(), 'data', 'projects.json');
-const usersFilePath = path.join(process.cwd(), 'data', 'users.json');
-
-// 프로젝트 데이터 읽기
-const getProjects = (): Project[] => {
-  try {
-    const data = fs.readFileSync(projectsFilePath, 'utf8');
-    return JSON.parse(data).projects || [];
-  } catch (error) {
-    return [];
-  }
-};
-
-// 사용자 데이터 읽기
-const getUsers = (): User[] => {
-  try {
-    const data = fs.readFileSync(usersFilePath, 'utf8');
-    return JSON.parse(data).users || [];
-  } catch (error) {
-    return [];
-  }
-};
-
-// 프로젝트 데이터 저장
-const saveProjects = (projects: Project[]) => {
-  const data = { projects };
-  fs.writeFileSync(projectsFilePath, JSON.stringify(data, null, 2));
 };
 
 export default function handler(req: NextApiRequest, res: NextApiResponseWithSocket) {
@@ -59,13 +29,12 @@ export default function handler(req: NextApiRequest, res: NextApiResponseWithSoc
       return res.status(400).json({ error: 'User ID is required' });
     }
 
-    const projects = getProjects();
-    const users = getUsers();
-    
-    const projectIndex = projects.findIndex(p => p.projectId === projectId);
-    const user = users.find(u => u.id === userId);
+    const { projects, users } = getRepositories();
 
-    if (projectIndex === -1) {
+    const project = projects.findById(projectId);
+    const user = users.findById(userId);
+
+    if (!project) {
       return res.status(404).json({ error: 'Project not found' });
     }
 
@@ -73,42 +42,34 @@ export default function handler(req: NextApiRequest, res: NextApiResponseWithSoc
       return res.status(404).json({ error: 'User not found' });
     }
 
-    const project = projects[projectIndex];
-
     // 프로젝트가 공개인지 확인
     if (!project.isPublic) {
       return res.status(403).json({ error: 'This project is not public' });
     }
 
     // 이미 멤버인지 확인
-    if (project.members.some(member => member.id === userId)) {
+    if (projects.isMember(projectId, userId)) {
       return res.status(400).json({ error: 'User is already a member' });
     }
 
-    // 이미 신청했는지 확인
-    if (project.pendingRequests?.some(req => req.userId === userId && req.status === 'pending')) {
+    // 이미 대기 중인 신청이 있는지 확인
+    const existingRequests = project.pendingRequests?.filter(
+      (req) => req.userId === userId && req.status === 'pending'
+    );
+    if (existingRequests && existingRequests.length > 0) {
       return res.status(400).json({ error: 'Join request already exists' });
     }
 
     // 새 가입 신청 생성
-    const newRequest: ProjectJoinRequest = {
-      id: Date.now().toString(),
-      userId,
-      user,
+    const newRequest = projects.createJoinRequest({
       projectId,
+      userId,
       message: message || '',
-      status: 'pending',
-      createdAt: new Date()
-    };
+    });
 
-    // 프로젝트에 신청 추가
-    if (!project.pendingRequests) {
-      project.pendingRequests = [];
+    if (!newRequest) {
+      return res.status(500).json({ error: 'Failed to create join request' });
     }
-    project.pendingRequests.push(newRequest);
-
-    projects[projectIndex] = project;
-    saveProjects(projects);
 
     // WebSocket으로 프로젝트 참여 신청 이벤트 전송 (전체 브로드캐스트)
     if (res.socket?.server?.io) {
@@ -116,13 +77,14 @@ export default function handler(req: NextApiRequest, res: NextApiResponseWithSoc
         projectId: projectId,
         request: newRequest,
         user: user,
-        project: project
+        project: project,
       });
       console.log('Project join request event broadcasted to all users');
     }
 
     res.status(201).json({ request: newRequest });
   } catch (error) {
+    console.error('Error creating join request:', error);
     res.status(500).json({ error: 'Failed to create join request' });
   }
 }
