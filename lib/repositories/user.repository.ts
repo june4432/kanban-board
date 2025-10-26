@@ -122,11 +122,18 @@ export class UserRepository {
    * Verify user password
    */
   async verifyPassword(email: string, password: string): Promise<User | null> {
-    const user = this.findByEmail(email);
-    if (!user || !user.password) return null;
+    // Need to get user with password for verification
+    const stmt = this.db.prepare('SELECT * FROM users WHERE email = ?');
+    const row = stmt.get(email) as any;
 
-    const isValid = await bcrypt.compare(password, user.password);
-    return isValid ? user : null;
+    if (!row || !row.password) return null;
+
+    const isValid = await bcrypt.compare(password, row.password);
+
+    if (!isValid) return null;
+
+    // Return user without password
+    return this.mapToUser(row, false);
   }
 
   /**
