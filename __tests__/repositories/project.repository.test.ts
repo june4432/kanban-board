@@ -135,12 +135,14 @@ describe('ProjectRepository', () => {
   describe('findPublicProjects', () => {
     it('should return only public projects', () => {
       projectRepo.create({
+        projectId: 'public-project-1',
         name: 'Public Project',
         ownerId: testOwnerId,
         isPublic: true,
       });
 
       projectRepo.create({
+        projectId: 'private-project-1',
         name: 'Private Project',
         ownerId: testOwnerId,
         isPublic: false,
