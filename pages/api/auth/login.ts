@@ -1,29 +1,8 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import fs from 'fs';
-import path from 'path';
-import { User, AuthUser } from '@/types';
+import { AuthUser } from '@/types';
+import { getRepositories } from '@/lib/repositories';
 
-const USERS_FILE_PATH = path.join(process.cwd(), 'data', 'users.json');
-
-// 사용자 데이터 읽기
-const readUsers = (): { users: User[] } => {
-  try {
-    const fileContents = fs.readFileSync(USERS_FILE_PATH, 'utf8');
-    const data = JSON.parse(fileContents);
-    
-    // Date 객체로 변환
-    data.users.forEach((user: any) => {
-      if (user.createdAt) user.createdAt = new Date(user.createdAt);
-    });
-    
-    return data;
-  } catch (error) {
-    console.error('Error reading users file:', error);
-    return { users: [] };
-  }
-};
-
-export default function handler(req: NextApiRequest, res: NextApiResponse) {
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') {
     res.setHeader('Allow', ['POST']);
     return res.status(405).end(`Method ${req.method} Not Allowed`);
@@ -36,8 +15,10 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
       return res.status(400).json({ error: '이메일과 비밀번호를 입력해주세요.' });
     }
 
-    const usersData = readUsers();
-    const user = usersData.users.find(u => u.email === email && u.password === password);
+    const { users } = getRepositories();
+
+    // 비밀번호 검증 (bcrypt compare)
+    const user = await users.verifyPassword(email, password);
 
     if (!user) {
       return res.status(401).json({ error: '이메일 또는 비밀번호가 잘못되었습니다.' });

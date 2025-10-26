@@ -9,12 +9,16 @@
     "lint": "next lint",
     "test": "jest",
     "test:watch": "jest --watch",
-    "test:coverage": "jest --coverage"
+    "test:coverage": "jest --coverage",
+    "migrate:to-sqlite": "npx tsx scripts/migrate-to-sqlite.ts",
+    "db:init": "npx tsx -e \"import { initDatabase } from './lib/database'; initDatabase();\""
   },
   "dependencies": {
     "@hello-pangea/dnd": "^16.5.0",
+    "@types/better-sqlite3": "^7.6.13",
     "@types/uuid": "^9.0.7",
     "bcryptjs": "^3.0.2",
+    "better-sqlite3": "^12.4.1",
     "date-fns": "^2.30.0",
     "highlight.js": "^11.11.1",
     "lucide-react": "^0.298.0",
@@ -48,6 +52,8 @@
     "jest-environment-jsdom": "^30.1.2",
     "postcss": "^8.4.32",
     "tailwindcss": "^3.3.6",
+    "ts-node": "^10.9.2",
+    "tsx": "^4.20.6",
     "typescript": "^5.3.3"
   }
 }
