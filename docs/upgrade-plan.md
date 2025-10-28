@@ -44,13 +44,20 @@
 
 ### 🎯 SQLite 마이그레이션 상태
 
-**현재 상태**: 📄 계획서 작성 완료, 🔧 구현 대기 중
+**현재 상태**: ✅ **구현 완료** (2025-10-26)
 
-- ✅ 상세한 마이그레이션 계획서 작성됨 (`dev_docs/sqlite-migration-plan.md`)
-- ✅ Prisma 기반 설계 완료 (스키마, ERD, 구현 단계 정의)
-- ❌ 실제 코드 구현 아직 안 됨 (Prisma 설치 및 마이그레이션 필요)
+- ✅ better-sqlite3 기반 구현 완료
+- ✅ Repository 패턴 적용 (`lib/repositories/`)
+- ✅ 11개 테이블 스키마 구현 (`lib/schema.sql`)
+- ✅ 모든 API 엔드포인트 SQLite 기반으로 리팩토링
+- ✅ 87개 테스트 통과 (100% 성공률)
+- ✅ 데이터 마이그레이션 스크립트 (`scripts/migrate-to-sqlite.ts`)
+- ✅ bcrypt 비밀번호 해싱 적용
 
-**참조 문서**: `dev_docs/sqlite-migration-plan.md` (32KB, Prisma 스키마 포함)
+**참조 문서**:
+- `dev_docs/sqlite-migration-plan.md` - 마이그레이션 계획서
+- `lib/schema.sql` - 데이터베이스 스키마
+- `lib/repositories/` - Repository 구현
 
 ---
 
@@ -110,84 +117,38 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
 ---
 
-#### 2. 비밀번호 평문 저장
+#### 2. ~~비밀번호 평문 저장~~ ✅ **해결 완료** (2025-10-26)
 
-**문제점**
+**해결된 문제**
+- ✅ SQLite 마이그레이션과 함께 bcrypt 해싱 적용
+- ✅ 모든 비밀번호가 bcrypt로 안전하게 저장됨
+- ✅ 회원가입 시 자동 해싱
+- ✅ 로그인 시 bcrypt.compare로 검증
+
+**구현 내역**
+```typescript
+// lib/repositories/user.repository.ts
+import bcrypt from 'bcryptjs';
+
+async create(userData: CreateUserInput): Promise<User> {
+  const hashedPassword = await bcrypt.hash(userData.password, 10);
+  // ... SQLite에 해시된 비밀번호 저장
+}
+
+async verifyPassword(userId: string, password: string): Promise<boolean> {
+  const user = await this.findById(userId);
+  return bcrypt.compare(password, user.password);
+}
+```
+
+**~~이전 문제점~~** (해결됨)
 ```json
-// data/users.json
+// data/users.json (더 이상 사용하지 않음)
 {
   "id": "admin",
-  "password": "admin"  // ❌ 평문 저장
+  "password": "admin"  // ❌ 평문 저장 (SQLite 마이그레이션으로 해결)
 }
 ```
-
-**영향도**: 심각 - 데이터 유출 시 모든 계정 탈취 가능
-
-**해결방안**
-
-**Step 1: 신규 가입자 비밀번호 해싱 활성화**
-```typescript
-// pages/api/auth/signup.ts
-import { hashPassword } from '@/lib/auth';
-
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  const { password, ...userData } = req.body;
-
-  // 비밀번호 해싱
-  const hashedPassword = await hashPassword(password);
-
-  const user = await createUser({
-    ...userData,
-    password: hashedPassword
-  });
-}
-```
-
-**Step 2: 기존 사용자 데이터 마이그레이션**
-```typescript
-// scripts/migrate-passwords.ts
-import bcrypt from 'bcryptjs';
-import fs from 'fs';
-
-async function migratePasswords() {
-  const users = JSON.parse(fs.readFileSync('data/users.json', 'utf-8'));
-
-  for (const user of users.users) {
-    // 평문 비밀번호인지 확인 (해시는 $2로 시작)
-    if (!user.password.startsWith('$2')) {
-      console.log(`Migrating password for user: ${user.email}`);
-      user.password = await bcrypt.hash(user.password, 12);
-    }
-  }
-
-  fs.writeFileSync('data/users.json', JSON.stringify(users, null, 2));
-  console.log('Password migration completed!');
-}
-
-migratePasswords();
-```
-
-**Step 3: 로그인 로직 확인**
-```typescript
-// lib/auth.ts의 verifyPassword는 이미 bcrypt.compare 사용 중 ✅
-```
-
-**실행 순서**
-```bash
-# 1. 마이그레이션 스크립트 생성
-npm run migrate:passwords
-
-# 2. 기존 데이터 백업
-cp data/users.json data/users.json.backup
-
-# 3. 마이그레이션 실행
-node scripts/migrate-passwords.ts
-
-# 4. 검증
-npm run test:auth
-```
-
-**우선순위**: 🔴 P0 (1일 내)
 
 ---
 
@@ -301,67 +262,42 @@ if (typeof window === 'undefined') {
 
 ### 🟡 High Priority Issues
 
-#### 5. 파일 시스템 DB의 Race Condition
+#### 5. ~~파일 시스템 DB의 Race Condition~~ ✅ **해결 완료** (2025-10-26)
 
-**문제점**
+**해결된 문제**
+- ✅ SQLite 마이그레이션으로 근본 해결
+- ✅ 트랜잭션 지원으로 ACID 속성 보장
+- ✅ WAL 모드로 동시성 제어
+- ✅ better-sqlite3의 내장 락 메커니즘 활용
+
+**구현 내역**
 ```typescript
-// services/projectService.ts
-private static readProjects(): Project[] {
-  return JSON.parse(fs.readFileSync(projectsFilePath, 'utf-8'));
-}
+// lib/database.ts
+const db = new Database(dbPath);
+db.pragma('journal_mode = WAL'); // Write-Ahead Logging 활성화
+db.pragma('foreign_keys = ON');
 
-private static writeProjects(projects: Project[]): boolean {
-  fs.writeFileSync(projectsFilePath, JSON.stringify(projects, null, 2));
+// lib/repositories/project.repository.ts
+update(projectId: string, updates: Partial<Project>): Project | null {
+  // SQLite의 내장 트랜잭션으로 Race Condition 해결
+  return this.db.transaction(() => {
+    const stmt = this.db.prepare(`
+      UPDATE projects
+      SET name = ?, description = ?, updated_at = CURRENT_TIMESTAMP
+      WHERE project_id = ?
+    `);
+    stmt.run(updates.name, updates.description, projectId);
+    return this.findById(projectId);
+  })();
 }
+```
 
+**~~이전 문제점~~** (해결됨)
+```typescript
+// services/projectService.ts (더 이상 사용하지 않음)
 // ❌ 동시에 2개의 요청이 readProjects → 수정 → writeProjects 하면
 //    나중에 쓴 요청이 먼저 쓴 변경사항을 덮어씀
 ```
-
-**임시 해결방안** (DB 마이그레이션 전까지)
-```typescript
-// lib/file-lock.ts
-import { promises as fs } from 'fs';
-import path from 'path';
-
-const locks = new Map<string, Promise<any>>();
-
-export async function withFileLock<T>(
-  filePath: string,
-  operation: () => Promise<T>
-): Promise<T> {
-  const lockKey = path.resolve(filePath);
-
-  // 이전 작업이 완료될 때까지 대기
-  while (locks.has(lockKey)) {
-    await locks.get(lockKey);
-  }
-
-  // 새 작업 시작
-  const promise = operation();
-  locks.set(lockKey, promise);
-
-  try {
-    return await promise;
-  } finally {
-    locks.delete(lockKey);
-  }
-}
-
-// 사용 예시
-static updateProject(projectId: string, updates: Partial<Project>): Promise<Project | null> {
-  return withFileLock(projectsFilePath, async () => {
-    const projects = this.readProjects();
-    // ... 업데이트 로직
-    this.writeProjects(projects);
-    return updatedProject;
-  });
-}
-```
-
-**근본적 해결**: SQLite 마이그레이션 (Phase 2)
-
-**우선순위**: 🟡 P1 (1주 내 임시 조치, 2주 내 근본 해결)
 
 ---
 
@@ -784,51 +720,26 @@ export function CardComments({ cardId }: { cardId: string }) {
 
 ## 기술적 측면 개선사항
 
-### 1. 데이터베이스 마이그레이션 (최우선)
+### 1. ~~데이터베이스 마이그레이션~~ ✅ **완료** (2025-10-26)
 
-**현재 문제점**
-- 파일 시스템 DB → Race condition
-- 트랜잭션 지원 없음
-- 인덱싱 불가 → 성능 저하
-- 백업/복원 어려움
+**해결된 문제점**
+- ✅ 파일 시스템 DB → SQLite (Race condition 해결)
+- ✅ 트랜잭션 지원 (ACID 속성 보장)
+- ✅ 인덱싱 적용 → 성능 향상
+- ✅ WAL 모드 → 동시성 제어
 
-**📄 상세 계획서 이미 존재**: `dev_docs/sqlite-migration-plan.md`
+**구현 내역**
+- ✅ better-sqlite3 사용 (Prisma 대신)
+- ✅ Repository 패턴 구현 (`lib/repositories/`)
+- ✅ 11개 테이블 스키마 (`lib/schema.sql`)
+- ✅ 87개 테스트 통과 (100%)
+- ✅ bcrypt 비밀번호 해싱
 
-기존에 작성된 SQLite 마이그레이션 계획서가 있으며, 다음 내용을 포함합니다:
-- ✅ Prisma 기반 설계 (스키마, ERD)
-- ✅ 단계별 구현 가이드 (Phase 1-6)
-- ✅ 마이그레이션 스크립트 예시
-- ✅ 테스트 전략 및 롤백 계획
-- ✅ 예상 소요 시간: 19-25시간
-
-**구현 단계 요약** (상세 내용은 `dev_docs/sqlite-migration-plan.md` 참조)
-
-**Phase 1: Prisma 설정** (1-2일)
-```bash
-npm install @prisma/client
-npm install -D prisma
-npx prisma init --datasource-provider sqlite
-# schema.prisma 작성 (기존 계획서 참조)
-npx prisma migrate dev --name init
-```
-
-**Phase 2: 데이터 마이그레이션 스크립트** (1일)
-- JSON → SQLite 변환 스크립트 작성
-- 기존 계획서에 전체 스크립트 포함됨
-
-**Phase 3: Service 레이어 리팩토링** (2-3일)
-- 모든 Service 함수를 Prisma로 변경
-- 트랜잭션 처리 추가
-
-**Phase 4: API 엔드포인트 업데이트** (1일)
-- 동기 → 비동기 처리로 변경
-
-**Phase 5: 테스트 및 검증** (1-2일)
-- 단위 테스트, 통합 테스트, 수동 QA
-
-**예상 소요 시간**: 6-9일 (기존 계획서는 19-25시간 = 약 3-4일 추정)
-
-**우선순위**: 🟡 P1 (2주 내 완료)
+**참조**:
+- `dev_docs/sqlite-migration-plan.md` - 계획서
+- `lib/database.ts` - DB 초기화
+- `lib/schema.sql` - 스키마 정의
+- `scripts/migrate-to-sqlite.ts` - 마이그레이션 스크립트
 
 ---
 
@@ -1091,39 +1002,37 @@ jobs:
 
 ---
 
-### Phase 2: Infrastructure & Stability (2주)
+### Phase 2: 코드 품질 & 안정성 강화 (1-2주)
 
-**목표**: 안정적인 데이터 저장 및 테스트
+**목표**: 보안 강화 및 코드 품질 향상
+
+**완료된 항목** ✅
+- ✅ SQLite 마이그레이션 완료
+- ✅ bcrypt 비밀번호 해싱 적용
+- ✅ 87개 테스트 통과
+
+**남은 작업**
 
 | 항목 | 예상 시간 | 담당 |
 |-----|---------|-----|
-| SQLite 마이그레이션 | 5일 | Backend |
-| 파일 잠금 임시 조치 | 1일 | Backend |
-| 의존성 업데이트 | 1일 | DevOps |
+| 의존성 보안 업데이트 | 1일 | DevOps |
 | 에러 처리 개선 | 2일 | Backend |
 | 입력 검증 (Zod) | 2일 | Backend |
-| 테스트 작성 | 3일 | QA |
+| E2E 테스트 추가 | 2일 | QA |
+| CI/CD 파이프라인 | 2일 | DevOps |
 
 **체크리스트**
-- [ ] Drizzle ORM 설정
-- [ ] 스키마 정의
-- [ ] 마이그레이션 스크립트 작성
-- [ ] JSON → SQLite 데이터 이전
-- [ ] API 라우트 DB 연결 업데이트
-- [ ] services 레이어 리팩토링
-- [ ] 통합 테스트 작성
-- [ ] `withFileLock` 유틸리티 구현
-- [ ] 주요 write 작업에 적용
-- [ ] `npm audit` 실행 및 수정
-- [ ] Next.js, React 업데이트
+- [ ] `npm audit` 실행 및 취약점 수정
+- [ ] Next.js, React 최신 버전 업데이트
 - [ ] 호환성 테스트
 - [ ] AppError 클래스 구현
-- [ ] logger 유틸리티 작성
-- [ ] 모든 catch 블록 업데이트
-- [ ] Zod 스키마 정의
-- [ ] API 라우트에 검증 추가
-- [ ] 단위 테스트 작성 (커버리지 >50%)
-- [ ] E2E 테스트 작성 (주요 플로우)
+- [ ] logger 유틸리티 작성 (pino)
+- [ ] 모든 catch 블록 에러 처리 개선
+- [ ] Zod 스키마 정의 (프로젝트, 카드, 사용자)
+- [ ] API 라우트에 입력 검증 추가
+- [ ] Playwright E2E 테스트 작성
+- [ ] GitHub Actions 워크플로우 설정
+- [ ] 자동 테스트 및 빌드 검증
 
 ---
 
