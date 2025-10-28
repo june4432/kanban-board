@@ -1,7 +1,8 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { getRepositories } from '@/lib/repositories';
+import { requireAuth, requireProjectMember, requireProjectOwner } from '@/lib/auth-helpers';
 
-export default function handler(req: NextApiRequest, res: NextApiResponse) {
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const { projectId } = req.query;
 
   if (typeof projectId !== 'string') {
@@ -22,13 +23,27 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
 }
 
 // 특정 프로젝트 조회
-function handleGet(projectId: string, req: NextApiRequest, res: NextApiResponse) {
+async function handleGet(projectId: string, req: NextApiRequest, res: NextApiResponse) {
   try {
+    // 인증 확인 (공개 프로젝트는 인증 없이도 조회 가능하도록 변경 가능)
+    const session = await requireAuth(req, res);
+    if (!session) return;
+
     const { projects } = getRepositories();
     const project = projects.findById(projectId);
 
     if (!project) {
       return res.status(404).json({ error: 'Project not found' });
+    }
+
+    // 비공개 프로젝트는 멤버만 조회 가능
+    if (!project.isPublic) {
+      const userId = (session.user as any).id;
+      const isMember = project.ownerId === userId || project.members.some((m) => m.id === userId);
+
+      if (!isMember) {
+        return res.status(403).json({ error: 'Access denied to private project' });
+      }
     }
 
     res.status(200).json({ project });
@@ -39,24 +54,17 @@ function handleGet(projectId: string, req: NextApiRequest, res: NextApiResponse)
 }
 
 // 프로젝트 업데이트
-function handlePatch(projectId: string, req: NextApiRequest, res: NextApiResponse) {
+async function handlePatch(projectId: string, req: NextApiRequest, res: NextApiResponse) {
   try {
-    const { projects } = getRepositories();
-    const project = projects.findById(projectId);
+    // 멤버십 확인
+    const auth = await requireProjectMember(req, res, projectId);
+    if (!auth) return;
 
-    if (!project) {
-      return res.status(404).json({ error: 'Project not found' });
-    }
+    const { project, userId } = auth;
+    const { name, description, color, isPublic } = req.body;
 
-    const { name, description, color, isPublic, userId } = req.body;
-
-    // 권한 체크: 프로젝트 소유자이거나 멤버인지 확인
+    // 권한 체크: 프로젝트 소유자인지 확인
     const isOwner = project.ownerId === userId;
-    const isMember = projects.isMember(projectId, userId);
-
-    if (!isOwner && !isMember) {
-      return res.status(403).json({ error: 'Access denied' });
-    }
 
     // 소유자만 변경할 수 있는 설정들
     const ownerOnlyFields = { name, color, isPublic };
@@ -77,6 +85,7 @@ function handlePatch(projectId: string, req: NextApiRequest, res: NextApiRespons
     if (color !== undefined) updates.color = color;
     if (isPublic !== undefined) updates.isPublic = isPublic;
 
+    const { projects } = getRepositories();
     const updatedProject = projects.update(projectId, updates);
 
     res.status(200).json({ project: updatedProject });
@@ -87,21 +96,13 @@ function handlePatch(projectId: string, req: NextApiRequest, res: NextApiRespons
 }
 
 // 프로젝트 삭제
-function handleDelete(projectId: string, req: NextApiRequest, res: NextApiResponse) {
+async function handleDelete(projectId: string, req: NextApiRequest, res: NextApiResponse) {
   try {
+    // 소유자 권한 확인
+    const auth = await requireProjectOwner(req, res, projectId);
+    if (!auth) return;
+
     const { projects } = getRepositories();
-    const project = projects.findById(projectId);
-
-    if (!project) {
-      return res.status(404).json({ error: 'Project not found' });
-    }
-
-    // TODO: 권한 체크 (프로젝트 소유자만 삭제 가능)
-    const { userId } = req.body;
-    if (userId && project.ownerId !== userId) {
-      return res.status(403).json({ error: 'Only project owner can delete the project' });
-    }
-
     const deleted = projects.delete(projectId);
 
     if (!deleted) {

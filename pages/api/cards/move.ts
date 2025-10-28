@@ -1,5 +1,6 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { getRepositories } from '@/lib/repositories';
+import { requireProjectMember } from '@/lib/auth-helpers';
 
 // WebSocket server extension type
 type NextApiResponseWithSocket = NextApiResponse & {
@@ -11,7 +12,6 @@ type NextApiResponseWithSocket = NextApiResponse & {
 export default async function handler(req: NextApiRequest, res: NextApiResponseWithSocket) {
   console.log('🚀 [API] Card move API called');
   console.log('🚀 [API] Method:', req.method);
-  console.log('🚀 [API] Request body:', req.body);
 
   if (req.method !== 'PUT') {
     res.setHeader('Allow', ['PUT']);
@@ -25,8 +25,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponseW
       destinationColumnId,
       destinationIndex,
       projectId,
-      userId,
-      userName,
     } = req.body;
 
     if (!cardId || !sourceColumnId || !destinationColumnId || destinationIndex === undefined) {
@@ -39,7 +37,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponseW
       return res.status(400).json({ error: 'Project ID is required' });
     }
 
-    const { cards, projects } = getRepositories();
+    // 인증 및 프로젝트 멤버십 확인
+    const auth = await requireProjectMember(req, res, projectId);
+    if (!auth) return; // 이미 에러 응답이 전송됨
+
+    const { session, project, userId } = auth;
+    const userName = session.user?.name || 'Unknown User';
+
+    const { cards } = getRepositories();
 
     // 카드 이동
     const success = cards.moveCard(cardId, destinationColumnId, destinationIndex);
@@ -51,47 +56,38 @@ export default async function handler(req: NextApiRequest, res: NextApiResponseW
     // 웹소켓 이벤트 전송 (프로젝트 멤버들에게만)
     console.log('📤 [API] Attempting to send WebSocket event');
     console.log('📤 [API] Socket server exists:', !!res.socket?.server?.io);
-    console.log('📤 [API] Project ID:', projectId);
-    console.log('📤 [API] User ID:', userId);
-    console.log('📤 [API] User Name:', userName);
 
     if (res.socket?.server?.io) {
-      // 프로젝트 정보 가져오기
-      const project = projects.findById(projectId);
-      if (project) {
-        // 업데이트된 카드 가져오기
-        const updatedCard = cards.findById(cardId);
+      // 업데이트된 카드 가져오기
+      const updatedCard = cards.findById(cardId);
 
-        const eventData = {
-          card: updatedCard,
-          user: { id: userId || 'unknown', name: userName || '알 수 없는 사용자' },
-          fromColumn: sourceColumnId,
-          toColumn: destinationColumnId,
-          destinationIndex: destinationIndex,
-          projectId: projectId,
-          timestamp: Date.now(),
-        };
+      const eventData = {
+        card: updatedCard,
+        user: { id: userId, name: userName },
+        fromColumn: sourceColumnId,
+        toColumn: destinationColumnId,
+        destinationIndex: destinationIndex,
+        projectId: project.projectId,
+        timestamp: Date.now(),
+      };
 
-        console.log('📤 [API] Event data:', eventData);
+      console.log('📤 [API] Event data:', eventData);
 
-        // 프로젝트 멤버들의 사용자 ID 목록 수집
-        const memberUserIds = [
-          project.ownerId, // 프로젝트 소유자
-          ...project.members.map((member) => member.id), // 멤버들
-        ].filter((id, index, arr) => arr.indexOf(id) === index); // 중복 제거
+      // 프로젝트 멤버들의 사용자 ID 목록 수집
+      const memberUserIds = [
+        project.ownerId,
+        ...project.members.map((member) => member.id),
+      ].filter((id, index, arr) => arr.indexOf(id) === index); // 중복 제거
 
-        console.log('📤 [API] Sending to project members:', memberUserIds);
+      console.log('📤 [API] Sending to project members:', memberUserIds);
 
-        // 프로젝트 멤버들에게만 이벤트 전송
-        memberUserIds.forEach((memberId) => {
-          console.log(`📤 [API] Sending card-moved event to user-${memberId}`);
-          res.socket!.server!.io.to(`user-${memberId}`).emit('card-moved', eventData);
-        });
+      // 프로젝트 멤버들에게만 이벤트 전송
+      memberUserIds.forEach((memberId) => {
+        console.log(`📤 [API] Sending card-moved event to user-${memberId}`);
+        res.socket!.server!.io.to(`user-${memberId}`).emit('card-moved', eventData);
+      });
 
-        console.log('📤 [API] Card moved event sent to project members only:', memberUserIds);
-      } else {
-        console.log('⚠️ [API] Project not found, skipping WebSocket event');
-      }
+      console.log('📤 [API] Card moved event sent to project members only:', memberUserIds);
     } else {
       console.log('❌ [API] No WebSocket server available');
     }

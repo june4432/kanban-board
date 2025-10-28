@@ -1,5 +1,6 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { getRepositories } from '@/lib/repositories';
+import { requireCardAccess } from '@/lib/auth-helpers';
 
 // WebSocket server extension type
 type NextApiResponseWithSocket = NextApiResponse & {
@@ -16,13 +17,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponseW
   }
 
   try {
-    // projectId를 query 또는 body에서 가져옴
-    const projectId = (req.query.projectId as string) || req.body.projectId;
-    const { userId, userName } = req.body;
+    // 인증 및 카드 접근 권한 확인
+    const auth = await requireCardAccess(req, res, id);
+    if (!auth) return; // 이미 에러 응답이 전송됨
 
-    if (!projectId) {
-      return res.status(400).json({ error: 'Project ID is required' });
-    }
+    const { session, project, userId } = auth;
+    const userName = session.user?.name || 'Unknown User';
 
     const { cards } = getRepositories();
 
@@ -38,16 +38,26 @@ export default async function handler(req: NextApiRequest, res: NextApiResponseW
           return res.status(404).json({ error: 'Card not found' });
         }
 
-        // 웹소켓 이벤트 전송
+        // 웹소켓 이벤트 전송 (프로젝트 멤버들에게만)
         if (res.socket?.server?.io) {
           const eventData = {
             card: updatedCard,
-            user: { id: userId || 'unknown', name: userName || '알 수 없는 사용자' },
-            projectId: projectId,
+            user: { id: userId, name: userName },
+            projectId: project.projectId,
             timestamp: Date.now(),
           };
-          res.socket.server.io.emit('card-updated', eventData);
-          console.log('Card updated event broadcasted to all users:', projectId);
+
+          // 프로젝트 멤버들에게만 전송
+          const memberUserIds = [
+            project.ownerId,
+            ...project.members.map((m) => m.id),
+          ].filter((id, index, arr) => arr.indexOf(id) === index); // 중복 제거
+
+          memberUserIds.forEach((memberId) => {
+            res.socket!.server!.io.to(`user-${memberId}`).emit('card-updated', eventData);
+          });
+
+          console.log('Card updated event sent to project members:', memberUserIds);
         }
 
         res.status(200).json({ success: true });
