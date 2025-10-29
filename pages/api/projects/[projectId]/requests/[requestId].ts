@@ -1,5 +1,6 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { getRepositories } from '@/lib/repositories';
+import { requireProjectOwner } from '@/lib/auth-helpers';
 
 type NextApiResponseWithSocket = NextApiResponse & {
   socket?: {
@@ -9,7 +10,7 @@ type NextApiResponseWithSocket = NextApiResponse & {
   };
 };
 
-export default function handler(req: NextApiRequest, res: NextApiResponseWithSocket) {
+export default async function handler(req: NextApiRequest, res: NextApiResponseWithSocket) {
   const { projectId, requestId } = req.query;
 
   if (typeof projectId !== 'string' || typeof requestId !== 'string') {
@@ -22,6 +23,10 @@ export default function handler(req: NextApiRequest, res: NextApiResponseWithSoc
   }
 
   try {
+    // 인증 및 소유자 권한 확인
+    const session = await requireProjectOwner(req, res, projectId);
+    if (!session) return; // 이미 에러 응답 전송됨
+
     const { action } = req.body;
 
     if (!action || !['approve', 'reject'].includes(action)) {
@@ -40,8 +45,6 @@ export default function handler(req: NextApiRequest, res: NextApiResponseWithSoc
     if (!request) {
       return res.status(404).json({ error: 'Request not found' });
     }
-
-    // TODO: 권한 체크 (프로젝트 소유자만 승인/거부 가능)
 
     let success;
 

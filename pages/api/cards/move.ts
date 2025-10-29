@@ -1,5 +1,6 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { getRepositories } from '@/lib/repositories';
+import { requireCardAccess } from '@/lib/auth-helpers';
 
 // WebSocket server extension type
 type NextApiResponseWithSocket = NextApiResponse & {
@@ -24,9 +25,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponseW
       sourceColumnId,
       destinationColumnId,
       destinationIndex,
-      projectId,
-      userId,
-      userName,
     } = req.body;
 
     if (!cardId || !sourceColumnId || !destinationColumnId || destinationIndex === undefined) {
@@ -35,9 +33,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponseW
       });
     }
 
-    if (!projectId) {
-      return res.status(400).json({ error: 'Project ID is required' });
-    }
+    // 인증 및 카드 접근 권한 확인
+    const auth = await requireCardAccess(req, res, cardId);
+    if (!auth) return; // 이미 에러 응답 전송됨
+
+    const { session, projectId } = auth;
 
     const { cards, projects } = getRepositories();
 
@@ -64,7 +64,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponseW
 
         const eventData = {
           card: updatedCard,
-          user: { id: userId || 'unknown', name: userName || '알 수 없는 사용자' },
+          user: { id: session.user.id, name: session.user.name || '알 수 없는 사용자' },
           fromColumn: sourceColumnId,
           toColumn: destinationColumnId,
           destinationIndex: destinationIndex,

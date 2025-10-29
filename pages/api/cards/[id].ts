@@ -1,5 +1,6 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { getRepositories } from '@/lib/repositories';
+import { requireCardAccess } from '@/lib/auth-helpers';
 
 // WebSocket server extension type
 type NextApiResponseWithSocket = NextApiResponse & {
@@ -15,15 +16,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponseW
     return res.status(400).json({ error: 'Invalid card ID' });
   }
 
+  // 인증 및 카드 접근 권한 확인
+  const auth = await requireCardAccess(req, res, id);
+  if (!auth) return; // 이미 에러 응답 전송됨
+
+  const { session, projectId } = auth;
+
   try {
-    // projectId를 query 또는 body에서 가져옴
-    const projectId = (req.query.projectId as string) || req.body.projectId;
-    const { userId, userName } = req.body;
-
-    if (!projectId) {
-      return res.status(400).json({ error: 'Project ID is required' });
-    }
-
     const { cards } = getRepositories();
 
     switch (req.method) {
@@ -42,7 +41,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponseW
         if (res.socket?.server?.io) {
           const eventData = {
             card: updatedCard,
-            user: { id: userId || 'unknown', name: userName || '알 수 없는 사용자' },
+            user: { id: session.user.id, name: session.user.name || '알 수 없는 사용자' },
             projectId: projectId,
             timestamp: Date.now(),
           };

@@ -1,7 +1,8 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { getRepositories } from '@/lib/repositories';
+import { requireProjectOwner } from '@/lib/auth-helpers';
 
-export default function handler(req: NextApiRequest, res: NextApiResponse) {
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const { projectId, userId } = req.query;
 
   if (typeof projectId !== 'string' || typeof userId !== 'string') {
@@ -14,14 +15,16 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
   }
 
   try {
+    // 인증 및 소유자 권한 확인
+    const session = await requireProjectOwner(req, res, projectId);
+    if (!session) return; // 이미 에러 응답 전송됨
+
     const { projects } = getRepositories();
     const project = projects.findById(projectId);
 
     if (!project) {
       return res.status(404).json({ error: 'Project not found' });
     }
-
-    // TODO: 권한 체크 (프로젝트 소유자만 멤버 제거 가능)
 
     // 프로젝트 소유자는 제거할 수 없음
     if (project.ownerId === userId) {

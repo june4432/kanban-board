@@ -1,7 +1,8 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { getRepositories } from '@/lib/repositories';
+import { requireProjectMember } from '@/lib/auth-helpers';
 
-export default function handler(req: NextApiRequest, res: NextApiResponse) {
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const { projectId } = req.query;
 
   if (typeof projectId !== 'string') {
@@ -14,33 +15,22 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
   }
 
   try {
-    const { userId } = req.body;
+    // 인증 및 프로젝트 멤버십 확인
+    const auth = await requireProjectMember(req, res, projectId);
+    if (!auth) return; // 이미 에러 응답 전송됨
 
-    if (!userId) {
-      return res.status(400).json({ error: 'User ID is required' });
-    }
-
-    const { projects } = getRepositories();
-    const project = projects.findById(projectId);
-
-    if (!project) {
-      return res.status(404).json({ error: 'Project not found' });
-    }
+    const { session, isOwner } = auth;
 
     // 프로젝트 소유자는 나갈 수 없음
-    if (project.ownerId === userId) {
+    if (isOwner) {
       return res.status(400).json({
         error: '프로젝트 소유자는 프로젝트를 나갈 수 없습니다. 프로젝트를 삭제하거나 소유권을 이전하세요.',
       });
     }
 
-    // 사용자가 실제로 프로젝트 멤버인지 확인
-    if (!projects.isMember(projectId, userId)) {
-      return res.status(400).json({ error: '프로젝트 멤버가 아닙니다.' });
-    }
-
     // 멤버에서 제거
-    const removed = projects.removeMember(projectId, userId);
+    const { projects } = getRepositories();
+    const removed = projects.removeMember(projectId, session.user.id);
 
     if (!removed) {
       return res.status(500).json({ error: 'Failed to leave project' });

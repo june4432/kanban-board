@@ -31,7 +31,11 @@
       "Bash(npx tsc:*)",
       "mcp__sequential-thinking__sequentialthinking",
       "Bash(npm install:*)",
-      "Bash(npx tailwindcss init:*)"
+      "Bash(npx tailwindcss init:*)",
+      "Bash(npm audit)",
+      "Bash(npm update:*)",
+      "Bash(npm audit fix:*)",
+      "Bash(npm test)"
     ],
     "deny": [],
     "ask": []
