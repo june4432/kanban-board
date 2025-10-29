@@ -15,23 +15,22 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    // 인증 및 멤버십 확인
+    // 인증 및 프로젝트 멤버십 확인
     const auth = await requireProjectMember(req, res, projectId);
-    if (!auth) return;
+    if (!auth) return; // 이미 에러 응답 전송됨
 
-    const { project, userId } = auth;
+    const { session, isOwner } = auth;
 
     // 프로젝트 소유자는 나갈 수 없음
-    if (project.ownerId === userId) {
+    if (isOwner) {
       return res.status(400).json({
         error: '프로젝트 소유자는 프로젝트를 나갈 수 없습니다. 프로젝트를 삭제하거나 소유권을 이전하세요.',
       });
     }
 
-    const { projects } = getRepositories();
-
     // 멤버에서 제거
-    const removed = projects.removeMember(projectId, userId);
+    const { projects } = getRepositories();
+    const removed = projects.removeMember(projectId, session.user.id);
 
     if (!removed) {
       return res.status(500).json({ error: 'Failed to leave project' });

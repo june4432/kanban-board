@@ -1,117 +1,349 @@
-import { validateEnv } from '@/lib/env-validation';
+/**
+ * env-validation.ts 테스트
+ *
+ * 환경 변수 검증 로직을 테스트합니다.
+ */
 
-describe('Environment Validation', () => {
+import { validateEnv, assertValidEnv, getRequiredEnvVars } from '@/lib/env-validation';
+
+describe('env-validation', () => {
   const originalEnv = process.env;
 
   beforeEach(() => {
+    // Reset environment before each test
     jest.resetModules();
     process.env = { ...originalEnv };
   });
 
-  afterAll(() => {
+  afterEach(() => {
     process.env = originalEnv;
   });
 
-  it('should pass with valid environment variables', () => {
-    process.env.NEXTAUTH_SECRET = 'a'.repeat(32); // 32 characters
-    process.env.NEXTAUTH_URL = 'http://localhost:3000';
-    process.env.NODE_ENV = 'development';
+  describe('validateEnv', () => {
+    describe('필수 환경 변수 검증', () => {
+      it('모든 필수 환경 변수가 있으면 valid: true를 반환해야 함', () => {
+        process.env.NODE_ENV = 'development';
+        process.env.NEXTAUTH_SECRET = 'a'.repeat(32);
+        process.env.NEXTAUTH_URL = 'http://localhost:3000';
 
-    expect(() => validateEnv()).not.toThrow();
-  });
+        const result = validateEnv();
 
-  it('should fail if NEXTAUTH_SECRET is missing', () => {
-    delete process.env.NEXTAUTH_SECRET;
-    process.env.NEXTAUTH_URL = 'http://localhost:3000';
+        expect(result.valid).toBe(true);
+        expect(result.errors).toHaveLength(0);
+      });
 
-    expect(() => validateEnv()).toThrow('Missing required environment variable: NEXTAUTH_SECRET');
-  });
+      it('NEXTAUTH_SECRET이 없으면 에러를 반환해야 함', () => {
+        process.env.NODE_ENV = 'development';
+        delete process.env.NEXTAUTH_SECRET;
+        process.env.NEXTAUTH_URL = 'http://localhost:3000';
 
-  it('should fail if NEXTAUTH_URL is missing', () => {
-    process.env.NEXTAUTH_SECRET = 'a'.repeat(32);
-    delete process.env.NEXTAUTH_URL;
+        const result = validateEnv();
 
-    expect(() => validateEnv()).toThrow('Missing required environment variable: NEXTAUTH_URL');
-  });
+        expect(result.valid).toBe(false);
+        expect(result.errors).toContain('Missing required environment variable: NEXTAUTH_SECRET');
+      });
 
-  it('should fail if NEXTAUTH_SECRET is too short', () => {
-    process.env.NEXTAUTH_SECRET = 'short'; // Less than 32 characters
-    process.env.NEXTAUTH_URL = 'http://localhost:3000';
+      it('NEXTAUTH_URL이 없으면 에러를 반환해야 함', () => {
+        process.env.NODE_ENV = 'development';
+        process.env.NEXTAUTH_SECRET = 'a'.repeat(32);
+        delete process.env.NEXTAUTH_URL;
 
-    expect(() => validateEnv()).toThrow('NEXTAUTH_SECRET must be at least 32 characters long');
-  });
+        const result = validateEnv();
 
-  it('should fail if NEXTAUTH_SECRET uses unsafe default value', () => {
-    process.env.NEXTAUTH_SECRET = 'your-secret-key-here-change-in-production';
-    process.env.NEXTAUTH_URL = 'http://localhost:3000';
+        expect(result.valid).toBe(false);
+        expect(result.errors).toContain('Missing required environment variable: NEXTAUTH_URL');
+      });
 
-    expect(() => validateEnv()).toThrow('NEXTAUTH_SECRET is using an unsafe default value');
-  });
+      it('모든 필수 환경 변수가 없으면 여러 에러를 반환해야 함', () => {
+        process.env.NODE_ENV = 'development';
+        delete process.env.NEXTAUTH_SECRET;
+        delete process.env.NEXTAUTH_URL;
 
-  it('should fail if NEXTAUTH_SECRET contains common unsafe strings', () => {
-    const unsafeSecrets = ['secret', 'changeme', 'password', '12345678', 'test'];
+        const result = validateEnv();
 
-    unsafeSecrets.forEach((unsafe) => {
-      process.env.NEXTAUTH_SECRET = `my${unsafe}key1234567890123456789`; // 32+ characters but contains unsafe string
-      process.env.NEXTAUTH_URL = 'http://localhost:3000';
+        expect(result.valid).toBe(false);
+        expect(result.errors).toHaveLength(2);
+        expect(result.errors).toContain('Missing required environment variable: NEXTAUTH_SECRET');
+        expect(result.errors).toContain('Missing required environment variable: NEXTAUTH_URL');
+      });
+    });
 
-      expect(() => validateEnv()).toThrow('NEXTAUTH_SECRET is using an unsafe default value');
+    describe('NEXTAUTH_SECRET 검증', () => {
+      it('NEXTAUTH_SECRET이 32자 미만이면 에러를 반환해야 함', () => {
+        process.env.NODE_ENV = 'development';
+        process.env.NEXTAUTH_SECRET = 'short-secret';
+        process.env.NEXTAUTH_URL = 'http://localhost:3000';
+
+        const result = validateEnv();
+
+        expect(result.valid).toBe(false);
+        expect(result.errors).toContain('NEXTAUTH_SECRET must be at least 32 characters long');
+      });
+
+      it('NEXTAUTH_SECRET이 정확히 32자면 통과해야 함', () => {
+        process.env.NODE_ENV = 'development';
+        process.env.NEXTAUTH_SECRET = 'a'.repeat(32);
+        process.env.NEXTAUTH_URL = 'http://localhost:3000';
+
+        const result = validateEnv();
+
+        expect(result.valid).toBe(true);
+        expect(result.errors).toHaveLength(0);
+      });
+
+      it('개발 환경에서 unsafe secret을 사용하면 warning을 반환해야 함', () => {
+        process.env.NODE_ENV = 'development';
+        process.env.NEXTAUTH_SECRET = 'secret'.repeat(10); // 60 chars but unsafe
+        process.env.NEXTAUTH_URL = 'http://localhost:3000';
+
+        const result = validateEnv();
+
+        expect(result.valid).toBe(true); // Valid in dev
+        expect(result.errors).toHaveLength(0);
+        expect(result.warnings).toContain(
+          'NEXTAUTH_SECRET is using an unsafe default value (okay for development)'
+        );
+      });
+
+      it('프로덕션 환경에서 unsafe secret을 사용하면 에러를 반환해야 함', () => {
+        process.env.NODE_ENV = 'production';
+        process.env.NEXTAUTH_SECRET = 'secret'.repeat(10);
+        process.env.NEXTAUTH_URL = 'https://example.com';
+
+        const result = validateEnv();
+
+        expect(result.valid).toBe(false);
+        expect(result.errors).toContain('NEXTAUTH_SECRET is using an unsafe default value');
+      });
+
+      it('다양한 unsafe secret 패턴을 감지해야 함', () => {
+        const unsafePatterns = [
+          'your-secret-key-here-change-in-production-aaaa',
+          'changeme'.repeat(5),
+          'password'.repeat(5),
+          'test'.repeat(10),
+          'example'.repeat(10),
+        ];
+
+        for (const unsafe of unsafePatterns) {
+          process.env.NODE_ENV = 'production';
+          process.env.NEXTAUTH_SECRET = unsafe;
+          process.env.NEXTAUTH_URL = 'https://example.com';
+
+          const result = validateEnv();
+
+          expect(result.valid).toBe(false);
+          expect(result.errors).toContain('NEXTAUTH_SECRET is using an unsafe default value');
+        }
+      });
+
+      it('안전한 랜덤 secret은 통과해야 함', () => {
+        process.env.NODE_ENV = 'production';
+        process.env.NEXTAUTH_SECRET = 'xK9mP2qW7nL5jR8vT3yH6fD1sA4gB0cZ'; // Random safe secret
+        process.env.NEXTAUTH_URL = 'https://example.com';
+
+        const result = validateEnv();
+
+        expect(result.valid).toBe(true);
+        expect(result.errors).toHaveLength(0);
+      });
+    });
+
+    describe('프로덕션 환경 검증', () => {
+      it('프로덕션에서 localhost URL을 사용하면 에러를 반환해야 함', () => {
+        process.env.NODE_ENV = 'production';
+        process.env.NEXTAUTH_SECRET = 'a'.repeat(32);
+        process.env.NEXTAUTH_URL = 'http://localhost:3000';
+
+        const result = validateEnv();
+
+        expect(result.valid).toBe(false);
+        expect(result.errors).toContain('NEXTAUTH_URL should not use localhost in production');
+      });
+
+      it('프로덕션에서 127.0.0.1 URL을 사용하면 에러를 반환해야 함', () => {
+        process.env.NODE_ENV = 'production';
+        process.env.NEXTAUTH_SECRET = 'a'.repeat(32);
+        process.env.NEXTAUTH_URL = 'http://127.0.0.1:3000';
+
+        const result = validateEnv();
+
+        expect(result.valid).toBe(false);
+        expect(result.errors).toContain('NEXTAUTH_URL should not use localhost in production');
+      });
+
+      it('프로덕션에서 적절한 URL을 사용하면 통과해야 함', () => {
+        process.env.NODE_ENV = 'production';
+        process.env.NEXTAUTH_SECRET = 'a'.repeat(32);
+        process.env.NEXTAUTH_URL = 'https://example.com';
+        process.env.ALLOWED_ORIGINS = 'https://example.com';
+        process.env.DATABASE_PATH = './data/kanban.db';
+
+        const result = validateEnv();
+
+        expect(result.valid).toBe(true);
+        expect(result.errors).toHaveLength(0);
+      });
+
+      it('프로덕션에서 ALLOWED_ORIGINS이 없으면 warning을 반환해야 함', () => {
+        process.env.NODE_ENV = 'production';
+        process.env.NEXTAUTH_SECRET = 'a'.repeat(32);
+        process.env.NEXTAUTH_URL = 'https://example.com';
+        delete process.env.ALLOWED_ORIGINS;
+
+        const result = validateEnv();
+
+        expect(result.valid).toBe(true);
+        expect(result.warnings).toContain(
+          'ALLOWED_ORIGINS not set. Using default CORS configuration.'
+        );
+      });
+
+      it('프로덕션에서 DATABASE_PATH가 없으면 warning을 반환해야 함', () => {
+        process.env.NODE_ENV = 'production';
+        process.env.NEXTAUTH_SECRET = 'a'.repeat(32);
+        process.env.NEXTAUTH_URL = 'https://example.com';
+        delete process.env.DATABASE_PATH;
+
+        const result = validateEnv();
+
+        expect(result.valid).toBe(true);
+        expect(result.warnings).toContain('DATABASE_PATH not set. Using default: ./data/kanban.db');
+      });
+    });
+
+    describe('개발 환경 검증', () => {
+      it('개발 환경에서는 localhost URL을 허용해야 함', () => {
+        process.env.NODE_ENV = 'development';
+        process.env.NEXTAUTH_SECRET = 'a'.repeat(32);
+        process.env.NEXTAUTH_URL = 'http://localhost:3000';
+
+        const result = validateEnv();
+
+        expect(result.valid).toBe(true);
+        expect(result.errors).toHaveLength(0);
+      });
+
+      it('개발 환경에서 ALLOWED_ORIGINS이 없어도 warning이 없어야 함', () => {
+        process.env.NODE_ENV = 'development';
+        process.env.NEXTAUTH_SECRET = 'a'.repeat(32);
+        process.env.NEXTAUTH_URL = 'http://localhost:3000';
+        delete process.env.ALLOWED_ORIGINS;
+
+        const result = validateEnv();
+
+        expect(result.valid).toBe(true);
+        expect(result.warnings).not.toContain(
+          'ALLOWED_ORIGINS not set. Using default CORS configuration.'
+        );
+      });
+
+      it('개발 환경에서 DATABASE_PATH가 없어도 warning이 없어야 함', () => {
+        process.env.NODE_ENV = 'development';
+        process.env.NEXTAUTH_SECRET = 'a'.repeat(32);
+        process.env.NEXTAUTH_URL = 'http://localhost:3000';
+        delete process.env.DATABASE_PATH;
+
+        const result = validateEnv();
+
+        expect(result.valid).toBe(true);
+        expect(result.warnings).not.toContain(
+          'DATABASE_PATH not set. Using default: ./data/kanban.db'
+        );
+      });
     });
   });
 
-  it('should fail if NEXTAUTH_URL is not a valid URL', () => {
-    process.env.NEXTAUTH_SECRET = 'a'.repeat(32);
-    process.env.NEXTAUTH_URL = 'not-a-valid-url';
+  describe('assertValidEnv', () => {
+    let consoleWarnSpy: jest.SpyInstance;
+    let consoleErrorSpy: jest.SpyInstance;
+    let consoleLogSpy: jest.SpyInstance;
 
-    expect(() => validateEnv()).toThrow('NEXTAUTH_URL is not a valid URL');
-  });
-
-  describe('Production environment', () => {
     beforeEach(() => {
-      process.env.NODE_ENV = 'production';
+      consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation();
+      consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
+      consoleLogSpy = jest.spyOn(console, 'log').mockImplementation();
     });
 
-    it('should fail if NEXTAUTH_URL uses localhost in production', () => {
+    afterEach(() => {
+      consoleWarnSpy.mockRestore();
+      consoleErrorSpy.mockRestore();
+      consoleLogSpy.mockRestore();
+    });
+
+    it('환경 변수가 유효하면 예외를 발생시키지 않아야 함', () => {
+      process.env.NODE_ENV = 'development';
       process.env.NEXTAUTH_SECRET = 'a'.repeat(32);
       process.env.NEXTAUTH_URL = 'http://localhost:3000';
 
-      expect(() => validateEnv()).toThrow('NEXTAUTH_URL should not use localhost in production');
+      expect(() => assertValidEnv()).not.toThrow();
+      expect(consoleLogSpy).toHaveBeenCalledWith('✅ Environment validation passed');
     });
 
-    it('should fail if NEXTAUTH_URL uses 127.0.0.1 in production', () => {
-      process.env.NEXTAUTH_SECRET = 'a'.repeat(32);
-      process.env.NEXTAUTH_URL = 'http://127.0.0.1:3000';
+    it('환경 변수가 유효하지 않으면 예외를 발생시켜야 함', () => {
+      process.env.NODE_ENV = 'development';
+      delete process.env.NEXTAUTH_SECRET;
+      delete process.env.NEXTAUTH_URL;
 
-      expect(() => validateEnv()).toThrow('NEXTAUTH_URL should not use localhost in production');
+      expect(() => assertValidEnv()).toThrow('Environment validation failed. Check your .env file.');
+      expect(consoleErrorSpy).toHaveBeenCalledWith('❌ Environment validation failed:');
     });
 
-    it('should fail if NEXTAUTH_URL does not use HTTPS in production', () => {
-      process.env.NEXTAUTH_SECRET = 'a'.repeat(32);
-      process.env.NEXTAUTH_URL = 'http://example.com';
+    it('warning이 있으면 콘솔에 출력해야 함', () => {
+      process.env.NODE_ENV = 'development';
+      process.env.NEXTAUTH_SECRET = 'secret'.repeat(10); // Unsafe but long enough
+      process.env.NEXTAUTH_URL = 'http://localhost:3000';
 
-      expect(() => validateEnv()).toThrow('NEXTAUTH_URL must use HTTPS in production');
+      expect(() => assertValidEnv()).not.toThrow();
+      expect(consoleWarnSpy).toHaveBeenCalledWith('⚠️ Environment validation warnings:');
+      expect(consoleLogSpy).toHaveBeenCalledWith('✅ Environment validation passed');
     });
 
-    it('should pass with HTTPS URL in production', () => {
-      process.env.NEXTAUTH_SECRET = 'a'.repeat(32);
-      process.env.NEXTAUTH_URL = 'https://example.com';
+    it('에러 메시지를 모두 출력해야 함', () => {
+      process.env.NODE_ENV = 'development';
+      delete process.env.NEXTAUTH_SECRET;
+      delete process.env.NEXTAUTH_URL;
 
-      expect(() => validateEnv()).not.toThrow();
+      expect(() => assertValidEnv()).toThrow();
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        '   - Missing required environment variable: NEXTAUTH_SECRET'
+      );
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        '   - Missing required environment variable: NEXTAUTH_URL'
+      );
     });
 
-    it('should warn if ALLOWED_ORIGINS is not set in production', () => {
+    it('warning 메시지를 모두 출력해야 함', () => {
+      process.env.NODE_ENV = 'production';
       process.env.NEXTAUTH_SECRET = 'a'.repeat(32);
       process.env.NEXTAUTH_URL = 'https://example.com';
       delete process.env.ALLOWED_ORIGINS;
+      delete process.env.DATABASE_PATH;
 
-      const consoleSpy = jest.spyOn(console, 'warn').mockImplementation();
-
-      expect(() => validateEnv()).not.toThrow();
-      expect(consoleSpy).toHaveBeenCalledWith(
-        expect.stringContaining('ALLOWED_ORIGINS is not set in production')
+      expect(() => assertValidEnv()).not.toThrow();
+      expect(consoleWarnSpy).toHaveBeenCalledWith(
+        '   - ALLOWED_ORIGINS not set. Using default CORS configuration.'
       );
+      expect(consoleWarnSpy).toHaveBeenCalledWith(
+        '   - DATABASE_PATH not set. Using default: ./data/kanban.db'
+      );
+    });
+  });
 
-      consoleSpy.mockRestore();
+  describe('getRequiredEnvVars', () => {
+    it('필수 환경 변수 목록을 반환해야 함', () => {
+      const required = getRequiredEnvVars();
+
+      expect(required).toContain('NODE_ENV');
+      expect(required).toContain('NEXTAUTH_URL');
+      expect(required).toContain('NEXTAUTH_SECRET');
+      expect(required).toContain('ALLOWED_ORIGINS');
+      expect(required).toContain('DATABASE_PATH');
+    });
+
+    it('빈 배열이 아니어야 함', () => {
+      const required = getRequiredEnvVars();
+      expect(required.length).toBeGreaterThan(0);
     });
   });
 });

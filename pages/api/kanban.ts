@@ -1,5 +1,6 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { getRepositories } from '@/lib/repositories';
+import { requireProjectMember } from '@/lib/auth-helpers';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
@@ -15,16 +16,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           return res.status(400).json({ error: 'Project ID is required' });
         }
 
+        // 인증 및 프로젝트 멤버십 확인
+        const auth = await requireProjectMember(req, res, projectId);
+        if (!auth) return; // 이미 에러 응답 전송됨
+
         console.log(`📚 Reading data for projectId: ${projectId}`);
 
-        const { boards, projects } = getRepositories();
-
-        // 프로젝트 존재 확인
-        const project = projects.findById(projectId);
-        if (!project) {
-          console.log(`❌ Project not found: ${projectId}`);
-          return res.status(404).json({ error: 'Project not found' });
-        }
+        const { boards } = getRepositories();
 
         // 보드 조회 (없으면 자동 생성됨)
         let board = boards.findByProjectId(projectId);

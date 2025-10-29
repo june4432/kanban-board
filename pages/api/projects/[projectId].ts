@@ -25,25 +25,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 // 특정 프로젝트 조회
 async function handleGet(projectId: string, req: NextApiRequest, res: NextApiResponse) {
   try {
-    // 인증 확인 (공개 프로젝트는 인증 없이도 조회 가능하도록 변경 가능)
-    const session = await requireAuth(req, res);
-    if (!session) return;
-
     const { projects } = getRepositories();
     const project = projects.findById(projectId);
 
     if (!project) {
       return res.status(404).json({ error: 'Project not found' });
-    }
-
-    // 비공개 프로젝트는 멤버만 조회 가능
-    if (!project.isPublic) {
-      const userId = (session.user as any).id;
-      const isMember = project.ownerId === userId || project.members.some((m) => m.id === userId);
-
-      if (!isMember) {
-        return res.status(403).json({ error: 'Access denied to private project' });
-      }
     }
 
     res.status(200).json({ project });
@@ -56,15 +42,13 @@ async function handleGet(projectId: string, req: NextApiRequest, res: NextApiRes
 // 프로젝트 업데이트
 async function handlePatch(projectId: string, req: NextApiRequest, res: NextApiResponse) {
   try {
-    // 멤버십 확인
+    // 인증 및 프로젝트 멤버십 확인
     const auth = await requireProjectMember(req, res, projectId);
-    if (!auth) return;
+    if (!auth) return; // 이미 에러 응답 전송됨
 
-    const { project, userId } = auth;
+    const { session, isOwner } = auth;
+
     const { name, description, color, isPublic } = req.body;
-
-    // 권한 체크: 프로젝트 소유자인지 확인
-    const isOwner = project.ownerId === userId;
 
     // 소유자만 변경할 수 있는 설정들
     const ownerOnlyFields = { name, color, isPublic };
@@ -98,9 +82,9 @@ async function handlePatch(projectId: string, req: NextApiRequest, res: NextApiR
 // 프로젝트 삭제
 async function handleDelete(projectId: string, req: NextApiRequest, res: NextApiResponse) {
   try {
-    // 소유자 권한 확인
-    const auth = await requireProjectOwner(req, res, projectId);
-    if (!auth) return;
+    // 인증 및 소유자 권한 확인
+    const session = await requireProjectOwner(req, res, projectId);
+    if (!session) return; // 이미 에러 응답 전송됨
 
     const { projects } = getRepositories();
     const deleted = projects.delete(projectId);

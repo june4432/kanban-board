@@ -26,12 +26,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponseW
 
     // 인증 및 프로젝트 멤버십 확인
     const auth = await requireProjectMember(req, res, projectId);
-    if (!auth) return; // 이미 에러 응답이 전송됨
+    if (!auth) return; // 이미 에러 응답 전송됨
 
-    const { session, project, userId } = auth;
-    const userName = session.user?.name || 'Unknown User';
+    const { session } = auth;
 
-    const { cards, boards } = getRepositories();
+    const { cards, boards, projects } = getRepositories();
 
     switch (req.method) {
       case 'POST':
@@ -68,26 +67,29 @@ export default async function handler(req: NextApiRequest, res: NextApiResponseW
         });
 
         // 웹소켓 이벤트 전송 (프로젝트 멤버들에게만)
-        if (res.socket?.server?.io) {
-          const eventData = {
-            card: newCard,
-            user: { id: userId, name: userName },
-            projectId: project.projectId,
-            timestamp: Date.now(),
-          };
+        if (res.socket?.server?.io && projectId) {
+          const project = projects.findById(projectId);
+          if (project) {
+            const eventData = {
+              card: newCard,
+              user: { id: session.user.id, name: session.user.name || '알 수 없는 사용자' },
+              projectId: projectId,
+              timestamp: Date.now(),
+            };
 
-          // 프로젝트 멤버들의 사용자 ID 목록 수집
-          const memberUserIds = [
-            project.ownerId,
-            ...project.members.map((member) => member.id),
-          ].filter((id, index, arr) => arr.indexOf(id) === index); // 중복 제거
+            // 프로젝트 멤버들의 사용자 ID 목록 수집
+            const memberUserIds = [
+              project.ownerId, // 프로젝트 소유자
+              ...project.members.map((member) => member.id), // 멤버들
+            ];
 
-          // 프로젝트 멤버들에게만 이벤트 전송
-          memberUserIds.forEach((memberId) => {
-            res.socket!.server!.io.to(`user-${memberId}`).emit('card-created', eventData);
-          });
+            // 프로젝트 멤버들에게만 이벤트 전송
+            memberUserIds.forEach((memberId) => {
+              res.socket!.server!.io.to(`user-${memberId}`).emit('card-created', eventData);
+            });
 
-          console.log('Card created event sent to project members:', memberUserIds);
+            console.log('Card created event sent to project members:', memberUserIds);
+          }
         }
 
         res.status(201).json({ card: newCard });

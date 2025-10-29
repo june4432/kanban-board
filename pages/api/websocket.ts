@@ -14,7 +14,7 @@ type NextApiResponseWithSocket = NextApiResponse & {
   };
 };
 
-const SocketHandler = (req: NextApiRequest, res: NextApiResponseWithSocket) => {
+const SocketHandler = async (req: NextApiRequest, res: NextApiResponseWithSocket) => {
   console.log('🔧 [WebSocket] SocketHandler called');
   console.log('🔧 [WebSocket] Socket server exists:', !!res.socket?.server);
   console.log('🔧 [WebSocket] IO already exists:', !!res.socket?.server?.io);
@@ -38,10 +38,7 @@ const SocketHandler = (req: NextApiRequest, res: NextApiResponseWithSocket) => {
     io.use(async (socket, next) => {
       try {
         const req = socket.request as any;
-        const res = {} as any;
-
-        // NextAuth 세션 확인
-        const session = await getServerSession(req, res, authOptions);
+        const session = await getServerSession(req, {} as any, authOptions);
 
         if (!session?.user?.id) {
           console.log('🚫 [WebSocket] Connection rejected: No session');
@@ -49,11 +46,11 @@ const SocketHandler = (req: NextApiRequest, res: NextApiResponseWithSocket) => {
         }
 
         // socket에 사용자 정보 저장
-        socket.data.userId = (session.user as any).id;
+        socket.data.userId = session.user.id;
         socket.data.userEmail = session.user.email;
         socket.data.userName = session.user.name;
 
-        console.log(`✅ [WebSocket] Authenticated: ${session.user.email} (${socket.data.userId})`);
+        console.log(`✅ [WebSocket] Authenticated: ${session.user.email}`);
         next();
       } catch (error) {
         console.error('🚫 [WebSocket] Auth error:', error);
@@ -67,11 +64,11 @@ const SocketHandler = (req: NextApiRequest, res: NextApiResponseWithSocket) => {
 
       console.log(`📡 [WebSocket] Client connected: ${socket.id} (${userEmail})`);
 
-      // 사용자 룸에 자동 참여 (클라이언트 입력 무시)
+      // 사용자 룸 자동 참여 (클라이언트 입력 무시)
       socket.join(`user-${userId}`);
       console.log(`👤 [WebSocket] Auto-joined user room: user-${userId}`);
 
-      // 프로젝트 룸에 참여 (멤버십 확인)
+      // 프로젝트 룸에 참여 - 멤버십 확인
       socket.on('join-project', async (projectId: string) => {
         try {
           const { projects } = getRepositories();
@@ -82,8 +79,7 @@ const SocketHandler = (req: NextApiRequest, res: NextApiResponseWithSocket) => {
             return;
           }
 
-          // 멤버십 확인
-          const isMember = project.ownerId === userId || project.members.some((m) => m.id === userId);
+          const isMember = projects.isMember(projectId, userId);
 
           if (isMember) {
             socket.join(`project-${projectId}`);
@@ -103,6 +99,21 @@ const SocketHandler = (req: NextApiRequest, res: NextApiResponseWithSocket) => {
       socket.on('leave-project', (projectId: string) => {
         socket.leave(`project-${projectId}`);
         console.log(`👋 [WebSocket] ${userEmail} left project-${projectId}`);
+      });
+
+      // WebSocket 서버에서는 따로 브로드캐스트하지 않음
+      // API에서 직접 브로드캐스트하므로 중복 방지
+      // 클라이언트 간 리레이는 API에서 처리
+
+      // 프로젝트 관련 이벤트는 클라이언트에서 직접 브로드캐스트
+      socket.on('project-join-request', (data) => {
+        socket.broadcast.emit('project-join-request', data);
+        console.log('[WebSocket] Project join request event broadcasted');
+      });
+
+      socket.on('project-join-response', (data) => {
+        socket.broadcast.emit('project-join-response', data);
+        console.log('[WebSocket] Project join response event broadcasted');
       });
 
       // 연결 해제

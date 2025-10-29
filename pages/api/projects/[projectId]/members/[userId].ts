@@ -15,18 +15,21 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    // 소유자 권한 확인 (프로젝트 소유자만 멤버 제거 가능)
-    const auth = await requireProjectOwner(req, res, projectId);
-    if (!auth) return;
+    // 인증 및 소유자 권한 확인
+    const session = await requireProjectOwner(req, res, projectId);
+    if (!session) return; // 이미 에러 응답 전송됨
 
-    const { project } = auth;
+    const { projects } = getRepositories();
+    const project = projects.findById(projectId);
+
+    if (!project) {
+      return res.status(404).json({ error: 'Project not found' });
+    }
 
     // 프로젝트 소유자는 제거할 수 없음
     if (project.ownerId === userId) {
       return res.status(400).json({ error: 'Cannot remove project owner' });
     }
-
-    const { projects } = getRepositories();
 
     // 멤버인지 확인
     if (!projects.isMember(projectId, userId)) {

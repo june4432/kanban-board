@@ -5,11 +5,11 @@ import { ToastProvider } from '@/contexts/ToastContext';
 import { ThemeProvider } from '@/contexts/ThemeContext';
 import ToastContainer from '@/components/ToastContainer';
 import { useEffect } from 'react';
-import { validateEnv } from '@/lib/env-validation';
+import { assertValidEnv } from '@/lib/env-validation';
 
-// 서버 사이드에서만 환경 변수 검증 실행
+// 서버 사이드에서만 환경 변수 검증
 if (typeof window === 'undefined') {
-  validateEnv();
+  assertValidEnv();
 }
 
 export default function App({ Component, pageProps }: AppProps) {

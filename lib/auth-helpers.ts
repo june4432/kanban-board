@@ -1,126 +1,126 @@
+import { NextApiRequest, NextApiResponse } from 'next';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/pages/api/auth/[...nextauth]';
-import { NextApiRequest, NextApiResponse } from 'next';
-import { getRepositories } from './repositories';
+import { ProjectRepository } from './repositories/project.repository';
+import { getDatabase } from './database';
+
+export interface AuthSession {
+  user: {
+    id: string;
+    name?: string | null;
+    email?: string | null;
+    image?: string | null;
+  };
+}
 
 /**
- * API 인증을 확인하고 세션을 반환합니다.
- * 인증되지 않은 경우 401 에러를 응답하고 null을 반환합니다.
+ * API 라우트에서 사용자 인증을 확인합니다.
+ * 인증되지 않은 경우 401 에러를 반환합니다.
  */
-export async function requireAuth(req: NextApiRequest, res: NextApiResponse) {
+export async function requireAuth(
+  req: NextApiRequest,
+  res: NextApiResponse
+): Promise<AuthSession | null> {
   const session = await getServerSession(req, res, authOptions);
 
   if (!session?.user?.id) {
-    res.status(401).json({ error: 'Unauthorized. Please sign in.' });
+    res.status(401).json({ error: 'Unauthorized. Please login first.' });
     return null;
   }
 
-  return session;
+  return session as AuthSession;
 }
 
 /**
  * 프로젝트 멤버십을 확인합니다.
- * 인증되지 않았거나 프로젝트 멤버가 아닌 경우 에러를 응답하고 null을 반환합니다.
+ * 사용자가 프로젝트 멤버가 아닌 경우 403 에러를 반환합니다.
  */
 export async function requireProjectMember(
   req: NextApiRequest,
   res: NextApiResponse,
   projectId: string
-) {
-  // 인증 확인
+): Promise<{ session: AuthSession; isOwner: boolean } | null> {
   const session = await requireAuth(req, res);
   if (!session) return null;
 
-  const { projects } = getRepositories();
+  const db = getDatabase();
+  const projectRepo = new ProjectRepository(db);
 
-  // 프로젝트 조회
-  const project = projects.findById(projectId);
+  const project = projectRepo.findById(projectId);
   if (!project) {
     res.status(404).json({ error: 'Project not found' });
     return null;
   }
 
-  // 멤버십 확인 (소유자 또는 멤버)
-  const userId = (session.user as any).id;
-  const isMember =
-    project.ownerId === userId || project.members.some((m) => m.id === userId);
-
+  const isMember = projectRepo.isMember(projectId, session.user.id);
   if (!isMember) {
     res.status(403).json({ error: 'Access denied. You are not a member of this project.' });
     return null;
   }
 
-  return { session, project, userId };
+  const isOwner = project.ownerId === session.user.id;
+
+  return { session, isOwner };
 }
 
 /**
  * 프로젝트 소유자 권한을 확인합니다.
- * 소유자가 아닌 경우 403 에러를 응답하고 null을 반환합니다.
+ * 소유자가 아닌 경우 403 에러를 반환합니다.
  */
 export async function requireProjectOwner(
   req: NextApiRequest,
   res: NextApiResponse,
   projectId: string
-) {
-  // 멤버십 확인
-  const auth = await requireProjectMember(req, res, projectId);
-  if (!auth) return null;
+): Promise<AuthSession | null> {
+  const result = await requireProjectMember(req, res, projectId);
+  if (!result) return null;
 
-  const { project, userId } = auth;
-
-  // 소유자 권한 확인
-  if (project.ownerId !== userId) {
-    res.status(403).json({ error: 'Access denied. Only the project owner can perform this action.' });
+  if (!result.isOwner) {
+    res.status(403).json({ error: 'Access denied. Only project owner can perform this action.' });
     return null;
   }
 
-  return auth;
+  return result.session;
 }
 
 /**
- * 카드가 속한 프로젝트의 멤버십을 확인합니다.
+ * 카드 접근 권한을 확인합니다.
+ * 카드가 속한 프로젝트의 멤버인지 확인합니다.
  */
 export async function requireCardAccess(
   req: NextApiRequest,
   res: NextApiResponse,
   cardId: string
-) {
-  // 인증 확인
+): Promise<{ session: AuthSession; projectId: string } | null> {
   const session = await requireAuth(req, res);
   if (!session) return null;
 
-  const { cards, boards, projects } = getRepositories();
+  const db = getDatabase();
 
-  // 카드 조회
-  const card = cards.findById(cardId);
-  if (!card) {
+  // 카드가 속한 프로젝트 ID 조회
+  const query = `
+    SELECT b.project_id
+    FROM cards c
+    JOIN columns col ON c.column_id = col.id
+    JOIN boards b ON col.board_id = b.board_id
+    WHERE c.id = ?
+  `;
+
+  const result = db.prepare(query).get(cardId) as { project_id: string } | undefined;
+
+  if (!result) {
     res.status(404).json({ error: 'Card not found' });
     return null;
   }
 
-  // 카드가 속한 보드 찾기
-  const board = boards.findByColumnId(card.columnId);
-  if (!board) {
-    res.status(404).json({ error: 'Board not found' });
-    return null;
-  }
+  const projectId = result.project_id;
+  const projectRepo = new ProjectRepository(db);
 
-  // 프로젝트 조회
-  const project = projects.findById(board.projectId);
-  if (!project) {
-    res.status(404).json({ error: 'Project not found' });
-    return null;
-  }
-
-  // 멤버십 확인
-  const userId = (session.user as any).id;
-  const isMember =
-    project.ownerId === userId || project.members.some((m) => m.id === userId);
-
+  const isMember = projectRepo.isMember(projectId, session.user.id);
   if (!isMember) {
     res.status(403).json({ error: 'Access denied. You are not a member of this project.' });
     return null;
   }
 
-  return { session, project, card, userId };
+  return { session, projectId };
 }
