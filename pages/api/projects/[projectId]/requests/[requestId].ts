@@ -1,5 +1,6 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { getRepositories } from '@/lib/repositories';
+import { requireProjectOwner } from '@/lib/auth-helpers';
 
 type NextApiResponseWithSocket = NextApiResponse & {
   socket?: {
@@ -9,7 +10,7 @@ type NextApiResponseWithSocket = NextApiResponse & {
   };
 };
 
-export default function handler(req: NextApiRequest, res: NextApiResponseWithSocket) {
+export default async function handler(req: NextApiRequest, res: NextApiResponseWithSocket) {
   const { projectId, requestId } = req.query;
 
   if (typeof projectId !== 'string' || typeof requestId !== 'string') {
@@ -22,6 +23,10 @@ export default function handler(req: NextApiRequest, res: NextApiResponseWithSoc
   }
 
   try {
+    // 소유자 권한 확인 (프로젝트 소유자만 승인/거부 가능)
+    const auth = await requireProjectOwner(req, res, projectId);
+    if (!auth) return;
+
     const { action } = req.body;
 
     if (!action || !['approve', 'reject'].includes(action)) {
@@ -40,8 +45,6 @@ export default function handler(req: NextApiRequest, res: NextApiResponseWithSoc
     if (!request) {
       return res.status(404).json({ error: 'Request not found' });
     }
-
-    // TODO: 권한 체크 (프로젝트 소유자만 승인/거부 가능)
 
     let success;
 
@@ -66,9 +69,9 @@ export default function handler(req: NextApiRequest, res: NextApiResponseWithSoc
     // 사용자 정보 가져오기 (WebSocket 이벤트용)
     const user = users.findById(request.userId);
 
-    // WebSocket으로 승인/거부 결과 전송 (전체 브로드캐스트)
-    if (res.socket?.server?.io) {
-      res.socket.server.io.emit('project-join-response', {
+    // WebSocket으로 승인/거부 결과 전송 (신청자에게만)
+    if (res.socket?.server?.io && user) {
+      const eventData = {
         projectId: projectId,
         requestId: requestId,
         action: action,
@@ -78,8 +81,11 @@ export default function handler(req: NextApiRequest, res: NextApiResponseWithSoc
           action === 'approve'
             ? `"${updatedProject.name}" 프로젝트 참여가 승인되었습니다!`
             : `"${updatedProject.name}" 프로젝트 참여가 거부되었습니다.`,
-      });
-      console.log(`Project join request ${action} event broadcasted to all users`);
+      };
+
+      // 신청한 사용자에게만 전송
+      res.socket.server.io.to(`user-${request.userId}`).emit('project-join-response', eventData);
+      console.log(`Project join request ${action} event sent to user-${request.userId}`);
     }
 
     res.status(200).json({ project: updatedProject });
