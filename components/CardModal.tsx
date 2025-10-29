@@ -54,7 +54,7 @@ const CardModal: React.FC<CardModalProps> = ({
         milestoneId: card.milestone?.id || '',
         priority: card.priority,
         labelIds: card.labels.map(label => label.id),
-        dueDate: card.dueDate ? new Date(card.dueDate).toISOString().split('T')[0] : ''
+        dueDate: card.dueDate ? (new Date(card.dueDate).toISOString().split('T')[0] || '') : ''
       });
     } else {
       setFormData({

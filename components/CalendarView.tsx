@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Calendar, momentLocalizer, Event, View } from 'react-big-calendar';
+import { Calendar, momentLocalizer, Event } from 'react-big-calendar';
 import moment from 'moment';
 import 'moment/locale/ko';
 import { Card } from '@/types';
