@@ -66,9 +66,8 @@ const GanttView: React.FC<GanttViewProps> = ({ cards, onCardClick }) => {
         weeks.push(new Date(currentDate));
         currentDate = addDays(currentDate, 7);
       }
-      
+
       // 차트 데이터 생성
-      const totalDays = differenceInDays(maxDate, minDate);
       const chartTasks = validCards.map(card => {
         const start = safeDate(card.createdAt)!;
         const end = safeDate(card.dueDate)!;
@@ -166,7 +165,7 @@ const GanttView: React.FC<GanttViewProps> = ({ cards, onCardClick }) => {
 
         {/* Gantt Chart Body */}
         <div className="relative">
-          {chartData.map((task, taskIndex) => (
+          {chartData.map((task) => (
             <div key={task.id} className="flex border-b border-border/50 hover:bg-accent/50 min-h-20" style={{ minWidth: `${256 + timelineHeader.length * 80}px` }}>
               {/* Task Info */}
               <div className="flex-shrink-0 p-3 border-r border-border flex flex-col justify-center min-h-20" style={{ width: '256px' }}>
@@ -199,9 +198,9 @@ const GanttView: React.FC<GanttViewProps> = ({ cards, onCardClick }) => {
               <div className="relative min-h-20" style={{ width: `${timelineHeader.length * 80}px` }}>
                 {/* 세로선들 - 전체 타임라인 너비에 맞춰 확장 */}
                 <div className="absolute top-0 left-0 bottom-0 flex" style={{ width: `${timelineHeader.length * 80}px` }}>
-                  {timelineHeader.map((week, weekIndex) => (
-                    <div 
-                      key={weekIndex} 
+                  {timelineHeader.map((_week, weekIndex) => (
+                    <div
+                      key={weekIndex}
                       className="w-20 flex-shrink-0 border-r border-border/30 h-full"
                       style={{ width: '80px' }}
                     />

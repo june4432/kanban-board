@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Project, AuthUser } from '@/types';
 import { Plus, FolderOpen, Settings, Search, Globe, Lock, UserPlus, Clock, Users, LogOut, User, X } from 'lucide-react';
 import ProjectSettingsModal from './ProjectSettingsModal';
@@ -13,9 +13,9 @@ interface ProjectSelectorProps {
 
 const ProjectSelector: React.FC<ProjectSelectorProps> = ({
   user,
-  selectedProject,
+  selectedProject: _selectedProject,
   onProjectSelect,
-  onProjectCreate
+  onProjectCreate: _onProjectCreate
 }) => {
   const { logout } = useAuth();
   

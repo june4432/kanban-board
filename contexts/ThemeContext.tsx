@@ -60,18 +60,18 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
 
   // 시스템 테마 변경 감지
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-      
-      const handleSystemThemeChange = (e: MediaQueryListEvent) => {
-        if (theme === 'system') {
-          setActualTheme(e.matches ? 'dark' : 'light');
-        }
-      };
+    if (typeof window === 'undefined') return;
 
-      mediaQuery.addEventListener('change', handleSystemThemeChange);
-      return () => mediaQuery.removeEventListener('change', handleSystemThemeChange);
-    }
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+
+    const handleSystemThemeChange = (e: MediaQueryListEvent) => {
+      if (theme === 'system') {
+        setActualTheme(e.matches ? 'dark' : 'light');
+      }
+    };
+
+    mediaQuery.addEventListener('change', handleSystemThemeChange);
+    return () => mediaQuery.removeEventListener('change', handleSystemThemeChange);
   }, [theme]);
 
   // 테마 변경 시 DOM에 클래스 적용

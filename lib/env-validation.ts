@@ -18,7 +18,11 @@ export interface EnvValidationResult {
 export function validateEnv(): EnvValidationResult {
   const errors: string[] = [];
   const warnings: string[] = [];
-  const isProduction = process.env.NODE_ENV === 'production';
+
+  // NEXTAUTH_URL이 localhost를 포함하면 개발 환경으로 간주
+  const url = process.env.NEXTAUTH_URL;
+  const isLocalDevelopment = url && (url.includes('localhost') || url.includes('127.0.0.1'));
+  const isProduction = process.env.NODE_ENV === 'production' && !isLocalDevelopment;
 
   // 필수 환경 변수
   const required = {
@@ -37,7 +41,11 @@ export function validateEnv(): EnvValidationResult {
   const secret = process.env.NEXTAUTH_SECRET;
   if (secret) {
     if (secret.length < 32) {
-      errors.push('NEXTAUTH_SECRET must be at least 32 characters long');
+      if (isProduction) {
+        errors.push('NEXTAUTH_SECRET must be at least 32 characters long');
+      } else {
+        warnings.push('NEXTAUTH_SECRET must be at least 32 characters long (okay for development)');
+      }
     }
 
     const unsafeSecrets = [
@@ -60,7 +68,6 @@ export function validateEnv(): EnvValidationResult {
 
   // 프로덕션 환경 추가 검증
   if (isProduction) {
-    const url = process.env.NEXTAUTH_URL;
     if (url && (url.includes('localhost') || url.includes('127.0.0.1'))) {
       errors.push('NEXTAUTH_URL should not use localhost in production');
     }
@@ -70,6 +77,15 @@ export function validateEnv(): EnvValidationResult {
     }
 
     // DATABASE_PATH 체크 (선택사항이지만 권장)
+    if (!process.env.DATABASE_PATH) {
+      warnings.push('DATABASE_PATH not set. Using default: ./data/kanban.db');
+    }
+  } else {
+    // 개발 환경에서는 경고만 표시
+    if (!process.env.ALLOWED_ORIGINS) {
+      warnings.push('ALLOWED_ORIGINS not set. Using default CORS configuration.');
+    }
+
     if (!process.env.DATABASE_PATH) {
       warnings.push('DATABASE_PATH not set. Using default: ./data/kanban.db');
     }
@@ -87,6 +103,13 @@ export function validateEnv(): EnvValidationResult {
  * _app.tsx의 서버 사이드에서 호출됩니다.
  */
 export function assertValidEnv(): void {
+  // 빌드 타임에는 검증을 건너뜁니다 (런타임에만 검증)
+  const isBuildTime = process.env.NEXT_PHASE === 'phase-production-build';
+  if (isBuildTime) {
+    console.log('⏭️ Skipping environment validation during build phase');
+    return;
+  }
+
   const result = validateEnv();
 
   if (result.warnings.length > 0) {

@@ -1,6 +1,6 @@
 import { useState, useCallback, useMemo } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import { Board, Card, Column, FilterState, ViewMode, Priority, User, Label, Milestone } from '@/types';
+import type { Board, Card, FilterState, ViewMode, Label, Milestone } from '@/types';
 import { mockBoard } from '@/utils/mockData';
 
 export const useKanban = () => {

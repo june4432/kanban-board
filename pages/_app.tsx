@@ -1,5 +1,6 @@
 import '@/styles/globals.css';
 import type { AppProps } from 'next/app';
+import { SessionProvider } from 'next-auth/react';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { ToastProvider } from '@/contexts/ToastContext';
 import { ThemeProvider } from '@/contexts/ThemeContext';
@@ -12,20 +13,22 @@ if (typeof window === 'undefined') {
   assertValidEnv();
 }
 
-export default function App({ Component, pageProps }: AppProps) {
+export default function App({ Component, pageProps: { session, ...pageProps } }: AppProps) {
   // 웹소켓 API 초기화
   useEffect(() => {
     fetch('/api/websocket');
   }, []);
 
   return (
-    <ThemeProvider>
-      <ToastProvider>
-        <AuthProvider>
-          <Component {...pageProps} />
-          <ToastContainer />
-        </AuthProvider>
-      </ToastProvider>
-    </ThemeProvider>
+    <SessionProvider session={session}>
+      <ThemeProvider>
+        <ToastProvider>
+          <AuthProvider>
+            <Component {...pageProps} />
+            <ToastContainer />
+          </AuthProvider>
+        </ToastProvider>
+      </ThemeProvider>
+    </SessionProvider>
   );
 }

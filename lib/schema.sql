@@ -161,3 +161,105 @@ CREATE TABLE IF NOT EXISTS card_assignees (
 
 CREATE INDEX IF NOT EXISTS idx_card_assignees_card ON card_assignees(card_id);
 CREATE INDEX IF NOT EXISTS idx_card_assignees_user ON card_assignees(user_id);
+
+-- ==========================================
+-- 12. Comments Table (Phase 2 - 댓글 시스템)
+-- ==========================================
+CREATE TABLE IF NOT EXISTS comments (
+  id TEXT PRIMARY KEY,
+  card_id TEXT NOT NULL REFERENCES cards(id) ON DELETE CASCADE,
+  user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  content TEXT NOT NULL,
+  parent_id TEXT REFERENCES comments(id) ON DELETE CASCADE,  -- 대댓글 지원
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  deleted_at DATETIME  -- Soft delete 지원
+);
+
+CREATE INDEX IF NOT EXISTS idx_comments_card ON comments(card_id);
+CREATE INDEX IF NOT EXISTS idx_comments_user ON comments(user_id);
+CREATE INDEX IF NOT EXISTS idx_comments_parent ON comments(parent_id);
+CREATE INDEX IF NOT EXISTS idx_comments_created ON comments(created_at);
+
+-- ==========================================
+-- 13. Audit Logs Table (Phase 2 - 감사 로그)
+-- ==========================================
+CREATE TABLE IF NOT EXISTS audit_logs (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL REFERENCES users(id),
+  user_name TEXT NOT NULL,
+  action TEXT NOT NULL CHECK(action IN ('create', 'update', 'delete', 'move')),
+  resource_type TEXT NOT NULL CHECK(resource_type IN ('card', 'project', 'member', 'comment')),
+  resource_id TEXT NOT NULL,
+  project_id TEXT REFERENCES projects(project_id) ON DELETE CASCADE,
+  changes TEXT,  -- JSON 형식의 변경사항
+  ip_address TEXT,
+  user_agent TEXT,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_audit_logs_user ON audit_logs(user_id);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_resource ON audit_logs(resource_type, resource_id);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_project ON audit_logs(project_id);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_created ON audit_logs(created_at);
+
+-- ==========================================
+-- 14. Attachments Table (Phase 2 - 파일 첨부)
+-- ==========================================
+CREATE TABLE IF NOT EXISTS attachments (
+  id TEXT PRIMARY KEY,
+  card_id TEXT NOT NULL REFERENCES cards(id) ON DELETE CASCADE,
+  user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  filename TEXT NOT NULL,
+  original_name TEXT NOT NULL,
+  mime_type TEXT NOT NULL,
+  size INTEGER NOT NULL,  -- bytes
+  storage_path TEXT NOT NULL,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_attachments_card ON attachments(card_id);
+CREATE INDEX IF NOT EXISTS idx_attachments_user ON attachments(user_id);
+CREATE INDEX IF NOT EXISTS idx_attachments_created ON attachments(created_at);
+
+-- ==========================================
+-- 15. User Notification Settings (Phase 2 - 알림 설정)
+-- ==========================================
+CREATE TABLE IF NOT EXISTS user_notification_settings (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  project_id TEXT REFERENCES projects(project_id) ON DELETE CASCADE,
+
+  -- 알림 타입별 설정
+  card_created BOOLEAN DEFAULT 1,
+  card_updated BOOLEAN DEFAULT 1,
+  card_deleted BOOLEAN DEFAULT 1,
+  card_assigned BOOLEAN DEFAULT 1,
+  card_due_soon BOOLEAN DEFAULT 1,
+
+  comment_created BOOLEAN DEFAULT 1,
+  comment_mentioned BOOLEAN DEFAULT 1,
+
+  project_invited BOOLEAN DEFAULT 1,
+  project_updated BOOLEAN DEFAULT 0,
+
+  -- 전체 알림 음소거
+  muted BOOLEAN DEFAULT 0,
+
+  -- 알림 전송 방법
+  email_enabled BOOLEAN DEFAULT 1,
+  in_app_enabled BOOLEAN DEFAULT 1,
+
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+
+  UNIQUE(user_id, project_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_notification_settings_user ON user_notification_settings(user_id);
+CREATE INDEX IF NOT EXISTS idx_notification_settings_project ON user_notification_settings(project_id);
+
+-- 전역 알림 설정 (project_id가 NULL인 경우)
+CREATE UNIQUE INDEX IF NOT EXISTS idx_notification_settings_global
+  ON user_notification_settings(user_id)
+  WHERE project_id IS NULL;

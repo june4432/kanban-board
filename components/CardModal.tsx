@@ -135,13 +135,6 @@ const CardModal: React.FC<CardModalProps> = ({
   // 선택된 사용자들
   const selectedUsers = users.filter(user => formData.assigneeIds.includes(user.id));
 
-  // 드롭다운 외부 클릭 시 닫기
-  const handleClickOutside = (e: React.MouseEvent) => {
-    if (e.target === e.currentTarget) {
-      setShowAssigneeDropdown(false);
-    }
-  };
-
   if (!isOpen) return null;
 
   return (

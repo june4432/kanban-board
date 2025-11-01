@@ -49,13 +49,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponseW
     }
 
     // 웹소켓 이벤트 전송 (프로젝트 멤버들에게만)
+    const socketRes = res as NextApiResponseWithSocket;
     console.log('📤 [API] Attempting to send WebSocket event');
-    console.log('📤 [API] Socket server exists:', !!res.socket?.server?.io);
+    console.log('📤 [API] Socket server exists:', !!socketRes.socket?.server?.io);
     console.log('📤 [API] Project ID:', projectId);
-    console.log('📤 [API] User ID:', userId);
-    console.log('📤 [API] User Name:', userName);
+    console.log('📤 [API] User ID:', session.user.id);
+    console.log('📤 [API] User Name:', session.user.name);
 
-    if (res.socket?.server?.io) {
+    if (socketRes.socket?.server?.io) {
       // 프로젝트 정보 가져오기
       const project = projects.findById(projectId);
       if (project) {
@@ -85,7 +86,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponseW
         // 프로젝트 멤버들에게만 이벤트 전송
         memberUserIds.forEach((memberId) => {
           console.log(`📤 [API] Sending card-moved event to user-${memberId}`);
-          res.socket!.server!.io.to(`user-${memberId}`).emit('card-moved', eventData);
+          socketRes.socket!.server!.io.to(`user-${memberId}`).emit('card-moved', eventData);
         });
 
         console.log('📤 [API] Card moved event sent to project members only:', memberUserIds);

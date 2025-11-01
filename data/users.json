@@ -5,7 +5,7 @@
       "name": "관리자",
       "email": "admin@admin.com",
       "avatar": "https://ui-avatars.com/api/?name=Admin&background=2563eb&color=fff",
-      "password": "admin",
+      "password": "$2b$12$y7Jn3qYmbgQl6zf2JRcjZuVwRjssdsS19FYRhOiBEqBJqI2sWijkm",
       "role": "admin",
       "createdAt": "2024-01-01T00:00:00.000Z"
     },
@@ -14,7 +14,7 @@
       "name": "이영준",
       "email": "asdf@asdf.com",
       "avatar": "https://ui-avatars.com/api/?name=%EC%9D%B4%EC%98%81%EC%A4%80&background=3b82f6&color=fff",
-      "password": "asdf",
+      "password": "$2b$12$2VK22ajsuAFqw6jHvqpvKOG2TglymztN9NJZWSEmKkrCGi.zsQyD2",
       "role": "user",
       "createdAt": "2025-09-05T01:17:39.718Z"
     }

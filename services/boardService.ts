@@ -1,6 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import { Board, Card, Column } from '@/types';
+import { Board, Card } from '@/types';
 
 const boardsFilePath = path.join(process.cwd(), 'data', 'kanban-boards.json');
 
@@ -61,7 +61,7 @@ export class BoardService {
       return null;
     }
 
-    boards[boardIndex] = { ...boards[boardIndex], ...updates };
+    boards[boardIndex] = { ...boards[boardIndex], ...updates } as Board;
     this.writeBoards(boards);
 
     return boards[boardIndex];
@@ -116,7 +116,7 @@ export class BoardService {
           ...column.cards[cardIndex],
           ...updates,
           updatedAt: new Date()
-        };
+        } as Card;
         this.writeBoards(boards);
         return column.cards[cardIndex];
       }
@@ -172,6 +172,8 @@ export class BoardService {
     }
 
     const [card] = sourceColumn.cards.splice(cardIndex, 1);
+    if (!card) return false;
+
     card.columnId = destinationColumnId;
     card.updatedAt = new Date();
 

@@ -14,7 +14,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 }
 
 // 프로젝트 목록 조회
-async function handleGet(req: NextApiRequest, res: NextApiResponse) {
+async function handleGet(_req: NextApiRequest, res: NextApiResponse) {
   try {
     const { projects } = getRepositories();
     const allProjects = projects.findAll();

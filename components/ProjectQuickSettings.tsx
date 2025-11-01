@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Project, AuthUser, User, ProjectJoinRequest } from '@/types';
+import { Project, AuthUser, User } from '@/types';
 import { X, Save, Globe, Lock, Users, Settings, UserCheck, UserX, Clock, UserPlus, LogOut } from 'lucide-react';
 import { useToast } from '@/contexts/ToastContext';
 
@@ -26,7 +26,7 @@ const ProjectQuickSettings: React.FC<ProjectQuickSettingsProps> = ({
   });
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<'general' | 'members' | 'requests'>('general');
-  const [users, setUsers] = useState<User[]>([]);
+  const [_users, setUsers] = useState<User[]>([]);
   const { addToast } = useToast();
   
   // 대기중인 가입 신청들
