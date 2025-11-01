@@ -62,3 +62,11 @@ temp/
 # TypeScript cache
 *.tsbuildinfo
 next-env.d.ts
+
+# Uploads
+uploads/
+
+# Database files (development)
+data/kanban.db
+data/kanban.db-shm
+data/kanban.db-wal

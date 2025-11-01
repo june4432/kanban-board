@@ -2,13 +2,11 @@ import React, { useEffect, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
-import { useTheme } from '@/contexts/ThemeContext';
 
 const ManualView: React.FC = () => {
   const [markdownContent, setMarkdownContent] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const { actualTheme } = useTheme();
 
   useEffect(() => {
     // highlight.js 스타일을 다크 테마로 고정 로드
@@ -134,7 +132,7 @@ const ManualView: React.FC = () => {
                   {children}
                 </blockquote>
               ),
-              code: ({ inline, children, ...props }: any) => 
+              code: ({ inline, children }: any) =>
                 inline ? (
                   <code className="bg-gray-100 dark:bg-gray-800 text-primary px-2 py-1 rounded text-sm font-mono">
                     {children}

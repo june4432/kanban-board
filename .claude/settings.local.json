@@ -35,7 +35,17 @@
       "Bash(npm audit)",
       "Bash(npm update:*)",
       "Bash(npm audit fix:*)",
-      "Bash(npm test)"
+      "Bash(npm test)",
+      "Bash(git fetch:*)",
+      "Bash(git checkout:*)",
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$(cat <<''EOF''\nMerge branch ''main'' into feature/comprehensive-security-and-testing\n\nResolved 14 conflicts by keeping our comprehensive implementation:\n\nConflict Resolution Strategy:\n- Kept our versions for all conflicting files\n- Our implementation provides significantly more comprehensive features\n\nFiles Resolved (Our Version):\nCore Libraries:\n- lib/auth-helpers.ts (uses ProjectRepository pattern, returns isOwner)\n- lib/env-validation.ts (warnings, assertions, getRequiredEnvVars)\n\nTests (175 comprehensive tests):\n- __tests__/lib/auth-helpers.test.ts (24 tests)\n- __tests__/lib/env-validation.test.ts (30 tests)\n\nAPI Routes (using our auth pattern):\n- pages/api/websocket.ts\n- pages/api/cards/[id].ts\n- pages/api/cards/index.ts\n- pages/api/cards/move.ts\n- pages/api/projects/[projectId].ts\n- pages/api/projects/[projectId]/leave.ts\n- pages/api/projects/[projectId]/members/[userId].ts\n- pages/api/projects/[projectId]/requests/[requestId].ts\n\nConfiguration:\n- .env.example (detailed comments and examples)\n- pages/_app.tsx (with assertValidEnv)\n\nChanges from main branch included:\n- components/CalendarView.tsx\n- components/CardModal.tsx\n- docs/PHASE1_SECURITY_FIXES_REPORT.md\n\nOur implementation maintains backward compatibility while providing\nenhanced security, comprehensive testing, and detailed validation.\nEOF\n)\")",
+      "Bash(git push:*)",
+      "mcp__serena__get_current_config",
+      "Bash(npm run db:init:*)",
+      "Bash(find:*)",
+      "Bash(curl:*)",
+      "Bash(/dev/null)"
     ],
     "deny": [],
     "ask": []

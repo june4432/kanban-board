@@ -21,14 +21,19 @@ export async function requireAuth(
   req: NextApiRequest,
   res: NextApiResponse
 ): Promise<AuthSession | null> {
-  const session = await getServerSession(req, res, authOptions);
+  const session = await getServerSession(req, res, authOptions) as AuthSession | null;
+
+  console.log('🔐 requireAuth - session:', session);
+  console.log('🔐 requireAuth - user id:', session?.user?.id);
 
   if (!session?.user?.id) {
+    console.log('❌ requireAuth failed - No session or user ID');
     res.status(401).json({ error: 'Unauthorized. Please login first.' });
     return null;
   }
 
-  return session as AuthSession;
+  console.log('✅ requireAuth success - user:', session.user.id);
+  return session;
 }
 
 /**

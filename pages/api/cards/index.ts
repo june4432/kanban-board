@@ -67,7 +67,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponseW
         });
 
         // 웹소켓 이벤트 전송 (프로젝트 멤버들에게만)
-        if (res.socket?.server?.io && projectId) {
+        const socketRes = res as NextApiResponseWithSocket;
+        if (socketRes.socket?.server?.io && projectId) {
           const project = projects.findById(projectId);
           if (project) {
             const eventData = {
@@ -85,7 +86,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponseW
 
             // 프로젝트 멤버들에게만 이벤트 전송
             memberUserIds.forEach((memberId) => {
-              res.socket!.server!.io.to(`user-${memberId}`).emit('card-created', eventData);
+              socketRes.socket!.server!.io.to(`user-${memberId}`).emit('card-created', eventData);
             });
 
             console.log('Card created event sent to project members:', memberUserIds);

@@ -62,7 +62,7 @@ export function ProjectProvider({ children, user }: ProjectProviderProps) {
     localStorage.setItem('selectedProjectId', project.projectId);
   };
 
-  const createProject = async (projectData: { name: string; description?: string; color?: string }) => {
+  const createProject = async (_projectData: { name: string; description?: string; color?: string }) => {
     // ProjectSelector에서 이미 처리하므로 여기서는 아무것도 하지 않음
     return;
   };

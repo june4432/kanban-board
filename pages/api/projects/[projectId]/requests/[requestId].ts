@@ -70,8 +70,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponseW
     const user = users.findById(request.userId);
 
     // WebSocket으로 승인/거부 결과 전송 (전체 브로드캐스트)
-    if (res.socket?.server?.io) {
-      res.socket.server.io.emit('project-join-response', {
+    const socketRes = res as NextApiResponseWithSocket;
+    if (socketRes.socket?.server?.io) {
+      socketRes.socket.server.io.emit('project-join-response', {
         projectId: projectId,
         requestId: requestId,
         action: action,

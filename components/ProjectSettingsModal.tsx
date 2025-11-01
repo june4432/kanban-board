@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Project, ProjectJoinRequest, AuthUser, User } from '@/types';
+import { Project, AuthUser, User } from '@/types';
 import { X, Globe, Lock, Users, UserCheck, UserX, Clock, Settings, Save, UserPlus } from 'lucide-react';
 import { useToast } from '@/contexts/ToastContext';
 
@@ -26,7 +26,7 @@ const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
   });
   const [activeTab, setActiveTab] = useState<'general' | 'members' | 'requests'>('general');
   const [loading, setLoading] = useState(false);
-  const [users, setUsers] = useState<User[]>([]);
+  const [_users, setUsers] = useState<User[]>([]);
   const { addToast } = useToast();
   
   // 프로젝트 소유자인지 확인

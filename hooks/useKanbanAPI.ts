@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import { Board, Card, Column, FilterState, ViewMode, Priority, User, Label, Milestone } from '@/types';
+import { Board, Card, FilterState, ViewMode, User, Label, Milestone } from '@/types';
 import { useSocket } from './useSocket';
 
 const API_BASE_URL = '/api';

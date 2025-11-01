@@ -98,7 +98,7 @@ export class ProjectService {
       ...projects[projectIndex],
       ...updates,
       updatedAt: new Date()
-    };
+    } as Project;
 
     this.writeProjects(projects);
     return projects[projectIndex];
@@ -166,6 +166,7 @@ export class ProjectService {
     }
 
     const request = project.pendingRequests[requestIndex];
+    if (!request) return false;
 
     if (action === 'approve') {
       // Add user to project members

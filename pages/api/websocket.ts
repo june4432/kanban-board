@@ -4,6 +4,7 @@ import { Server as NetServer } from 'http';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from './auth/[...nextauth]';
 import { getRepositories } from '@/lib/repositories';
+import type { AuthSession } from '@/lib/auth-helpers';
 
 // WebSocket server extension type
 type NextApiResponseWithSocket = NextApiResponse & {
@@ -14,7 +15,7 @@ type NextApiResponseWithSocket = NextApiResponse & {
   };
 };
 
-const SocketHandler = async (req: NextApiRequest, res: NextApiResponseWithSocket) => {
+const SocketHandler = async (_req: NextApiRequest, res: NextApiResponseWithSocket) => {
   console.log('🔧 [WebSocket] SocketHandler called');
   console.log('🔧 [WebSocket] Socket server exists:', !!res.socket?.server);
   console.log('🔧 [WebSocket] IO already exists:', !!res.socket?.server?.io);
@@ -38,7 +39,7 @@ const SocketHandler = async (req: NextApiRequest, res: NextApiResponseWithSocket
     io.use(async (socket, next) => {
       try {
         const req = socket.request as any;
-        const session = await getServerSession(req, {} as any, authOptions);
+        const session = await getServerSession(req, {} as any, authOptions) as AuthSession | null;
 
         if (!session?.user?.id) {
           console.log('🚫 [WebSocket] Connection rejected: No session');

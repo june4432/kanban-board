@@ -5,7 +5,7 @@ import { requireProjectMember } from '@/lib/auth-helpers';
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
     switch (req.method) {
-      case 'GET':
+      case 'GET': {
         // 프로젝트별 보드 데이터 조회
         const { projectId } = req.query;
 
@@ -25,7 +25,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         const { boards } = getRepositories();
 
         // 보드 조회 (없으면 자동 생성됨)
-        let board = boards.findByProjectId(projectId);
+        const board = boards.findByProjectId(projectId);
 
         if (!board) {
           console.log(`⚠️ No board found for projectId ${projectId}, creating new empty board`);
@@ -37,8 +37,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         console.log('📤 Sending board data');
         res.status(200).json({ board });
         break;
+      }
 
-      case 'PUT':
+      case 'PUT': {
         // 전체 보드 데이터 업데이트
         // Note: In SQLite, we should update individual entities instead of the whole board
         // This is a legacy endpoint that we'll keep for compatibility but log a warning
@@ -62,6 +63,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         console.log('✅ Board update acknowledged (use specific endpoints for actual updates)');
         res.status(200).json({ success: true });
         break;
+      }
 
       default:
         res.setHeader('Allow', ['GET', 'PUT']);

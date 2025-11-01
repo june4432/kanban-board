@@ -1,6 +1,6 @@
 import Database from 'better-sqlite3';
 import { v4 as uuidv4 } from 'uuid';
-import { Project, User, ProjectJoinRequest } from '@/types';
+import { Project, ProjectJoinRequest } from '@/types';
 
 export class ProjectRepository {
   constructor(private db: Database.Database) {}

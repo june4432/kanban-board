@@ -72,8 +72,9 @@ export default function handler(req: NextApiRequest, res: NextApiResponseWithSoc
     }
 
     // WebSocket으로 프로젝트 참여 신청 이벤트 전송 (전체 브로드캐스트)
-    if (res.socket?.server?.io) {
-      res.socket.server.io.emit('project-join-request', {
+    const socketRes = res as NextApiResponseWithSocket;
+    if (socketRes.socket?.server?.io) {
+      socketRes.socket.server.io.emit('project-join-request', {
         projectId: projectId,
         request: newRequest,
         user: user,

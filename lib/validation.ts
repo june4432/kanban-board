@@ -55,14 +55,52 @@ export const cardMoveSchema = z.object({
 // === 사용자 관련 스키마 ===
 
 export const userSignupSchema = z.object({
-  name: z.string().min(1, 'Name is required').max(100, 'Name is too long'),
-  email: z.string().email('Invalid email format').max(255, 'Email is too long'),
-  password: z.string().min(6, 'Password must be at least 6 characters').max(100, 'Password is too long'),
+  name: z.string()
+    .min(2, '이름은 최소 2자 이상이어야 합니다')
+    .max(50, '이름은 최대 50자까지 가능합니다')
+    .regex(/^[가-힣a-zA-Z\s]+$/, '이름에는 한글, 영문, 공백만 사용 가능합니다'),
+  email: z.string()
+    .email('올바른 이메일 형식이 아닙니다')
+    .max(255, '이메일은 최대 255자까지 가능합니다')
+    .toLowerCase(),
+  password: z.string()
+    .min(8, '비밀번호는 최소 8자 이상이어야 합니다')
+    .max(100, '비밀번호는 최대 100자까지 가능합니다')
+    .regex(/[A-Z]/, '비밀번호에 대문자가 포함되어야 합니다')
+    .regex(/[a-z]/, '비밀번호에 소문자가 포함되어야 합니다')
+    .regex(/[0-9]/, '비밀번호에 숫자가 포함되어야 합니다')
+    .regex(/[!@#$%^&*(),.?":{}|<>]/, '비밀번호에 특수문자가 포함되어야 합니다'),
 });
 
 export const userLoginSchema = z.object({
   email: z.string().email('Invalid email format'),
   password: z.string().min(1, 'Password is required'),
+});
+
+// === 댓글 관련 스키마 ===
+
+export const commentSchema = z.object({
+  content: z.string()
+    .min(1, '댓글 내용은 필수입니다')
+    .max(2000, '댓글은 최대 2000자까지 가능합니다'),
+  parentId: z.string().optional(),
+});
+
+export const commentUpdateSchema = z.object({
+  content: z.string()
+    .min(1, '댓글 내용은 필수입니다')
+    .max(2000, '댓글은 최대 2000자까지 가능합니다'),
+});
+
+// === 멤버 관리 스키마 ===
+
+export const projectJoinRequestSchema = z.object({
+  projectId: z.string().min(1),
+  message: z.string().max(500).optional(),
+});
+
+export const projectMemberRoleSchema = z.object({
+  role: z.enum(['owner', 'member']),
 });
 
 // === 공통 스키마 ===
@@ -75,6 +113,36 @@ export const projectIdSchema = z.object({
   projectId: z.string().min(1),
 });
 
+export const paginationSchema = z.object({
+  page: z.number().int().min(1).default(1),
+  limit: z.number().int().min(1).max(100).default(20),
+});
+
+// === 파일 업로드 스키마 ===
+
+export const fileUploadSchema = z.object({
+  filename: z.string().min(1).max(255),
+  mimeType: z.string().regex(/^[a-z]+\/[a-z0-9\-\+\.]+$/),
+  size: z.number().int().min(1).max(10 * 1024 * 1024), // 최대 10MB
+});
+
+// === 알림 설정 스키마 ===
+
+export const notificationSettingsSchema = z.object({
+  cardCreated: z.boolean().optional(),
+  cardUpdated: z.boolean().optional(),
+  cardDeleted: z.boolean().optional(),
+  cardAssigned: z.boolean().optional(),
+  cardDueSoon: z.boolean().optional(),
+  commentCreated: z.boolean().optional(),
+  commentMentioned: z.boolean().optional(),
+  projectInvited: z.boolean().optional(),
+  projectUpdated: z.boolean().optional(),
+  muted: z.boolean().optional(),
+  emailEnabled: z.boolean().optional(),
+  inAppEnabled: z.boolean().optional(),
+});
+
 // === 타입 추출 ===
 
 export type ProjectInput = z.infer<typeof projectSchema>;
@@ -84,6 +152,12 @@ export type CardUpdateInput = z.infer<typeof cardUpdateSchema>;
 export type CardMoveInput = z.infer<typeof cardMoveSchema>;
 export type UserSignupInput = z.infer<typeof userSignupSchema>;
 export type UserLoginInput = z.infer<typeof userLoginSchema>;
+export type CommentInput = z.infer<typeof commentSchema>;
+export type CommentUpdateInput = z.infer<typeof commentUpdateSchema>;
+export type ProjectJoinRequestInput = z.infer<typeof projectJoinRequestSchema>;
+export type PaginationInput = z.infer<typeof paginationSchema>;
+export type FileUploadInput = z.infer<typeof fileUploadSchema>;
+export type NotificationSettingsInput = z.infer<typeof notificationSettingsSchema>;
 
 /**
  * Zod 스키마로 데이터를 검증하고 에러를 처리합니다.

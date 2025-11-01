@@ -3,8 +3,6 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useProject, ProjectProvider } from '@/contexts/ProjectContext';
 import { useKanbanAPI } from '@/hooks/useKanbanAPI';
 import GlobalWebSocketManager from '@/components/GlobalWebSocketManager';
-import { useToast } from '@/contexts/ToastContext';
-import ToastContainer from '@/components/ToastContainer';
 import Layout from '@/components/Layout';
 import FilterPanel from '@/components/FilterPanel';
 import KanbanBoard from '@/components/KanbanBoard';
@@ -43,9 +41,6 @@ function KanbanApp() {
     fetchUsers();
   }, []);
 
-  // 현재 프로젝트의 사용자 목록 (프로젝트 멤버들)
-  const projectUsers = currentProject?.members || [];
-  
   // hooks는 항상 같은 순서로 호출되어야 함
   const {
     board,

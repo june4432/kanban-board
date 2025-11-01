@@ -1,6 +1,6 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { getRepositories } from '@/lib/repositories';
-import { requireAuth, requireProjectMember, requireProjectOwner } from '@/lib/auth-helpers';
+import { requireProjectMember, requireProjectOwner } from '@/lib/auth-helpers';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const { projectId } = req.query;
@@ -23,7 +23,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 }
 
 // 특정 프로젝트 조회
-async function handleGet(projectId: string, req: NextApiRequest, res: NextApiResponse) {
+async function handleGet(projectId: string, _req: NextApiRequest, res: NextApiResponse) {
   try {
     const { projects } = getRepositories();
     const project = projects.findById(projectId);
@@ -46,7 +46,7 @@ async function handlePatch(projectId: string, req: NextApiRequest, res: NextApiR
     const auth = await requireProjectMember(req, res, projectId);
     if (!auth) return; // 이미 에러 응답 전송됨
 
-    const { session, isOwner } = auth;
+    const { session: _session, isOwner } = auth;
 
     const { name, description, color, isPublic } = req.body;
 

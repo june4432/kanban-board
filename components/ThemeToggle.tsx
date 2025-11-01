@@ -3,7 +3,7 @@ import { Sun, Moon, Monitor } from 'lucide-react';
 import { useTheme } from '@/contexts/ThemeContext';
 
 const ThemeToggle: React.FC = () => {
-  const { theme, actualTheme, toggleTheme, setTheme } = useTheme();
+  const { theme, actualTheme, toggleTheme } = useTheme();
 
   const getIcon = () => {
     if (theme === 'system') {

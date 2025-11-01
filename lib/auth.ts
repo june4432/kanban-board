@@ -16,7 +16,8 @@ export async function verifyPassword(password: string, hashedPassword: string): 
 export async function findUserByEmail(email: string): Promise<User | null> {
   try {
     const fileContent = fs.readFileSync(usersFilePath, 'utf-8');
-    const users: User[] = JSON.parse(fileContent);
+    const data = JSON.parse(fileContent);
+    const users: User[] = Array.isArray(data) ? data : data.users || [];
     return users.find(user => user.email === email) || null;
   } catch (error) {
     console.error('Error reading users file:', error);
@@ -27,7 +28,8 @@ export async function findUserByEmail(email: string): Promise<User | null> {
 export async function createUser(userData: Omit<User, 'id' | 'createdAt'>): Promise<User | null> {
   try {
     const fileContent = fs.readFileSync(usersFilePath, 'utf-8');
-    const users: User[] = JSON.parse(fileContent);
+    const data = JSON.parse(fileContent);
+    const users: User[] = Array.isArray(data) ? data : data.users || [];
 
     // Check if user already exists
     if (users.find(u => u.email === userData.email)) {
@@ -41,7 +43,10 @@ export async function createUser(userData: Omit<User, 'id' | 'createdAt'>): Prom
     };
 
     users.push(newUser);
-    fs.writeFileSync(usersFilePath, JSON.stringify(users, null, 2));
+
+    // Save in the same format as the original file
+    const saveData = Array.isArray(data) ? users : { users };
+    fs.writeFileSync(usersFilePath, JSON.stringify(saveData, null, 2));
 
     // Remove password before returning
     const { password, ...userWithoutPassword } = newUser;

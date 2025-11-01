@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ViewMode, Project } from '@/types';
-import { LayoutGrid, Calendar, BarChart3, BookOpen, Filter, Search, Plus, LogOut, User, FolderOpen, Settings, ChevronDown, ChevronUp } from 'lucide-react';
+import { LayoutGrid, Calendar, BarChart3, BookOpen, Filter, Plus, LogOut, FolderOpen, Settings, ChevronDown, ChevronUp } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import AuthModal from '@/components/AuthModal';
 import { ThemeToggleDropdown } from '@/components/ThemeToggle';
