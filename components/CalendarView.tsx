@@ -71,11 +71,8 @@ const CalendarView: React.FC<CalendarViewProps> = ({ cards, onCardClick }) => {
 
   const components = {
     event: ({ event }: { event: CalendarEvent }) => (
-      <div className="p-1">
-        <div className="font-medium text-xs">{event.title}</div>
-        {event.assignee && (
-          <div className="text-xs opacity-75">{event.assignee}</div>
-        )}
+      <div className="w-full truncate">
+        <span className="font-medium">{event.title}</span>
       </div>
     )
   };
@@ -96,8 +93,8 @@ const CalendarView: React.FC<CalendarViewProps> = ({ cards, onCardClick }) => {
   };
 
   return (
-    <div className="bg-background rounded-lg shadow p-6 h-full w-full flex flex-col border border-border">
-      <div className="flex-1 w-full" style={{ minHeight: '600px' }}>
+    <div className="bg-background rounded-lg shadow p-3 sm:p-6 h-full w-full flex flex-col overflow-auto">
+      <div className="flex-1 w-full overflow-x-auto" style={{ minHeight: '400px' }}>
         <Calendar
           localizer={localizer}
           events={events}
@@ -114,24 +111,24 @@ const CalendarView: React.FC<CalendarViewProps> = ({ cards, onCardClick }) => {
           style={{ height: '100%', width: '100%' }}
         />
       </div>
-      
+
       {/* Legend */}
-      <div className="mt-4 flex items-center space-x-4 text-sm">
+      <div className="mt-3 sm:mt-4 flex flex-wrap items-center gap-2 sm:gap-4 text-xs sm:text-sm">
         <span className="text-muted-foreground">우선순위:</span>
         <div className="flex items-center space-x-1">
-          <div className="w-3 h-3 bg-green-500 rounded"></div>
+          <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 bg-green-500 rounded"></div>
           <span className="text-foreground">낮음</span>
         </div>
         <div className="flex items-center space-x-1">
-          <div className="w-3 h-3 bg-yellow-500 rounded"></div>
+          <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 bg-yellow-500 rounded"></div>
           <span className="text-foreground">보통</span>
         </div>
         <div className="flex items-center space-x-1">
-          <div className="w-3 h-3 bg-orange-500 rounded"></div>
+          <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 bg-orange-500 rounded"></div>
           <span className="text-foreground">높음</span>
         </div>
         <div className="flex items-center space-x-1">
-          <div className="w-3 h-3 bg-red-500 rounded"></div>
+          <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 bg-red-500 rounded"></div>
           <span className="text-foreground">긴급</span>
         </div>
       </div>
