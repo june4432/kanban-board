@@ -90,6 +90,24 @@ export default async function handler(req: NextApiRequest, res: NextApiResponseW
             });
 
             console.log('Card created event sent to project members:', memberUserIds);
+
+            // Slack 알림 전송 (비동기, 실패해도 카드 생성은 성공)
+            if (project.slackEnabled && project.slackWebhookUrl) {
+              fetch(`${req.headers.origin || 'http://localhost:3000'}/api/slack/notify`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Cookie': req.headers.cookie || '',
+                },
+                body: JSON.stringify({
+                  projectId,
+                  event: 'card_created',
+                  cardTitle: newCard.title,
+                  cardId: newCard.id,
+                  userName: session.user.name || '알 수 없는 사용자',
+                }),
+              }).catch((err) => console.error('Failed to send Slack notification:', err));
+            }
           }
         }
 

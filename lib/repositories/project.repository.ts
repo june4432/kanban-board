@@ -15,6 +15,7 @@ export class ProjectRepository {
     ownerId: string;
     color?: string;
     isPublic?: boolean;
+    columns?: Array<{ title: string; wipLimit: number }>;
   }): Project {
     const projectId = data.projectId || `project-${Date.now()}`;
     const boardId = `board-${projectId}`;
@@ -51,28 +52,29 @@ export class ProjectRepository {
 
       boardStmt.run(boardId, projectId);
 
-      // Create default columns
+      // Create columns (use custom columns if provided, otherwise use defaults)
       const columnStmt = this.db.prepare(`
         INSERT INTO columns (id, board_id, title, wip_limit, position)
         VALUES (?, ?, ?, ?, ?)
       `);
 
-      const defaultColumns = [
-        { id: 'backlog', title: 'Backlog', wipLimit: 0, position: 0 },
-        { id: 'todo', title: 'To Do', wipLimit: 0, position: 1 },
-        { id: 'in-progress', title: 'In Progress', wipLimit: 0, position: 2 },
-        { id: 'done', title: 'Done', wipLimit: 0, position: 3 },
+      const columns = data.columns || [
+        { title: 'Backlog', wipLimit: 10 },
+        { title: 'To Do', wipLimit: 5 },
+        { title: 'In Progress', wipLimit: 3 },
+        { title: 'Done', wipLimit: 0 },
       ];
 
-      for (const col of defaultColumns) {
+      columns.forEach((col, index) => {
+        const columnId = `${boardId}-${col.title.toLowerCase().replace(/\s+/g, '-')}`;
         columnStmt.run(
-          `${boardId}-${col.id}`,
+          columnId,
           boardId,
           col.title,
           col.wipLimit,
-          col.position
+          index
         );
-      }
+      });
     });
 
     transaction();

@@ -24,8 +24,8 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({
   const [isEditingWip, setIsEditingWip] = useState(false);
   const [wipLimit, setWipLimit] = useState(column.wipLimit.toString());
 
-  const isWipExceeded = column.cards.length >= column.wipLimit;
-  const isNearWipLimit = column.cards.length >= column.wipLimit * 0.8;
+  const isWipExceeded = column.wipLimit > 0 && column.cards.length >= column.wipLimit;
+  const isNearWipLimit = column.wipLimit > 0 && column.cards.length >= column.wipLimit * 0.8;
 
   const handleWipSubmit = () => {
     const newLimit = parseInt(wipLimit);
@@ -43,14 +43,14 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({
   return (
     <div className="w-full h-full bg-muted rounded-lg flex flex-col min-w-0">
       {/* Column Header */}
-      <div className="p-4 border-b border-border flex-shrink-0">
+      <div className="p-3 md:p-4 border-b border-border flex-shrink-0">
         <div className="flex items-center justify-between mb-2">
-          <h3 className="font-semibold text-foreground">{column.title}</h3>
+          <h3 className="font-semibold text-foreground text-base md:text-lg">{column.title}</h3>
           <div className="flex items-center space-x-2">
             <span className={`text-sm font-medium ${
               isWipExceeded ? 'text-destructive' : isNearWipLimit ? 'text-warning' : 'text-muted-foreground'
             }`}>
-              {column.cards.length}/{column.wipLimit}
+              {column.wipLimit === 0 ? `${column.cards.length}/∞` : `${column.cards.length}/${column.wipLimit}`}
             </span>
             <button
               onClick={() => setIsEditingWip(true)}
@@ -117,7 +117,7 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({
           <div
             ref={provided.innerRef}
             {...provided.droppableProps}
-            className={`flex-1 p-4 space-y-3 overflow-y-auto ${
+            className={`flex-1 p-3 md:p-4 space-y-3 overflow-y-auto max-h-[400px] md:max-h-none ${
               snapshot.isDraggingOver ? 'bg-accent/50' : ''
             }`}
           >

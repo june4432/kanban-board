@@ -44,9 +44,22 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({
 
   return (
     <DragDropContext onDragEnd={handleDragEnd}>
-      <div className="flex space-x-2 h-full pb-2 min-w-0">
+      <div className="
+        flex flex-col space-y-4 md:space-y-0
+        md:flex-row md:space-x-2 md:overflow-x-auto
+        lg:overflow-x-hidden lg:gap-2
+        h-full pb-2 min-w-0
+      ">
         {columns.map((column) => (
-          <div key={column.id} className="flex-1 min-w-0">
+          <div
+            key={column.id}
+            className="
+              w-full
+              md:min-w-[300px] md:w-[300px]
+              lg:flex-1 lg:min-w-[240px] lg:w-auto
+              min-w-0
+            "
+          >
             <KanbanColumn
               column={column}
               users={users}

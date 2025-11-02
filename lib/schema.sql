@@ -263,3 +263,23 @@ CREATE INDEX IF NOT EXISTS idx_notification_settings_project ON user_notificatio
 CREATE UNIQUE INDEX IF NOT EXISTS idx_notification_settings_global
   ON user_notification_settings(user_id)
   WHERE project_id IS NULL;
+
+-- ==========================================
+-- 16. Project Invitations (프로젝트 초대 링크)
+-- ==========================================
+CREATE TABLE IF NOT EXISTS project_invitations (
+  id TEXT PRIMARY KEY,
+  project_id TEXT NOT NULL REFERENCES projects(project_id) ON DELETE CASCADE,
+  invite_token TEXT UNIQUE NOT NULL,  -- 초대 링크 토큰 (UUID)
+  created_by TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  expires_at DATETIME,  -- NULL이면 무제한
+  max_uses INTEGER,  -- NULL이면 무제한
+  current_uses INTEGER DEFAULT 0,
+  is_active BOOLEAN DEFAULT 1,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_invitations_project ON project_invitations(project_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_invitations_token ON project_invitations(invite_token);
+CREATE INDEX IF NOT EXISTS idx_invitations_active ON project_invitations(is_active, expires_at);

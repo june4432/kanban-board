@@ -139,11 +139,11 @@ const CardModal: React.FC<CardModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto">
-      <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
+      <div className="flex items-center justify-center min-h-screen p-0 sm:p-4">
         <div className="fixed inset-0 transition-opacity bg-black bg-opacity-50" onClick={onClose} />
 
-        <div 
-          className="inline-block w-full max-w-md p-6 my-8 overflow-hidden text-left align-middle transition-all transform bg-background border border-border/50 shadow-xl rounded-lg sm:max-w-lg"
+        <div
+          className="relative w-full max-w-full sm:max-w-md md:max-w-lg min-h-screen sm:min-h-0 p-6 overflow-hidden text-left align-middle transition-all transform bg-background border-0 sm:border border-border/50 shadow-xl rounded-none sm:rounded-lg"
           onClick={() => setShowAssigneeDropdown(false)}
         >
           <div className="flex items-center justify-between mb-4">

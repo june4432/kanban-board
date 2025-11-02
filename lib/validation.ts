@@ -29,20 +29,20 @@ export const cardSchema = z.object({
   title: z.string().min(1, 'Card title is required').max(200, 'Title is too long'),
   description: z.string().max(5000, 'Description is too long').optional(),
   priority: z.enum(['low', 'medium', 'high', 'urgent']).optional(),
-  dueDate: z.string().datetime().optional().or(z.date().optional()),
+  dueDate: z.union([z.string().datetime(), z.date(), z.null()]).optional(),
   assignees: z.array(z.string()).optional(),
   labels: z.array(z.string()).optional(),
-  milestoneId: z.string().optional(),
+  milestoneId: z.union([z.string(), z.null()]).optional(),
 });
 
 export const cardUpdateSchema = z.object({
   title: z.string().min(1).max(200).optional(),
   description: z.string().max(5000).optional(),
   priority: z.enum(['low', 'medium', 'high', 'urgent']).optional(),
-  dueDate: z.string().datetime().optional().or(z.date().optional()),
+  dueDate: z.union([z.string().datetime(), z.date(), z.null()]).optional(),
   assignees: z.array(z.string()).optional(),
   labels: z.array(z.string()).optional(),
-  milestoneId: z.string().optional(),
+  milestoneId: z.union([z.string(), z.null()]).optional(),
 });
 
 export const cardMoveSchema = z.object({

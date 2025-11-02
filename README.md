@@ -16,8 +16,13 @@ Next.js와 Socket.IO를 활용한 **실시간 협업 칸반보드 시스템**입
 - **다중 프로젝트 지원** - 여러 프로젝트를 생성하고 관리
 - **프로젝트 공개/비공개 설정** - 팀별 접근 권한 제어
 - **프로젝트 멤버 관리** - 멤버 초대, 승인, 제거
+- **초대 링크 시스템** - 링크를 통한 간편한 팀원 초대
+  - 만료 시간 설정 (시간 단위)
+  - 최대 사용 횟수 제한
+  - 링크별 사용 현황 추적
 - **프로젝트 나가기** - 멤버가 자유롭게 프로젝트 탈퇴 가능
 - **프로젝트 설정** - 이름, 설명, 색상 커스터마이징
+- **컬럼 관리** - 컬럼 추가, 삭제, 제목 수정, 순서 변경
 
 ### 🎯 **칸반보드**
 - **드래그 앤 드롭** - 직관적인 카드 이동
@@ -255,7 +260,19 @@ kanban-board/
 - milestone_id (TEXT, FK → milestones)
 ```
 
-그 외 7개 테이블: labels, card_labels, card_assignees, milestones, project_join_requests
+#### 7. project_invitations - 초대 링크
+```sql
+- id (INTEGER, PK)
+- project_id (TEXT, FK → projects)
+- invite_token (TEXT, UNIQUE)
+- created_by (TEXT, FK → users)
+- expires_at (DATETIME)
+- max_uses (INTEGER)
+- current_uses (INTEGER)
+- created_at (DATETIME)
+```
+
+그 외 6개 테이블: labels, card_labels, card_assignees, milestones, project_join_requests, project_settings
 
 ## 🔧 API 엔드포인트
 
@@ -281,6 +298,12 @@ kanban-board/
 - `DELETE /api/projects/:projectId/leave` - 프로젝트 나가기
 - `DELETE /api/projects/:projectId/members/:userId` - 멤버 제거
 
+### **초대 링크 관리**
+- `GET /api/projects/:projectId/invites` - 초대 링크 목록 조회
+- `POST /api/projects/:projectId/invites` - 새 초대 링크 생성
+- `DELETE /api/projects/:projectId/invites/:inviteId` - 초대 링크 삭제
+- `GET /api/invite/:inviteToken` - 초대 링크 정보 조회 및 프로젝트 참여
+
 ### **칸반보드 관리**
 - `GET /api/kanban?projectId=:projectId` - 칸반보드 조회
 
@@ -302,10 +325,25 @@ kanban-board/
 - `card-deleted` - 카드 삭제 이벤트
 - `project-join-request` - 프로젝트 가입 신청
 - `project-join-response` - 가입 신청 응답
+- `member-joined` - 새 멤버 참여 (초대 링크 사용)
 
 ### **룸 기반 통신**
 - `user-{userId}` - 사용자별 개인 알림
 - `project-{projectId}` - 프로젝트별 그룹 통신
+
+## 🔗 외부 연동
+
+### **Slack 통합**
+- **실시간 알림** - 프로젝트 활동을 Slack으로 전송
+- **Webhook 설정** - 프로젝트별 Slack Webhook URL 설정
+- **이벤트 지원**:
+  - 카드 생성 (✅)
+  - 카드 이동 (🔄)
+  - 카드 수정 (✏️)
+  - 카드 삭제 (🗑️)
+  - 멤버 참여 (👋)
+- **커스터마이징** - 컬러, 아이콘, 메시지 포맷 커스터마이징
+- **API**: `POST /api/slack/notify` - Slack 알림 전송
 
 ## 🔐 보안 및 권한
 
@@ -379,6 +417,12 @@ Coverage:    100%
 ### **반응형 디자인**
 - 데스크톱, 태블릿, 모바일 최적화
 - Tailwind CSS 기반 일관된 디자인 시스템
+- **모바일 UX 최적화**:
+  - 전체 화면 모달 (모바일)
+  - 터치 친화적 버튼 크기
+  - 수평 스크롤 탭 네비게이션
+  - 반응형 레이아웃 (수직/수평 전환)
+  - 텍스트 크기 최적화
 
 ### **사용자 경험**
 - 직관적인 드래그 앤 드롭 인터페이스

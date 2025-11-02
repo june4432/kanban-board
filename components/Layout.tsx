@@ -1,16 +1,16 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ViewMode, Project } from '@/types';
-import { LayoutGrid, Calendar, BarChart3, BookOpen, Filter, Plus, LogOut, FolderOpen, Settings, ChevronDown, ChevronUp } from 'lucide-react';
+import { FolderOpen, Settings, ChevronDown, ChevronUp, Menu, Filter } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import AuthModal from '@/components/AuthModal';
 import { ThemeToggleDropdown } from '@/components/ThemeToggle';
+import Sidebar from '@/components/Sidebar';
 
 interface LayoutProps {
   children: React.ReactNode;
   viewMode: ViewMode;
   onViewModeChange: (mode: ViewMode) => void;
   onFilterToggle: () => void;
-  onAddCard: () => void;
   currentProject?: Project;
   onProjectChange?: () => void;
   onProjectSettings?: () => void;
@@ -23,7 +23,6 @@ const Layout: React.FC<LayoutProps> = ({
   viewMode,
   onViewModeChange,
   onFilterToggle,
-  onAddCard,
   currentProject,
   onProjectChange,
   onProjectSettings,
@@ -33,7 +32,24 @@ const Layout: React.FC<LayoutProps> = ({
   const { user, logout, loading } = useAuth();
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showProjectDropdown, setShowProjectDropdown] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(true); // 사이드바 기본 열림
+  const [isMobile, setIsMobile] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // 화면 크기 감지
+  useEffect(() => {
+    const checkMobile = () => {
+      const mobile = window.innerWidth < 1024; // lg breakpoint
+      setIsMobile(mobile);
+      if (mobile) {
+        setSidebarOpen(false); // 모바일에서는 기본 닫힘
+      }
+    };
+
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   // 드롭다운 외부 클릭 시 닫기
   useEffect(() => {
@@ -81,34 +97,60 @@ const Layout: React.FC<LayoutProps> = ({
     );
   }
   return (
-    <div className="h-screen bg-background flex flex-col">
-      {/* Header */}
-      <header className="bg-card shadow-sm border-b border-border flex-shrink-0">
-        <div className="w-full px-2 sm:px-4 lg:px-6">
-          <div className="flex justify-between items-center h-14">
-            <div className="flex items-center space-x-4">
-              <h1 className="text-2xl font-bold text-card-foreground">프로젝트 관리 보드</h1>
+    <div className="h-screen bg-background flex">
+      {/* Sidebar */}
+      <Sidebar
+        viewMode={viewMode}
+        onViewModeChange={onViewModeChange}
+        onProjectSettings={onProjectSettings}
+        user={user}
+        onLogout={logout}
+        isOpen={sidebarOpen}
+        onToggle={() => setSidebarOpen(!sidebarOpen)}
+        isMobile={isMobile}
+      />
+
+      {/* Main Content Area */}
+      <div className="flex-1 flex flex-col min-w-0">
+        {/* Simplified Header */}
+        <header className="bg-card border-b border-border flex-shrink-0 h-14">
+          <div className="w-full h-full px-3 sm:px-4 lg:px-6">
+            <div className="flex justify-between items-center h-full">
+              <div className="flex items-center space-x-2 md:space-x-4 flex-1 min-w-0">
+                {/* 햄버거 메뉴 (사이드바 토글) */}
+                <button
+                  onClick={() => setSidebarOpen(!sidebarOpen)}
+                  className="lg:hidden p-2 text-muted-foreground hover:text-foreground hover:bg-accent rounded-lg transition-colors flex-shrink-0"
+                  title="메뉴"
+                >
+                  <Menu className="w-5 h-5" />
+                </button>
+                <h1 className="text-base sm:text-lg md:text-xl font-bold text-card-foreground flex-shrink-0">
+                  프로젝트 관리 보드
+                </h1>
               {currentProject && (
-                <div className="relative" ref={dropdownRef}>
+                <div className="relative flex-shrink min-w-0" ref={dropdownRef}>
                   <button
                     onClick={() => setShowProjectDropdown(!showProjectDropdown)}
-                    className="flex items-center space-x-2 px-3 py-1 bg-muted rounded-lg hover:bg-muted/80 transition-colors cursor-pointer"
+                    className="flex items-center space-x-2 px-2 sm:px-3 py-1 bg-muted rounded-lg hover:bg-muted/80 transition-colors cursor-pointer min-w-0"
                     title="프로젝트 선택"
                   >
-                    <div 
-                      className="w-6 h-6 rounded flex items-center justify-center"
+                    <div
+                      className="w-5 h-5 sm:w-6 sm:h-6 rounded flex items-center justify-center flex-shrink-0"
                       style={{ backgroundColor: `${currentProject.color}20` }}
                     >
-                      <FolderOpen 
-                        className="w-4 h-4"
+                      <FolderOpen
+                        className="w-3 h-3 sm:w-4 sm:h-4"
                         style={{ color: currentProject.color }}
                       />
                     </div>
-                    <span className="text-sm font-medium text-card-foreground">{currentProject.name}</span>
+                    <span className="text-xs sm:text-sm font-medium text-card-foreground truncate max-w-[100px] sm:max-w-[150px]">
+                      {currentProject.name}
+                    </span>
                     {showProjectDropdown ? (
-                      <ChevronUp className="w-4 h-4 text-muted-foreground" />
+                      <ChevronUp className="w-3 h-3 sm:w-4 sm:h-4 text-muted-foreground flex-shrink-0" />
                     ) : (
-                      <ChevronDown className="w-4 h-4 text-muted-foreground" />
+                      <ChevronDown className="w-3 h-3 sm:w-4 sm:h-4 text-muted-foreground flex-shrink-0" />
                     )}
                   </button>
 
@@ -132,11 +174,11 @@ const Layout: React.FC<LayoutProps> = ({
                               project.projectId === currentProject.projectId ? 'bg-accent text-accent-foreground' : 'text-popover-foreground'
                             }`}
                           >
-                            <div 
+                            <div
                               className="w-6 h-6 rounded flex items-center justify-center flex-shrink-0"
                               style={{ backgroundColor: `${project.color}20` }}
                             >
-                              <FolderOpen 
+                              <FolderOpen
                                 className="w-4 h-4"
                                 style={{ color: project.color }}
                               />
@@ -172,120 +214,29 @@ const Layout: React.FC<LayoutProps> = ({
                 </div>
               )}
             </div>
-            
-            <div className="flex items-center space-x-4">
-              {/* View Mode Toggle */}
-              <div className="flex items-center bg-muted rounded-lg p-1">
-                <button
-                  onClick={() => onViewModeChange('kanban')}
-                  className={`flex items-center px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
-                    viewMode === 'kanban'
-                      ? 'bg-background text-foreground shadow-sm'
-                      : 'text-muted-foreground hover:text-foreground'
-                  }`}
-                >
-                  <LayoutGrid className="w-4 h-4 mr-1.5" />
-                  칸반
-                </button>
-                <button
-                  onClick={() => onViewModeChange('calendar')}
-                  className={`flex items-center px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
-                    viewMode === 'calendar'
-                      ? 'bg-background text-foreground shadow-sm'
-                      : 'text-muted-foreground hover:text-foreground'
-                  }`}
-                >
-                  <Calendar className="w-4 h-4 mr-1.5" />
-                  캘린더
-                </button>
-                <button
-                  onClick={() => onViewModeChange('gantt')}
-                  className={`flex items-center px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
-                    viewMode === 'gantt'
-                      ? 'bg-background text-foreground shadow-sm'
-                      : 'text-muted-foreground hover:text-foreground'
-                  }`}
-                >
-                  <BarChart3 className="w-4 h-4 mr-1.5" />
-                  간트
-                </button>
-                <button
-                  onClick={() => onViewModeChange('manual')}
-                  className={`flex items-center px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
-                    viewMode === 'manual'
-                      ? 'bg-background text-foreground shadow-sm'
-                      : 'text-muted-foreground hover:text-foreground'
-                  }`}
-                >
-                  <BookOpen className="w-4 h-4 mr-1.5" />
-                  매뉴얼
-                </button>
-              </div>
 
-              {/* Actions */}
-              <button
-                onClick={onFilterToggle}
-                className="flex items-center px-3 py-2 text-muted-foreground hover:text-foreground hover:bg-accent rounded-md transition-colors"
-              >
-                <Filter className="w-4 h-4 mr-1.5" />
-                필터
-              </button>
-
-              <button
-                onClick={onAddCard}
-                className="flex items-center px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
-              >
-                <Plus className="w-4 h-4 mr-1.5" />
-                카드 추가
-              </button>
-
-              {/* 프로젝트 설정 버튼 */}
-              {currentProject && onProjectSettings && (
+              {/* 오른쪽: 필터 버튼 */}
+              <div className="flex items-center flex-shrink-0">
                 <button
-                  onClick={onProjectSettings}
-                  className="flex items-center px-3 py-2 text-muted-foreground hover:text-foreground hover:bg-accent rounded-md transition-colors"
-                  title="프로젝트 설정"
+                  onClick={onFilterToggle}
+                  className="flex items-center space-x-2 px-3 py-2 text-sm text-muted-foreground hover:text-foreground hover:bg-accent rounded-lg transition-colors"
+                  title="필터"
                 >
-                  <Settings className="w-4 h-4 mr-1.5" />
-                  설정
-                </button>
-              )}
-
-              {/* 테마 토글 */}
-              <ThemeToggleDropdown />
-
-              {/* User Menu */}
-              <div className="flex items-center space-x-3 border-l pl-4">
-                <img
-                  src={user.avatar}
-                  alt={user.name}
-                  className="w-8 h-8 rounded-full"
-                />
-                <div className="flex flex-col">
-                  <span className="text-sm font-medium text-card-foreground">{user.name}</span>
-                  {user.role === 'admin' && (
-                    <span className="text-xs text-primary font-medium">관리자</span>
-                  )}
-                </div>
-                <button
-                  onClick={logout}
-                  className="flex items-center px-2 py-1 text-muted-foreground hover:text-foreground rounded-md transition-colors"
-                  title="로그아웃"
-                >
-                  <LogOut className="w-4 h-4" />
+                  <Filter className="w-4 h-4" />
+                  <span className="hidden sm:inline">필터</span>
                 </button>
               </div>
             </div>
           </div>
-        </div>
-      </header>
+        </header>
 
-      {/* Main Content */}
-      <main className="flex-1 w-full px-2 sm:px-4 lg:px-6 py-2 overflow-hidden">
-        <div className="h-full">
-          {children}
-        </div>
-      </main>
+        {/* Main Content */}
+        <main className="flex-1 w-full px-2 sm:px-4 lg:px-6 py-2 overflow-hidden">
+          <div className="h-full">
+            {children}
+          </div>
+        </main>
+      </div>
     </div>
   );
 };

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Project, AuthUser } from '@/types';
-import { Plus, FolderOpen, Settings, Search, Globe, Lock, UserPlus, Clock, Users, LogOut, User, X } from 'lucide-react';
+import { Plus, FolderOpen, Settings, Search, Globe, Lock, UserPlus, Clock, Users, LogOut, User, X, GripVertical, Trash2 } from 'lucide-react';
 import ProjectSettingsModal from './ProjectSettingsModal';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -29,11 +29,19 @@ const ProjectSelector: React.FC<ProjectSelectorProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState<'my' | 'public'>('my');
   const [settingsProject, setSettingsProject] = useState<Project | null>(null);
+  const [projectSettingsTab, setProjectSettingsTab] = useState<'general' | 'members' | 'requests' | 'columns' | 'invites' | 'integrations'>('general');
   const [formData, setFormData] = useState({
     name: '',
     description: '',
     color: '#3b82f6',
-    isPublic: false
+    isPublic: false,
+    columnTemplate: 'default' as 'default' | 'simple' | 'scrum' | 'custom',
+    customColumns: [
+      { title: 'Backlog', wipLimit: 10 },
+      { title: 'To Do', wipLimit: 5 },
+      { title: 'In Progress', wipLimit: 3 },
+      { title: 'Done', wipLimit: 0 }
+    ]
   });
 
   useEffect(() => {
@@ -63,17 +71,78 @@ const ProjectSelector: React.FC<ProjectSelectorProps> = ({
     }
   };
 
+  const columnTemplates = {
+    default: [
+      { title: 'Backlog', wipLimit: 10 },
+      { title: 'To Do', wipLimit: 5 },
+      { title: 'In Progress', wipLimit: 3 },
+      { title: 'Done', wipLimit: 0 }
+    ],
+    simple: [
+      { title: 'To Do', wipLimit: 10 },
+      { title: 'Doing', wipLimit: 5 },
+      { title: 'Done', wipLimit: 0 }
+    ],
+    scrum: [
+      { title: 'Product Backlog', wipLimit: 20 },
+      { title: 'Sprint Backlog', wipLimit: 10 },
+      { title: 'In Progress', wipLimit: 5 },
+      { title: 'Review', wipLimit: 5 },
+      { title: 'Done', wipLimit: 0 }
+    ],
+    custom: formData.customColumns
+  };
+
+  const handleTemplateChange = (template: 'default' | 'simple' | 'scrum' | 'custom') => {
+    setFormData(prev => ({
+      ...prev,
+      columnTemplate: template,
+      customColumns: template === 'custom' ? prev.customColumns : columnTemplates[template]
+    }));
+  };
+
+  const addCustomColumn = () => {
+    setFormData(prev => ({
+      ...prev,
+      customColumns: [...prev.customColumns, { title: '', wipLimit: 5 }]
+    }));
+  };
+
+  const removeCustomColumn = (index: number) => {
+    setFormData(prev => ({
+      ...prev,
+      customColumns: prev.customColumns.filter((_, i) => i !== index)
+    }));
+  };
+
+  const updateCustomColumn = (index: number, field: 'title' | 'wipLimit', value: string | number) => {
+    setFormData(prev => ({
+      ...prev,
+      customColumns: prev.customColumns.map((col, i) =>
+        i === index ? { ...col, [field]: value } : col
+      )
+    }));
+  };
+
   const handleCreateProject = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      const columns = formData.columnTemplate === 'custom'
+        ? formData.customColumns
+        : columnTemplates[formData.columnTemplate];
+
       const response = await fetch('/api/projects', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          ...formData,
-          ownerId: user.id
+          name: formData.name,
+          description: formData.description,
+          color: formData.color,
+          isPublic: formData.isPublic,
+          ownerId: user.id,
+          columns
         }),
       });
 
@@ -82,7 +151,19 @@ const ProjectSelector: React.FC<ProjectSelectorProps> = ({
         const newProject = data.project;
         setMyProjects(prev => [...prev, newProject]);
         onProjectSelect(newProject);
-        setFormData({ name: '', description: '', color: '#3b82f6', isPublic: false });
+        setFormData({
+          name: '',
+          description: '',
+          color: '#3b82f6',
+          isPublic: false,
+          columnTemplate: 'default',
+          customColumns: [
+            { title: 'Backlog', wipLimit: 10 },
+            { title: 'To Do', wipLimit: 5 },
+            { title: 'In Progress', wipLimit: 3 },
+            { title: 'Done', wipLimit: 0 }
+          ]
+        });
         setShowCreateForm(false);
       }
     } catch (error) {
@@ -380,7 +461,7 @@ const ProjectSelector: React.FC<ProjectSelectorProps> = ({
                               {formData.isPublic ? '공개 프로젝트' : '비공개 프로젝트'}
                             </span>
                             <p className="text-xs text-muted-foreground mt-1">
-                              {formData.isPublic 
+                              {formData.isPublic
                                 ? '다른 사용자가 검색하고 참여 신청할 수 있습니다'
                                 : '초대받은 사용자만 참여할 수 있습니다'
                               }
@@ -390,6 +471,131 @@ const ProjectSelector: React.FC<ProjectSelectorProps> = ({
                       </label>
                     </div>
                   </div>
+                </div>
+
+                {/* 컬럼 템플릿 선택 */}
+                <div className="border-t border-border pt-6">
+                  <label className="block text-sm font-semibold text-foreground mb-3">
+                    보드 컬럼 템플릿
+                  </label>
+                  <div className="grid grid-cols-2 gap-3 mb-4">
+                    <button
+                      type="button"
+                      onClick={() => handleTemplateChange('default')}
+                      className={`p-4 border-2 rounded-xl text-left transition-all ${
+                        formData.columnTemplate === 'default'
+                          ? 'border-primary bg-primary/5'
+                          : 'border-border hover:border-primary/50'
+                      }`}
+                    >
+                      <div className="font-medium text-foreground mb-1">기본 (4컬럼)</div>
+                      <div className="text-xs text-muted-foreground">Backlog → To Do → In Progress → Done</div>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleTemplateChange('simple')}
+                      className={`p-4 border-2 rounded-xl text-left transition-all ${
+                        formData.columnTemplate === 'simple'
+                          ? 'border-primary bg-primary/5'
+                          : 'border-border hover:border-primary/50'
+                      }`}
+                    >
+                      <div className="font-medium text-foreground mb-1">간단 (3컬럼)</div>
+                      <div className="text-xs text-muted-foreground">To Do → Doing → Done</div>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleTemplateChange('scrum')}
+                      className={`p-4 border-2 rounded-xl text-left transition-all ${
+                        formData.columnTemplate === 'scrum'
+                          ? 'border-primary bg-primary/5'
+                          : 'border-border hover:border-primary/50'
+                      }`}
+                    >
+                      <div className="font-medium text-foreground mb-1">스크럼 (5컬럼)</div>
+                      <div className="text-xs text-muted-foreground">Product Backlog → Sprint...</div>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleTemplateChange('custom')}
+                      className={`p-4 border-2 rounded-xl text-left transition-all ${
+                        formData.columnTemplate === 'custom'
+                          ? 'border-primary bg-primary/5'
+                          : 'border-border hover:border-primary/50'
+                      }`}
+                    >
+                      <div className="font-medium text-foreground mb-1">커스텀</div>
+                      <div className="text-xs text-muted-foreground">직접 설정</div>
+                    </button>
+                  </div>
+
+                  {/* 커스텀 컬럼 설정 */}
+                  {formData.columnTemplate === 'custom' && (
+                    <div className="space-y-3 p-4 bg-muted rounded-xl">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm font-medium text-foreground">컬럼 설정</span>
+                        <button
+                          type="button"
+                          onClick={addCustomColumn}
+                          className="flex items-center space-x-1 px-3 py-1 text-sm bg-primary text-primary-foreground rounded-lg hover:bg-primary/90"
+                        >
+                          <Plus className="w-4 h-4" />
+                          <span>컬럼 추가</span>
+                        </button>
+                      </div>
+
+                      {formData.customColumns.map((column, index) => (
+                        <div key={index} className="flex items-center space-x-2 bg-background p-3 rounded-lg">
+                          <GripVertical className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                          <input
+                            type="text"
+                            value={column.title}
+                            onChange={(e) => updateCustomColumn(index, 'title', e.target.value)}
+                            placeholder="컬럼 이름"
+                            className="flex-1 px-3 py-2 bg-input border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-foreground"
+                            required
+                          />
+                          <div className="flex items-center space-x-2">
+                            <label className="text-xs text-muted-foreground whitespace-nowrap">WIP:</label>
+                            <input
+                              type="number"
+                              value={column.wipLimit}
+                              onChange={(e) => updateCustomColumn(index, 'wipLimit', parseInt(e.target.value) || 0)}
+                              min="0"
+                              className="w-16 px-2 py-2 bg-input border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-foreground text-center"
+                            />
+                          </div>
+                          {formData.customColumns.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={() => removeCustomColumn(index)}
+                              className="p-2 text-destructive hover:bg-destructive/10 rounded-lg"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* 템플릿 미리보기 */}
+                  {formData.columnTemplate !== 'custom' && (
+                    <div className="p-4 bg-muted rounded-xl">
+                      <div className="text-xs font-medium text-muted-foreground mb-2">컬럼 미리보기:</div>
+                      <div className="flex space-x-2 overflow-x-auto pb-2">
+                        {columnTemplates[formData.columnTemplate].map((col, idx) => (
+                          <div key={idx} className="flex-shrink-0 px-3 py-2 bg-background rounded-lg border border-border">
+                            <div className="text-xs font-medium text-foreground">{col.title}</div>
+                            <div className="text-xs text-muted-foreground">WIP: {col.wipLimit}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
                 
                 <div className="flex flex-col sm:flex-row gap-3 pt-4">
@@ -602,13 +808,19 @@ const ProjectSelector: React.FC<ProjectSelectorProps> = ({
             project={settingsProject}
             currentUser={user}
             isOpen={!!settingsProject}
-            onClose={() => setSettingsProject(null)}
+            onClose={() => {
+              setSettingsProject(null);
+              setProjectSettingsTab('general'); // 모달 닫을 때 탭 리셋
+            }}
             onProjectUpdate={(updatedProject) => {
-              setMyProjects(prev => 
+              setMyProjects(prev =>
                 prev.map(p => p.projectId === updatedProject.projectId ? updatedProject : p)
               );
               setSettingsProject(null);
             }}
+            onBoardUpdate={fetchProjects}
+            activeTab={projectSettingsTab}
+            onTabChange={setProjectSettingsTab}
           />
         )}
         

@@ -45,7 +45,12 @@
       "Bash(npm run db:init:*)",
       "Bash(find:*)",
       "Bash(curl:*)",
-      "Bash(/dev/null)"
+      "Bash(/dev/null)",
+      "Bash(lsof:*)",
+      "Bash(while read pid)",
+      "Bash(do kill -9 $pid)",
+      "Bash(done)",
+      "Bash(sqlite3:*)"
     ],
     "deny": [],
     "ask": []

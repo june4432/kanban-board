@@ -169,17 +169,14 @@ const GanttView: React.FC<GanttViewProps> = ({ cards, onCardClick }) => {
             <div key={task.id} className="flex border-b border-border/50 hover:bg-accent/50 min-h-20" style={{ minWidth: `${256 + timelineHeader.length * 80}px` }}>
               {/* Task Info */}
               <div className="flex-shrink-0 p-3 border-r border-border flex flex-col justify-center min-h-20" style={{ width: '256px' }}>
-                <div 
+                <div
                   className="cursor-pointer"
                   onClick={() => onCardClick(task.id)}
                 >
                   <div className="font-medium text-sm text-foreground truncate">
                     {task.title}
                   </div>
-                  <div className="text-xs text-muted-foreground mt-1">
-                    {task.assignees?.[0] || '담당자 없음'}
-                  </div>
-                  <div className="flex items-center mt-1 space-x-2">
+                  <div className="flex items-center mt-2 space-x-2">
                     <span className={`px-2 py-1 text-xs rounded-full ${
                       task.priority === 'low' ? 'priority-green' :
                       task.priority === 'medium' ? 'priority-yellow' :

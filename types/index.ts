@@ -71,6 +71,8 @@ export interface Project {
   color?: string;
   isPublic: boolean;  // 프로젝트 공개 여부
   pendingRequests: ProjectJoinRequest[];  // 대기 중인 가입 신청
+  slackWebhookUrl?: string;  // Slack Incoming Webhook URL
+  slackEnabled?: boolean;  // Slack 알림 활성화 여부
 }
 
 export interface ProjectJoinRequest {
@@ -103,7 +105,7 @@ export interface FilterState {
   priorities: Priority[];
 }
 
-export type ViewMode = 'kanban' | 'calendar' | 'gantt' | 'manual';
+export type ViewMode = 'kanban' | 'calendar' | 'gantt' | 'table' | 'manual';
 
 export interface KanbanState {
   board: Board;

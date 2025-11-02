@@ -28,7 +28,7 @@ export default withErrorHandler(async (req: NextApiRequest, res: NextApiResponse
   if (!auth) return; // 이미 에러 응답 전송됨
 
   const { session, projectId } = auth;
-  const { cards } = getRepositories();
+  const { cards, projects } = getRepositories();
   const db = getDatabase();
   const auditLogService = new AuditLogService(db);
 
@@ -83,10 +83,33 @@ export default withErrorHandler(async (req: NextApiRequest, res: NextApiResponse
         socketRes.socket.server.io.to(`project-${projectId}`).emit('card-updated', eventData);
       }
 
+      // Slack 알림 전송 (비동기, 실패해도 카드 수정은 성공)
+      const project = projects.findById(projectId);
+      if (project?.slackEnabled && project?.slackWebhookUrl && changes.length > 0) {
+        fetch(`${req.headers.origin || 'http://localhost:3000'}/api/slack/notify`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Cookie': req.headers.cookie || '',
+          },
+          body: JSON.stringify({
+            projectId,
+            event: 'card_updated',
+            cardTitle: updatedCard.title,
+            cardId: cardId,
+            userName: session.user.name || '알 수 없는 사용자',
+          }),
+        }).catch((err) => console.error('Failed to send Slack notification:', err));
+      }
+
       return res.status(200).json({ card: updatedCard });
     }
 
     case 'DELETE': {
+      // 삭제 전 카드 정보 저장 (Slack 알림용)
+      const cardToDelete = cards.findById(cardId);
+      const cardTitle = cardToDelete?.title || '알 수 없는 카드';
+
       // 카드 삭제
       const deleted = cards.delete(cardId);
 
@@ -121,6 +144,25 @@ export default withErrorHandler(async (req: NextApiRequest, res: NextApiResponse
           projectId,
           userId: session.user.id,
         });
+      }
+
+      // Slack 알림 전송 (비동기, 실패해도 카드 삭제는 성공)
+      const project = projects.findById(projectId);
+      if (project?.slackEnabled && project?.slackWebhookUrl) {
+        fetch(`${req.headers.origin || 'http://localhost:3000'}/api/slack/notify`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Cookie': req.headers.cookie || '',
+          },
+          body: JSON.stringify({
+            projectId,
+            event: 'card_deleted',
+            cardTitle,
+            cardId: cardId,
+            userName: session.user.name || '알 수 없는 사용자',
+          }),
+        }).catch((err) => console.error('Failed to send Slack notification:', err));
       }
 
       return res.status(200).json({ success: true });

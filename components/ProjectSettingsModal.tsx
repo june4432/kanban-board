@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Project, AuthUser, User } from '@/types';
-import { X, Globe, Lock, Users, UserCheck, UserX, Clock, Settings, Save, UserPlus } from 'lucide-react';
+import { Project, AuthUser, User, Column } from '@/types';
+import { X, Globe, Lock, Users, UserCheck, UserX, Clock, Settings, Save, UserPlus, Columns, Plus, Trash2, Edit3, Bell, GripVertical, Link, Copy, Calendar, Hash } from 'lucide-react';
 import { useToast } from '@/contexts/ToastContext';
+import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
 
 interface ProjectSettingsModalProps {
   project: Project;
@@ -9,6 +10,9 @@ interface ProjectSettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
   onProjectUpdate: (updatedProject: Project) => void;
+  onBoardUpdate?: () => void;
+  activeTab: 'general' | 'members' | 'requests' | 'columns' | 'invites' | 'integrations';
+  onTabChange: (tab: 'general' | 'members' | 'requests' | 'columns' | 'invites' | 'integrations') => void;
 }
 
 const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
@@ -16,17 +20,34 @@ const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
   currentUser,
   isOpen,
   onClose,
-  onProjectUpdate
+  onProjectUpdate,
+  onBoardUpdate,
+  activeTab,
+  onTabChange
 }) => {
   const [settings, setSettings] = useState({
     name: project.name,
     description: project.description || '',
     color: project.color || '#3b82f6',
-    isPublic: project.isPublic || false
+    isPublic: project.isPublic || false,
+    slackWebhookUrl: project.slackWebhookUrl || '',
+    slackEnabled: project.slackEnabled || false
   });
-  const [activeTab, setActiveTab] = useState<'general' | 'members' | 'requests'>('general');
   const [loading, setLoading] = useState(false);
   const [_users, setUsers] = useState<User[]>([]);
+  const [columns, setColumns] = useState<Column[]>([]);
+  const [loadingColumns, setLoadingColumns] = useState(false);
+  const [editingColumnId, setEditingColumnId] = useState<string | null>(null);
+  const [editingColumnTitle, setEditingColumnTitle] = useState('');
+  const [wipLimits, setWipLimits] = useState<Record<string, number>>({});
+  const [isAddingColumn, setIsAddingColumn] = useState(false);
+  const [newColumnTitle, setNewColumnTitle] = useState('');
+  const [newColumnWipLimit, setNewColumnWipLimit] = useState(5);
+  const [invitations, setInvitations] = useState<any[]>([]);
+  const [loadingInvitations, setLoadingInvitations] = useState(false);
+  const [isCreatingInvite, setIsCreatingInvite] = useState(false);
+  const [newInviteExpiresIn, setNewInviteExpiresIn] = useState<number | null>(null);
+  const [newInviteMaxUses, setNewInviteMaxUses] = useState<number | null>(null);
   const { addToast } = useToast();
   
   // 프로젝트 소유자인지 확인
@@ -42,13 +63,31 @@ const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
         name: project.name,
         description: project.description || '',
         color: project.color || '#3b82f6',
-        isPublic: project.isPublic || false
+        isPublic: project.isPublic || false,
+        slackWebhookUrl: project.slackWebhookUrl || '',
+        slackEnabled: project.slackEnabled || false
       });
-      
+
       // 사용자 목록 가져오기
       fetchUsers();
     }
   }, [project, isOpen]);
+
+  // Fetch columns when columns tab is activated
+  useEffect(() => {
+    console.log('[DEBUG] useEffect - isOpen:', isOpen, 'activeTab:', activeTab, 'columns.length:', columns.length);
+    if (isOpen && activeTab === 'columns' && columns.length === 0) {
+      console.log('[DEBUG] Calling fetchColumns()');
+      fetchColumns();
+    }
+  }, [isOpen, activeTab]);
+
+  // Fetch invitations when invites tab is activated
+  useEffect(() => {
+    if (isOpen && activeTab === 'invites' && isOwner) {
+      fetchInvitations();
+    }
+  }, [isOpen, activeTab, isOwner]);
 
   const fetchUsers = async () => {
     try {
@@ -57,6 +96,151 @@ const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
       setUsers(data.users || []);
     } catch (error) {
       console.error('Failed to fetch users:', error);
+    }
+  };
+
+  const fetchColumns = async () => {
+    console.log('[DEBUG] fetchColumns called for projectId:', project.projectId);
+    setLoadingColumns(true);
+    try {
+      const url = `/api/projects/${project.projectId}/board`;
+      console.log('[DEBUG] Fetching from URL:', url);
+      const response = await fetch(url);
+      console.log('[DEBUG] Response status:', response.status);
+      const data = await response.json();
+      console.log('[DEBUG] Response data:', data);
+      if (data.board?.columns) {
+        console.log('[DEBUG] Setting columns:', data.board.columns.length);
+        setColumns(data.board.columns);
+        // Initialize WIP limits
+        const limits: Record<string, number> = {};
+        data.board.columns.forEach((col: Column) => {
+          limits[col.id] = col.wipLimit;
+        });
+        setWipLimits(limits);
+        console.log('[DEBUG] WIP limits initialized:', limits);
+      }
+    } catch (error) {
+      console.error('[DEBUG] Failed to fetch columns:', error);
+      addToast({
+        type: 'error',
+        title: '컬럼 로드 실패',
+        message: '컬럼 정보를 불러오는데 실패했습니다.',
+        duration: 3000
+      });
+    } finally {
+      setLoadingColumns(false);
+    }
+  };
+
+  const fetchInvitations = async () => {
+    setLoadingInvitations(true);
+    try {
+      const response = await fetch(`/api/projects/${project.projectId}/invites`);
+      if (response.ok) {
+        const data = await response.json();
+        setInvitations(data.invitations || []);
+      } else {
+        throw new Error('초대 링크 목록을 불러오는데 실패했습니다.');
+      }
+    } catch (error) {
+      addToast({
+        type: 'error',
+        title: '로드 실패',
+        message: error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.',
+        duration: 3000
+      });
+    } finally {
+      setLoadingInvitations(false);
+    }
+  };
+
+  const createInvitation = async () => {
+    try {
+      const response = await fetch(`/api/projects/${project.projectId}/invites`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          expiresIn: newInviteExpiresIn,
+          maxUses: newInviteMaxUses,
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        addToast({
+          type: 'success',
+          title: '초대 링크 생성됨',
+          message: '초대 링크가 성공적으로 생성되었습니다.',
+          duration: 3000
+        });
+        setIsCreatingInvite(false);
+        setNewInviteExpiresIn(null);
+        setNewInviteMaxUses(null);
+        fetchInvitations();
+
+        // 자동으로 클립보드에 복사
+        if (data.inviteUrl) {
+          copyToClipboard(data.inviteUrl);
+        }
+      } else {
+        throw new Error('초대 링크 생성에 실패했습니다.');
+      }
+    } catch (error) {
+      addToast({
+        type: 'error',
+        title: '생성 실패',
+        message: error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.',
+        duration: 5000
+      });
+    }
+  };
+
+  const deleteInvitation = async (inviteId: string) => {
+    try {
+      const response = await fetch(`/api/projects/${project.projectId}/invites/${inviteId}`, {
+        method: 'DELETE',
+      });
+
+      if (response.ok) {
+        addToast({
+          type: 'success',
+          title: '초대 링크 삭제됨',
+          message: '초대 링크가 비활성화되었습니다.',
+          duration: 3000
+        });
+        fetchInvitations();
+      } else {
+        throw new Error('초대 링크 삭제에 실패했습니다.');
+      }
+    } catch (error) {
+      addToast({
+        type: 'error',
+        title: '삭제 실패',
+        message: error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.',
+        duration: 5000
+      });
+    }
+  };
+
+  const copyToClipboard = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      addToast({
+        type: 'success',
+        title: '복사됨',
+        message: '초대 링크가 클립보드에 복사되었습니다.',
+        duration: 2000
+      });
+    } catch (error) {
+      addToast({
+        type: 'error',
+        title: '복사 실패',
+        message: '클립보드에 복사하는데 실패했습니다.',
+        duration: 3000
+      });
     }
   };
 
@@ -179,65 +363,458 @@ const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
     }
   };
 
+  const handleWipLimitChange = (columnId: string, value: string) => {
+    const newLimit = parseInt(value) || 0;
+    setWipLimits(prev => ({ ...prev, [columnId]: newLimit }));
+  };
+
+  const saveWipLimit = async (columnId: string) => {
+    console.log(`[DEBUG] saveWipLimit called for columnId: ${columnId}`);
+
+    if (!isOwner && !isMember) {
+      console.log('[DEBUG] Permission denied - not owner or member');
+      addToast({
+        type: 'error',
+        title: '권한 없음',
+        message: '컬럼을 수정할 권한이 없습니다.',
+        duration: 3000
+      });
+      return;
+    }
+
+    const newLimit = wipLimits[columnId];
+    const originalColumn = columns.find(col => col.id === columnId);
+
+    console.log(`[DEBUG] newLimit=${newLimit}, originalWipLimit=${originalColumn?.wipLimit}`);
+
+    // newLimit이 undefined이면 저장하지 않음
+    if (newLimit === undefined) {
+      console.log('[DEBUG] newLimit is undefined, skipping save');
+      return;
+    }
+
+    // 값이 변경되지 않았으면 API 호출 안 함
+    if (originalColumn && originalColumn.wipLimit === newLimit) {
+      console.log('[DEBUG] No change detected, skipping save');
+      return;
+    }
+
+    console.log(`[DEBUG] Saving WIP limit for column ${columnId}: ${newLimit}`);
+
+    try {
+      const response = await fetch(`/api/projects/${project.projectId}/columns/${columnId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          wipLimit: newLimit,
+          userId: currentUser.id
+        }),
+      });
+
+      console.log('API response:', response.status);
+
+      if (response.ok) {
+        // Update local state
+        setColumns(prev =>
+          prev.map(col =>
+            col.id === columnId ? { ...col, wipLimit: newLimit } : col
+          )
+        );
+        addToast({
+          type: 'success',
+          title: 'WIP 제한 업데이트',
+          message: 'WIP 제한이 성공적으로 업데이트되었습니다.',
+          duration: 3000
+        });
+      } else {
+        const errorData = await response.json();
+        console.error('API error:', errorData);
+        throw new Error(errorData.error || 'WIP 제한 업데이트에 실패했습니다.');
+      }
+    } catch (error) {
+      console.error('Failed to update WIP limit:', error);
+      // 에러 발생 시 원래 값으로 복구
+      if (originalColumn) {
+        setWipLimits(prev => ({ ...prev, [columnId]: originalColumn.wipLimit }));
+      }
+      addToast({
+        type: 'error',
+        title: '업데이트 실패',
+        message: error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.',
+        duration: 5000
+      });
+    }
+  };
+
+  const startEditingColumnTitle = (columnId: string, currentTitle: string) => {
+    setEditingColumnId(columnId);
+    setEditingColumnTitle(currentTitle);
+  };
+
+  const saveColumnTitle = async (columnId: string) => {
+    if (!editingColumnTitle.trim()) {
+      addToast({
+        type: 'error',
+        title: '입력 오류',
+        message: '컬럼 제목을 입력해주세요.',
+        duration: 3000
+      });
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/projects/${project.projectId}/columns/${columnId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          title: editingColumnTitle,
+          userId: currentUser.id
+        }),
+      });
+
+      if (response.ok) {
+        setColumns(prev =>
+          prev.map(col =>
+            col.id === columnId ? { ...col, title: editingColumnTitle } : col
+          )
+        );
+        setEditingColumnId(null);
+        setEditingColumnTitle('');
+        addToast({
+          type: 'success',
+          title: '컬럼 제목 업데이트',
+          message: '컬럼 제목이 성공적으로 변경되었습니다.',
+          duration: 3000
+        });
+      } else {
+        throw new Error('컬럼 제목 업데이트에 실패했습니다.');
+      }
+    } catch (error) {
+      addToast({
+        type: 'error',
+        title: '업데이트 실패',
+        message: error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.',
+        duration: 5000
+      });
+    }
+  };
+
+  const startAddingColumn = () => {
+    if (!isOwner && !isMember) {
+      addToast({
+        type: 'error',
+        title: '권한 없음',
+        message: '컬럼을 추가할 권한이 없습니다.',
+        duration: 3000
+      });
+      return;
+    }
+    setIsAddingColumn(true);
+    setNewColumnTitle('');
+    setNewColumnWipLimit(5);
+  };
+
+  const cancelAddingColumn = () => {
+    setIsAddingColumn(false);
+    setNewColumnTitle('');
+    setNewColumnWipLimit(5);
+  };
+
+  const saveNewColumn = async () => {
+    if (!newColumnTitle.trim()) {
+      addToast({
+        type: 'error',
+        title: '입력 오류',
+        message: '컬럼 제목을 입력해주세요.',
+        duration: 3000
+      });
+      return;
+    }
+
+    if (isNaN(newColumnWipLimit) || newColumnWipLimit < 0) {
+      addToast({
+        type: 'error',
+        title: '입력 오류',
+        message: 'WIP 제한은 0 이상의 숫자여야 합니다.',
+        duration: 3000
+      });
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/projects/${project.projectId}/columns`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          title: newColumnTitle.trim(),
+          wipLimit: newColumnWipLimit,
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.board?.columns) {
+          setColumns(data.board.columns);
+          // Update WIP limits state
+          const limits: Record<string, number> = {};
+          data.board.columns.forEach((col: Column) => {
+            limits[col.id] = col.wipLimit;
+          });
+          setWipLimits(limits);
+        }
+        addToast({
+          type: 'success',
+          title: '컬럼 추가됨',
+          message: `"${newColumnTitle}" 컬럼이 성공적으로 추가되었습니다.`,
+          duration: 3000
+        });
+        setIsAddingColumn(false);
+        setNewColumnTitle('');
+        setNewColumnWipLimit(5);
+      } else {
+        const errorData = await response.json();
+        throw new Error(errorData.error || '컬럼 추가에 실패했습니다.');
+      }
+    } catch (error) {
+      addToast({
+        type: 'error',
+        title: '추가 실패',
+        message: error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.',
+        duration: 5000
+      });
+    }
+  };
+
+  const deleteColumn = async (columnId: string, columnTitle: string) => {
+    if (!isOwner && !isMember) {
+      addToast({
+        type: 'error',
+        title: '권한 없음',
+        message: '컬럼을 삭제할 권한이 없습니다.',
+        duration: 3000
+      });
+      return;
+    }
+
+    const confirmed = confirm(
+      `"${columnTitle}" 컬럼을 삭제하시겠습니까?\n\n주의: 이 컬럼에 카드가 있으면 삭제할 수 없습니다.`
+    );
+
+    if (!confirmed) return;
+
+    try {
+      const response = await fetch(`/api/projects/${project.projectId}/columns/${columnId}`, {
+        method: 'DELETE',
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.board?.columns) {
+          setColumns(data.board.columns);
+          // Update WIP limits state
+          const limits: Record<string, number> = {};
+          data.board.columns.forEach((col: Column) => {
+            limits[col.id] = col.wipLimit;
+          });
+          setWipLimits(limits);
+        }
+        addToast({
+          type: 'success',
+          title: '컬럼 삭제됨',
+          message: `"${columnTitle}" 컬럼이 성공적으로 삭제되었습니다.`,
+          duration: 3000
+        });
+      } else {
+        const errorData = await response.json();
+        throw new Error(errorData.error || '컬럼 삭제에 실패했습니다.');
+      }
+    } catch (error) {
+      addToast({
+        type: 'error',
+        title: '삭제 실패',
+        message: error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.',
+        duration: 5000
+      });
+    }
+  };
+
+  const handleColumnDragEnd = async (result: DropResult) => {
+    if (!result.destination) return;
+
+    const { source, destination } = result;
+    if (source.index === destination.index) return;
+
+    // 로컬에서 먼저 순서 변경 (optimistic update)
+    const newColumns = Array.from(columns);
+    const [removed] = newColumns.splice(source.index, 1);
+    if (!removed) return; // 드래그된 아이템이 없으면 early return
+    newColumns.splice(destination.index, 0, removed);
+
+    // position 업데이트
+    const updatedColumns = newColumns.map((col, index) => ({
+      ...col,
+      position: index
+    }));
+
+    setColumns(updatedColumns);
+
+    // 서버에 업데이트
+    try {
+      const columnUpdates = updatedColumns.map((col, index) => ({
+        id: col.id,
+        position: index
+      }));
+
+      const response = await fetch(`/api/projects/${project.projectId}/columns/reorder`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ columnUpdates }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.board?.columns) {
+          setColumns(data.board.columns);
+        }
+        addToast({
+          type: 'success',
+          title: '순서 변경',
+          message: '컬럼 순서가 성공적으로 변경되었습니다.',
+          duration: 2000
+        });
+        // 메인 칸반 보드 새로고침
+        if (onBoardUpdate) {
+          onBoardUpdate();
+        }
+      } else {
+        throw new Error('Failed to reorder columns');
+      }
+    } catch (error) {
+      // 실패 시 원래 순서로 복구
+      setColumns(columns);
+      addToast({
+        type: 'error',
+        title: '순서 변경 실패',
+        message: '컬럼 순서 변경 중 오류가 발생했습니다.',
+        duration: 3000
+      });
+    }
+  };
+
+  // 모달이 닫힐 때 상태 초기화
+  useEffect(() => {
+    if (!isOpen) {
+      setInvitations([]);
+      setIsCreatingInvite(false);
+      setNewInviteExpiresIn(null);
+      setNewInviteMaxUses(null);
+    }
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-card border border-border rounded-xl shadow-xl w-full max-w-2xl mx-4 max-h-[90vh] overflow-hidden">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-0 sm:p-4" onClick={onClose}>
+      <div className="bg-card border border-border rounded-none sm:rounded-xl shadow-xl w-full max-w-2xl h-full sm:h-auto sm:max-h-[90vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
         {/* 헤더 */}
-        <div className="flex items-center justify-between p-6 border-b border-border">
-          <h2 className="text-xl font-semibold text-card-foreground">프로젝트 설정</h2>
+        <div className="flex items-center justify-between p-4 sm:p-6 border-b border-border">
+          <h2 className="text-lg sm:text-xl font-semibold text-card-foreground">프로젝트 설정</h2>
           <button
             onClick={onClose}
-            className="text-muted-foreground hover:text-foreground transition-colors"
+            className="text-muted-foreground hover:text-foreground transition-colors p-2 -mr-2"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* 탭 네비게이션 */}
-        <div className="flex border-b border-border">
+        <div className="flex border-b border-border overflow-x-auto overflow-y-hidden">
           <button
-            onClick={() => setActiveTab('general')}
-            className={`px-6 py-3 font-medium text-sm border-b-2 transition-colors ${
+            onClick={() => onTabChange('general')}
+            className={`flex items-center justify-center gap-1.5 px-3 sm:px-6 py-3 font-medium text-xs sm:text-sm border-b-2 transition-colors whitespace-nowrap ${
               activeTab === 'general'
                 ? 'border-primary text-primary bg-accent'
                 : 'border-transparent text-muted-foreground hover:text-foreground'
             }`}
           >
-            <Settings className="w-4 h-4 inline mr-2" />
-            일반
+            <Settings className="w-4 h-4 flex-shrink-0" />
+            <span>일반</span>
           </button>
           <button
-            onClick={() => setActiveTab('members')}
-            className={`px-6 py-3 font-medium text-sm border-b-2 transition-colors ${
+            onClick={() => onTabChange('columns')}
+            className={`flex items-center justify-center gap-1.5 px-3 sm:px-6 py-3 font-medium text-xs sm:text-sm border-b-2 transition-colors whitespace-nowrap ${
+              activeTab === 'columns'
+                ? 'border-primary text-primary bg-accent'
+                : 'border-transparent text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            <Columns className="w-4 h-4 flex-shrink-0" />
+            <span>컬럼</span>
+          </button>
+          <button
+            onClick={() => onTabChange('members')}
+            className={`flex items-center justify-center gap-1.5 px-3 sm:px-6 py-3 font-medium text-xs sm:text-sm border-b-2 transition-colors whitespace-nowrap ${
               activeTab === 'members'
                 ? 'border-primary text-primary bg-accent'
                 : 'border-transparent text-muted-foreground hover:text-foreground'
             }`}
           >
-            <Users className="w-4 h-4 inline mr-2" />
-            멤버 ({project.members?.length || 0})
+            <Users className="w-4 h-4 flex-shrink-0" />
+            <span>멤버</span>
+            <span className="text-xs">({project.members?.length || 0})</span>
           </button>
           {isOwner && pendingRequests.length > 0 && (
             <button
-              onClick={() => setActiveTab('requests')}
-              className={`px-6 py-3 font-medium text-sm border-b-2 transition-colors ${
+              onClick={() => onTabChange('requests')}
+              className={`flex items-center justify-center gap-1.5 px-3 sm:px-6 py-3 font-medium text-xs sm:text-sm border-b-2 transition-colors whitespace-nowrap ${
                 activeTab === 'requests'
                   ? 'border-primary text-primary bg-accent'
                   : 'border-transparent text-muted-foreground hover:text-foreground'
               }`}
             >
-              <UserPlus className="w-4 h-4 inline mr-2" />
-              신청 ({pendingRequests.length})
+              <UserPlus className="w-4 h-4 flex-shrink-0" />
+              <span>신청</span>
+              <span className="text-xs">({pendingRequests.length})</span>
             </button>
           )}
+          {isOwner && (
+            <button
+              onClick={() => onTabChange('invites')}
+              className={`flex items-center justify-center gap-1.5 px-3 sm:px-6 py-3 font-medium text-xs sm:text-sm border-b-2 transition-colors whitespace-nowrap ${
+                activeTab === 'invites'
+                  ? 'border-primary text-primary bg-accent'
+                  : 'border-transparent text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <Link className="w-4 h-4 flex-shrink-0" />
+              <span>초대</span>
+            </button>
+          )}
+          <button
+            onClick={() => onTabChange('integrations')}
+            className={`flex items-center justify-center gap-1.5 px-3 sm:px-6 py-3 font-medium text-xs sm:text-sm border-b-2 transition-colors whitespace-nowrap ${
+              activeTab === 'integrations'
+                ? 'border-primary text-primary bg-accent'
+                : 'border-transparent text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            <Bell className="w-4 h-4 flex-shrink-0" />
+            <span>통합</span>
+          </button>
         </div>
 
         {/* 탭 내용 */}
-        <div className="overflow-y-auto max-h-[60vh]">
+        <div className="overflow-y-auto" style={{ maxHeight: 'calc(100vh - 240px)' }}>
           {activeTab === 'general' && (
-            <div className="p-6 space-y-6">
+            <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
               {/* 권한 표시 */}
               <div className="bg-muted rounded-lg p-4">
                 <div className="flex items-center space-x-2">
@@ -342,37 +919,291 @@ const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
             </div>
           )}
 
+          {/* 컬럼 관리 탭 */}
+          {activeTab === 'columns' && (
+            <div className="p-4 sm:p-6">
+              <div className="space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                  <div className="flex-1">
+                    <h3 className="text-base sm:text-lg font-medium text-card-foreground">컬럼 관리</h3>
+                    <p className="text-xs sm:text-sm text-muted-foreground mt-1">
+                      컬럼 제목과 WIP(Work In Progress) 제한을 설정하세요
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {loadingColumns && (
+                      <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
+                    )}
+                    {(isOwner || isMember) && !loadingColumns && !isAddingColumn && (
+                      <button
+                        onClick={startAddingColumn}
+                        className="flex items-center justify-center gap-2 px-4 py-2 text-sm bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors w-full sm:w-auto"
+                      >
+                        <Plus className="w-4 h-4" />
+                        <span>컬럼 추가</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {loadingColumns ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    컬럼 정보를 불러오는 중...
+                  </div>
+                ) : (
+                  <DragDropContext onDragEnd={handleColumnDragEnd}>
+                    <Droppable droppableId="columns">
+                      {(provided) => (
+                        <div
+                          {...provided.droppableProps}
+                          ref={provided.innerRef}
+                          className="space-y-3"
+                        >
+                          {columns.map((column, index) => {
+                            const hasChanged = wipLimits[column.id] !== undefined && wipLimits[column.id] !== column.wipLimit;
+                            console.log(`[DEBUG] Column ${column.id}: current=${column.wipLimit}, new=${wipLimits[column.id]}, hasChanged=${hasChanged}`);
+                            return (
+                              <Draggable key={column.id} draggableId={column.id} index={index}>
+                                {(provided, snapshot) => (
+                                  <div
+                                    ref={provided.innerRef}
+                                    {...provided.draggableProps}
+                                    className={`p-3 sm:p-4 bg-muted rounded-lg border border-border hover:border-primary/50 transition-colors ${
+                                      snapshot.isDragging ? 'shadow-lg ring-2 ring-primary' : ''
+                                    }`}
+                                  >
+                                    <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+                                      <div className="flex items-start gap-3 flex-1 min-w-0">
+                                        {/* Drag Handle */}
+                                        <div
+                                          {...provided.dragHandleProps}
+                                          className="flex-shrink-0 pt-1 sm:pt-2 cursor-grab active:cursor-grabbing"
+                                        >
+                                          <GripVertical className="w-5 h-5 text-muted-foreground hover:text-foreground" />
+                                        </div>
+
+                                        {/* 컬럼 제목 */}
+                                        <div className="flex-1 min-w-0">
+                                          {editingColumnId === column.id ? (
+                                            <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                                              <input
+                                                type="text"
+                                                value={editingColumnTitle}
+                                                onChange={(e) => setEditingColumnTitle(e.target.value)}
+                                                onKeyDown={(e) => {
+                                                  if (e.key === 'Enter') {
+                                                    saveColumnTitle(column.id);
+                                                  } else if (e.key === 'Escape') {
+                                                    setEditingColumnId(null);
+                                                    setEditingColumnTitle('');
+                                                  }
+                                                }}
+                                                className="flex-1 px-3 py-2 bg-input border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-foreground text-sm"
+                                                autoFocus
+                                              />
+                                              <div className="flex gap-2">
+                                                <button
+                                                  onClick={() => saveColumnTitle(column.id)}
+                                                  className="flex-1 sm:flex-none px-3 py-2 text-sm bg-primary text-primary-foreground rounded-lg hover:bg-primary/90"
+                                                >
+                                                  저장
+                                                </button>
+                                                <button
+                                                  onClick={() => {
+                                                    setEditingColumnId(null);
+                                                    setEditingColumnTitle('');
+                                                  }}
+                                                  className="flex-1 sm:flex-none px-3 py-2 text-sm bg-secondary text-secondary-foreground rounded-lg hover:bg-secondary/80"
+                                                >
+                                                  취소
+                                                </button>
+                                              </div>
+                                            </div>
+                                          ) : (
+                                            <>
+                                              <div className="flex items-center gap-2 flex-wrap">
+                                                <h4 className="font-medium text-card-foreground text-sm sm:text-base">{column.title}</h4>
+                                                {(isOwner || isMember) && (
+                                                  <button
+                                                    onClick={() => startEditingColumnTitle(column.id, column.title)}
+                                                    className="p-1 text-muted-foreground hover:text-foreground hover:bg-accent rounded"
+                                                    title="제목 수정"
+                                                  >
+                                                    <Edit3 className="w-3 h-3 sm:w-4 sm:h-4" />
+                                                  </button>
+                                                )}
+                                              </div>
+                                              <p className="text-xs sm:text-sm text-muted-foreground mt-1">
+                                                카드: {column.cards?.length || 0}개 • 순서: {index + 1}
+                                              </p>
+                                            </>
+                                          )}
+                                        </div>
+                                      </div>
+
+                                      {/* WIP 제한 */}
+                                      <div className="flex items-center gap-2 self-start">
+                                        <label className="text-xs sm:text-sm font-medium text-card-foreground whitespace-nowrap">
+                                          WIP:
+                                        </label>
+                                        <input
+                                          type="number"
+                                          min="0"
+                                          value={wipLimits[column.id] ?? column.wipLimit}
+                                          onChange={(e) => handleWipLimitChange(column.id, e.target.value)}
+                                          disabled={!isOwner && !isMember}
+                                          className="w-16 sm:w-20 px-2 sm:px-3 py-2 bg-input border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring disabled:bg-muted disabled:cursor-not-allowed text-foreground text-center text-sm"
+                                        />
+                                        {hasChanged && (
+                                          <button
+                                            onClick={() => {
+                                              console.log(`[DEBUG] Save button clicked for column ${column.id}`);
+                                              saveWipLimit(column.id);
+                                            }}
+                                            className="px-2 sm:px-3 py-1.5 sm:py-1 text-xs sm:text-sm bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 whitespace-nowrap"
+                                          >
+                                            저장
+                                          </button>
+                                        )}
+                                      </div>
+                                    </div>
+
+                        {/* WIP 경고 */}
+                        {column.wipLimit > 0 && column.cards && column.cards.length >= column.wipLimit && (
+                          <div className="flex items-center space-x-2 p-2 mt-3 bg-destructive/10 text-destructive-foreground rounded-md text-sm border border-destructive/20">
+                            <Settings className="w-4 h-4" />
+                            <span>WIP 제한에 도달했습니다!</span>
+                          </div>
+                        )}
+
+                        {/* 컬럼 삭제 */}
+                        {(isOwner || isMember) && (
+                          <div className="flex justify-end mt-3 pt-3 border-t border-border">
+                            <button
+                              onClick={() => deleteColumn(column.id, column.title)}
+                              className="flex items-center space-x-2 px-3 py-1.5 text-sm text-destructive hover:bg-destructive/10 rounded-lg transition-colors"
+                              title="컬럼 삭제"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                              <span>삭제</span>
+                            </button>
+                          </div>
+                        )}
+                    </div>
+                  )}
+                </Draggable>
+              );
+            })}
+
+            {columns.length === 0 && !isAddingColumn && (
+              <div className="text-center py-8 text-muted-foreground">
+                컬럼이 없습니다.
+              </div>
+            )}
+
+            {provided.placeholder}
+          </div>
+        )}
+      </Droppable>
+
+      {/* 인라인 컬럼 추가 폼 */}
+      {isAddingColumn && (
+        <div className="p-4 bg-accent rounded-lg border-2 border-primary">
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-card-foreground mb-2">
+                컬럼 제목
+              </label>
+              <input
+                type="text"
+                value={newColumnTitle}
+                onChange={(e) => setNewColumnTitle(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    saveNewColumn();
+                  } else if (e.key === 'Escape') {
+                    cancelAddingColumn();
+                  }
+                }}
+                placeholder="새 컬럼의 제목을 입력하세요"
+                className="w-full px-3 py-2 bg-input border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-foreground"
+                autoFocus
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-card-foreground mb-2">
+                WIP 제한 (0 = 무제한)
+              </label>
+              <input
+                type="number"
+                min="0"
+                value={newColumnWipLimit}
+                onChange={(e) => setNewColumnWipLimit(parseInt(e.target.value) || 0)}
+                className="w-full px-3 py-2 bg-input border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-foreground"
+              />
+            </div>
+
+            <div className="flex flex-col sm:flex-row items-center gap-2">
+              <button
+                onClick={saveNewColumn}
+                className="w-full sm:flex-1 px-4 py-2.5 sm:py-2 text-sm bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
+              >
+                저장
+              </button>
+              <button
+                onClick={cancelAddingColumn}
+                className="w-full sm:flex-1 px-4 py-2.5 sm:py-2 text-sm bg-secondary text-secondary-foreground rounded-lg hover:bg-secondary/80 transition-colors"
+              >
+                취소
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </DragDropContext>
+  )}
+
+  {!isOwner && !isMember && (
+    <div className="text-sm text-muted-foreground bg-muted p-3 rounded-lg">
+      컬럼 설정을 변경할 권한이 없습니다.
+    </div>
+  )}
+              </div>
+            </div>
+          )}
+
           {/* 멤버 관리 탭 */}
           {activeTab === 'members' && (
-            <div className="p-6">
+            <div className="p-4 sm:p-6">
               <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-medium text-card-foreground">프로젝트 멤버</h3>
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                  <h3 className="text-base sm:text-lg font-medium text-card-foreground">프로젝트 멤버</h3>
                   <span className="text-sm text-muted-foreground">{project.members?.length || 0}명</span>
                 </div>
 
                 <div className="space-y-3">
                   {project.members?.map((member) => (
-                    <div key={member.id} className="flex items-center justify-between p-3 bg-muted rounded-lg">
-                      <div className="flex items-center space-x-3">
+                    <div key={member.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 sm:p-4 bg-muted rounded-lg">
+                      <div className="flex items-center space-x-3 min-w-0 flex-1">
                         <img
                           src={member.avatar || '/default-avatar.png'}
                           alt={member.name}
-                          className="w-10 h-10 rounded-full"
+                          className="w-10 h-10 sm:w-12 sm:h-12 rounded-full flex-shrink-0"
                         />
-                        <div>
-                          <div className="flex items-center space-x-2">
-                            <span className="font-medium text-card-foreground">{member.name}</span>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="font-medium text-card-foreground text-sm sm:text-base truncate">{member.name}</span>
                             {member.id === project.ownerId && (
-                              <span className="px-2 py-1 text-xs bg-primary/10 text-primary rounded-full">
+                              <span className="px-2 py-0.5 text-xs bg-primary/10 text-primary rounded-full whitespace-nowrap">
                                 소유자
                               </span>
                             )}
                           </div>
-                          <span className="text-sm text-muted-foreground">{member.email}</span>
+                          <span className="text-xs sm:text-sm text-muted-foreground truncate block">{member.email}</span>
                         </div>
                       </div>
-                      
+
                       {isOwner && member.id !== project.ownerId && member.id !== currentUser.id && (
                         <button
                           onClick={() => {
@@ -380,17 +1211,18 @@ const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
                               removeMember(member.id);
                             }
                           }}
-                          className="p-2 text-destructive hover:bg-destructive/10 rounded-lg transition-colors"
+                          className="self-end sm:self-auto px-4 py-2 text-sm text-destructive hover:bg-destructive/10 rounded-lg transition-colors flex items-center gap-2 w-full sm:w-auto justify-center"
                           title="멤버 제거"
                         >
                           <UserX className="w-4 h-4" />
+                          <span className="sm:hidden">제거</span>
                         </button>
                       )}
                     </div>
                   ))}
 
                   {(!project.members || project.members.length === 0) && (
-                    <div className="text-center py-8 text-muted-foreground">
+                    <div className="text-center py-8 text-sm sm:text-base text-muted-foreground">
                       프로젝트 멤버가 없습니다.
                     </div>
                   )}
@@ -401,49 +1233,49 @@ const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
 
           {/* 가입 신청 관리 탭 */}
           {activeTab === 'requests' && isOwner && (
-            <div className="p-6">
+            <div className="p-4 sm:p-6">
               <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-medium text-card-foreground">가입 신청</h3>
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                  <h3 className="text-base sm:text-lg font-medium text-card-foreground">가입 신청</h3>
                   <span className="text-sm text-muted-foreground">{pendingRequests.length}건</span>
                 </div>
 
                 <div className="space-y-3">
                   {pendingRequests.map((request) => (
-                    <div key={request.id} className="p-4 border border-border rounded-lg">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-3">
+                    <div key={request.id} className="p-3 sm:p-4 border border-border rounded-lg">
+                      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                        <div className="flex items-start space-x-3 min-w-0 flex-1">
                           <img
                             src={request.user.avatar || '/default-avatar.png'}
                             alt={request.user.name}
-                            className="w-10 h-10 rounded-full"
+                            className="w-10 h-10 sm:w-12 sm:h-12 rounded-full flex-shrink-0"
                           />
-                          <div>
-                            <div className="flex items-center space-x-2">
-                              <span className="font-medium text-card-foreground">{request.user.name}</span>
-                              <Clock className="w-4 h-4 text-muted-foreground" />
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center space-x-2 flex-wrap">
+                              <span className="font-medium text-card-foreground text-sm sm:text-base">{request.user.name}</span>
+                              <Clock className="w-3 h-3 sm:w-4 sm:h-4 text-muted-foreground flex-shrink-0" />
                             </div>
-                            <span className="text-sm text-muted-foreground">{request.user.email}</span>
+                            <span className="text-xs sm:text-sm text-muted-foreground block truncate">{request.user.email}</span>
                             {request.message && (
-                              <p className="text-sm text-card-foreground mt-1">{request.message}</p>
+                              <p className="text-xs sm:text-sm text-card-foreground mt-2 p-2 bg-muted rounded">{request.message}</p>
                             )}
                           </div>
                         </div>
 
-                        <div className="flex items-center space-x-2">
+                        <div className="flex items-center gap-2 w-full sm:w-auto">
                           <button
                             onClick={() => handleJoinRequestResponse(request.id, 'approve')}
-                            className="flex items-center px-3 py-1 bg-success/10 text-success-foreground rounded-lg hover:bg-success/20 transition-colors"
+                            className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 sm:px-4 py-2 text-sm bg-success/10 text-success-foreground rounded-lg hover:bg-success/20 transition-colors"
                           >
-                            <UserCheck className="w-4 h-4 mr-1" />
-                            승인
+                            <UserCheck className="w-4 h-4" />
+                            <span>승인</span>
                           </button>
                           <button
                             onClick={() => handleJoinRequestResponse(request.id, 'reject')}
-                            className="flex items-center px-3 py-1 bg-destructive/10 text-destructive-foreground rounded-lg hover:bg-destructive/20 transition-colors"
+                            className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 sm:px-4 py-2 text-sm bg-destructive/10 text-destructive-foreground rounded-lg hover:bg-destructive/20 transition-colors"
                           >
-                            <UserX className="w-4 h-4 mr-1" />
-                            거부
+                            <UserX className="w-4 h-4" />
+                            <span>거부</span>
                           </button>
                         </div>
                       </div>
@@ -451,8 +1283,271 @@ const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
                   ))}
 
                   {pendingRequests.length === 0 && (
-                    <div className="text-center py-8 text-muted-foreground">
+                    <div className="text-center py-8 text-sm sm:text-base text-muted-foreground">
                       대기 중인 가입 신청이 없습니다.
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 초대 링크 관리 탭 */}
+          {activeTab === 'invites' && isOwner && (
+            <div className="p-4 sm:p-6">
+              <div className="space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                  <div className="flex-1">
+                    <h3 className="text-base sm:text-lg font-medium text-card-foreground">초대 링크 관리</h3>
+                    <p className="text-xs sm:text-sm text-muted-foreground mt-1">
+                      링크를 통해 팀원을 프로젝트에 초대하세요
+                    </p>
+                  </div>
+                  {!isCreatingInvite && (
+                    <button
+                      onClick={() => setIsCreatingInvite(true)}
+                      className="flex items-center justify-center gap-2 px-4 py-2 text-sm bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors w-full sm:w-auto"
+                    >
+                      <Plus className="w-4 h-4" />
+                      <span>새 링크 생성</span>
+                    </button>
+                  )}
+                </div>
+
+                {/* 새 초대 링크 생성 폼 */}
+                {isCreatingInvite && (
+                  <div className="p-4 bg-accent rounded-lg border-2 border-primary space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-card-foreground mb-2">
+                        <Calendar className="w-4 h-4 inline mr-1" />
+                        만료 기간 (초)
+                      </label>
+                      <input
+                        type="number"
+                        value={newInviteExpiresIn || ''}
+                        onChange={(e) => setNewInviteExpiresIn(e.target.value ? parseInt(e.target.value) : null)}
+                        placeholder="비워두면 무제한 (예: 86400 = 1일)"
+                        className="w-full px-3 py-2 bg-input border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-foreground"
+                      />
+                      <p className="text-xs text-muted-foreground mt-1">
+                        3600 = 1시간, 86400 = 1일, 604800 = 7일
+                      </p>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-card-foreground mb-2">
+                        <Hash className="w-4 h-4 inline mr-1" />
+                        최대 사용 횟수
+                      </label>
+                      <input
+                        type="number"
+                        value={newInviteMaxUses || ''}
+                        onChange={(e) => setNewInviteMaxUses(e.target.value ? parseInt(e.target.value) : null)}
+                        placeholder="비워두면 무제한"
+                        className="w-full px-3 py-2 bg-input border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-foreground"
+                      />
+                    </div>
+
+                    <div className="flex flex-col sm:flex-row items-center gap-2 sm:space-x-2">
+                      <button
+                        onClick={createInvitation}
+                        className="w-full sm:flex-1 px-4 py-2.5 sm:py-2 text-sm bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
+                      >
+                        생성
+                      </button>
+                      <button
+                        onClick={() => {
+                          setIsCreatingInvite(false);
+                          setNewInviteExpiresIn(null);
+                          setNewInviteMaxUses(null);
+                        }}
+                        className="w-full sm:flex-1 px-4 py-2.5 sm:py-2 text-sm bg-secondary text-secondary-foreground rounded-lg hover:bg-secondary/80 transition-colors"
+                      >
+                        취소
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* 초대 링크 목록 */}
+                {loadingInvitations ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
+                    로딩 중...
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {invitations.map((invitation) => {
+                      const inviteUrl = `${typeof window !== 'undefined' ? window.location.origin : ''}/invite/${invitation.invite_token}`;
+                      const isExpired = invitation.expires_at && new Date(invitation.expires_at) < new Date();
+                      const isMaxedOut = invitation.max_uses && invitation.current_uses >= invitation.max_uses;
+                      const isInactive = isExpired || isMaxedOut;
+
+                      return (
+                        <div
+                          key={invitation.id}
+                          className={`p-3 sm:p-4 rounded-lg border ${isInactive ? 'bg-muted/50 border-border/50' : 'bg-muted border-border'}`}
+                        >
+                          <div className="space-y-3">
+                            {/* 초대 링크 URL */}
+                            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                              <input
+                                type="text"
+                                value={inviteUrl}
+                                readOnly
+                                className="flex-1 px-3 py-2 bg-input border border-border rounded-lg text-xs sm:text-sm font-mono text-foreground min-w-0"
+                              />
+                              <button
+                                onClick={() => copyToClipboard(inviteUrl)}
+                                className="w-full sm:w-auto px-4 py-2 text-sm text-primary hover:bg-primary/10 rounded-lg transition-colors flex items-center justify-center gap-2"
+                                title="복사"
+                              >
+                                <Copy className="w-4 h-4" />
+                                <span className="sm:hidden">복사</span>
+                              </button>
+                            </div>
+
+                            {/* 상태 정보 */}
+                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                              <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-xs sm:text-sm">
+                                {invitation.expires_at ? (
+                                  <span className={`flex items-center gap-1 ${isExpired ? 'text-destructive' : 'text-muted-foreground'}`}>
+                                    <Calendar className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
+                                    <span className="truncate">{isExpired ? '만료됨' : `${new Date(invitation.expires_at).toLocaleString('ko-KR', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}`}</span>
+                                  </span>
+                                ) : (
+                                  <span className="flex items-center gap-1 text-muted-foreground">
+                                    <Calendar className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
+                                    무제한
+                                  </span>
+                                )}
+
+                                {invitation.max_uses ? (
+                                  <span className={`flex items-center gap-1 ${isMaxedOut ? 'text-destructive' : 'text-muted-foreground'}`}>
+                                    <Hash className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
+                                    {invitation.current_uses} / {invitation.max_uses}회
+                                  </span>
+                                ) : (
+                                  <span className="flex items-center gap-1 text-muted-foreground">
+                                    <Hash className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
+                                    {invitation.current_uses}회 사용
+                                  </span>
+                                )}
+                              </div>
+
+                              <button
+                                onClick={() => {
+                                  if (confirm('이 초대 링크를 삭제하시겠습니까?')) {
+                                    deleteInvitation(invitation.id);
+                                  }
+                                }}
+                                className="self-start sm:self-auto px-3 py-1.5 text-sm text-destructive hover:bg-destructive/10 rounded-lg transition-colors flex items-center gap-2"
+                                title="삭제"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                                <span className="sm:hidden">삭제</span>
+                              </button>
+                            </div>
+
+                            {/* 생성 정보 */}
+                            <div className="text-xs text-muted-foreground pt-2 border-t border-border/50">
+                              <span className="block sm:inline">{invitation.created_by_name}</span>
+                              <span className="hidden sm:inline"> • </span>
+                              <span className="block sm:inline text-xs">{new Date(invitation.created_at).toLocaleString('ko-KR', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+
+                    {invitations.length === 0 && !isCreatingInvite && (
+                      <div className="text-center py-8 text-muted-foreground">
+                        생성된 초대 링크가 없습니다.
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* 통합 관리 탭 */}
+          {activeTab === 'integrations' && (
+            <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
+              {/* Slack 통합 */}
+              <div>
+                <div className="flex items-center space-x-2 mb-4">
+                  <Bell className="w-5 h-5 text-muted-foreground" />
+                  <h3 className="text-lg font-medium text-card-foreground">Slack 알림</h3>
+                </div>
+
+                <div className="bg-muted rounded-lg p-4 mb-4">
+                  <p className="text-sm text-muted-foreground">
+                    카드 생성, 이동, 수정, 삭제 시 Slack 채널로 알림을 받을 수 있습니다.
+                  </p>
+                </div>
+
+                <div className="space-y-4">
+                  {/* Slack 활성화 토글 */}
+                  <div className="flex items-center justify-between p-4 bg-muted rounded-lg">
+                    <div>
+                      <div className="font-medium text-card-foreground">Slack 알림 활성화</div>
+                      <div className="text-sm text-muted-foreground mt-1">
+                        프로젝트 활동을 Slack으로 전송합니다
+                      </div>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={settings.slackEnabled}
+                        onChange={(e) => setSettings(prev => ({ ...prev, slackEnabled: e.target.checked }))}
+                        disabled={!isOwner && !isMember}
+                        className="sr-only peer"
+                      />
+                      <div className="w-11 h-6 bg-muted-foreground/20 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                    </label>
+                  </div>
+
+                  {/* Webhook URL */}
+                  <div>
+                    <label className="block text-sm font-medium text-card-foreground mb-2">
+                      Slack Webhook URL
+                    </label>
+                    <input
+                      type="url"
+                      value={settings.slackWebhookUrl}
+                      onChange={(e) => setSettings(prev => ({ ...prev, slackWebhookUrl: e.target.value }))}
+                      disabled={!isOwner && !isMember}
+                      className="w-full px-3 py-2 bg-input border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring disabled:bg-muted disabled:cursor-not-allowed text-foreground placeholder:text-muted-foreground font-mono text-sm"
+                      placeholder="https://hooks.slack.com/services/..."
+                    />
+                    <p className="text-xs text-muted-foreground mt-2">
+                      Slack에서 Incoming Webhook을 생성하고 URL을 입력하세요.{' '}
+                      <a
+                        href="https://api.slack.com/messaging/webhooks"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-primary hover:underline"
+                      >
+                        설정 방법 보기
+                      </a>
+                    </p>
+                  </div>
+
+                  {/* 알림 이벤트 안내 */}
+                  <div className="bg-accent/50 rounded-lg p-4">
+                    <div className="text-sm font-medium text-card-foreground mb-2">알림이 전송되는 이벤트:</div>
+                    <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
+                      <li>카드 생성</li>
+                      <li>카드 이동 (컬럼 변경)</li>
+                      <li>카드 수정</li>
+                      <li>카드 삭제</li>
+                    </ul>
+                  </div>
+
+                  {!isOwner && !isMember && (
+                    <div className="text-sm text-muted-foreground bg-muted p-3 rounded-lg">
+                      통합 설정을 변경할 권한이 없습니다.
                     </div>
                   )}
                 </div>
@@ -462,24 +1557,24 @@ const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
         </div>
 
         {/* 푸터 */}
-        <div className="flex items-center justify-end space-x-3 p-6 border-t border-border bg-muted rounded-b-xl">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center sm:justify-end gap-2 sm:gap-3 p-4 sm:p-6 border-t border-border bg-muted rounded-b-none sm:rounded-b-xl">
           <button
             onClick={onClose}
-            className="px-4 py-2 text-muted-foreground hover:text-foreground transition-colors"
+            className="order-2 sm:order-1 px-4 py-2.5 sm:py-2 text-sm sm:text-base text-muted-foreground hover:text-foreground transition-colors"
           >
-            {activeTab === 'general' ? '취소' : '닫기'}
+            {(activeTab === 'general' || activeTab === 'integrations') ? '취소' : '닫기'}
           </button>
-          {activeTab === 'general' && (
+          {(activeTab === 'general' || activeTab === 'integrations') && (
             <button
               onClick={handleSave}
               disabled={loading || (!isOwner && !isMember)}
-              className="flex items-center px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="order-1 sm:order-2 flex items-center justify-center gap-1.5 px-4 py-2.5 sm:py-2 text-sm sm:text-base bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               {loading && (
-                <div className="w-4 h-4 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin mr-2"></div>
+                <div className="w-4 h-4 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin"></div>
               )}
-              <Save className="w-4 h-4 mr-1.5" />
-              저장
+              <Save className="w-4 h-4" />
+              <span>저장</span>
             </button>
           )}
         </div>

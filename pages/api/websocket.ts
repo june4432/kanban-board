@@ -38,11 +38,41 @@ const SocketHandler = async (_req: NextApiRequest, res: NextApiResponseWithSocke
     // 인증 미들웨어
     io.use(async (socket, next) => {
       try {
-        const req = socket.request as any;
-        const session = await getServerSession(req, {} as any, authOptions) as AuthSession | null;
+        // Socket.io handshake에서 쿠키 추출
+        const cookies = socket.handshake.headers.cookie;
+
+        if (!cookies) {
+          console.log('🚫 [WebSocket] Connection rejected: No cookies');
+          return next(new Error('Unauthorized'));
+        }
+
+        // NextAuth 세션 쿠키 확인 (next-auth.session-token 또는 __Secure-next-auth.session-token)
+        const sessionToken = cookies
+          .split(';')
+          .find(c => c.trim().startsWith('next-auth.session-token=') || c.trim().startsWith('__Secure-next-auth.session-token='));
+
+        if (!sessionToken) {
+          console.log('🚫 [WebSocket] Connection rejected: No session token');
+          return next(new Error('Unauthorized'));
+        }
+
+        // Mock request/response 객체 생성 (getServerSession용)
+        const req = {
+          headers: {
+            cookie: cookies
+          }
+        } as any;
+
+        const res = {
+          getHeader: () => null,
+          setHeader: () => {},
+          end: () => {}
+        } as any;
+
+        const session = await getServerSession(req, res, authOptions) as AuthSession | null;
 
         if (!session?.user?.id) {
-          console.log('🚫 [WebSocket] Connection rejected: No session');
+          console.log('🚫 [WebSocket] Connection rejected: Invalid session');
           return next(new Error('Unauthorized'));
         }
 

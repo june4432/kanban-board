@@ -48,13 +48,13 @@ async function handlePatch(projectId: string, req: NextApiRequest, res: NextApiR
 
     const { session: _session, isOwner } = auth;
 
-    const { name, description, color, isPublic } = req.body;
+    const { name, description, color, isPublic, slackWebhookUrl, slackEnabled } = req.body;
 
     // 소유자만 변경할 수 있는 설정들
     const ownerOnlyFields = { name, color, isPublic };
 
     if (!isOwner) {
-      // 멤버는 설명만 수정 가능
+      // 멤버는 설명 및 통합 설정만 수정 가능
       for (const [key, value] of Object.entries(ownerOnlyFields)) {
         if (value !== undefined) {
           return res.status(403).json({ error: `Only project owner can modify ${key}` });
@@ -68,6 +68,8 @@ async function handlePatch(projectId: string, req: NextApiRequest, res: NextApiR
     if (description !== undefined) updates.description = description;
     if (color !== undefined) updates.color = color;
     if (isPublic !== undefined) updates.isPublic = isPublic;
+    if (slackWebhookUrl !== undefined) updates.slackWebhookUrl = slackWebhookUrl;
+    if (slackEnabled !== undefined) updates.slackEnabled = slackEnabled;
 
     const { projects } = getRepositories();
     const updatedProject = projects.update(projectId, updates);

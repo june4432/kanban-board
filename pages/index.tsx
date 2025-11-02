@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import Head from 'next/head';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProject, ProjectProvider } from '@/contexts/ProjectContext';
 import { useKanbanAPI } from '@/hooks/useKanbanAPI';
@@ -8,11 +9,12 @@ import FilterPanel from '@/components/FilterPanel';
 import KanbanBoard from '@/components/KanbanBoard';
 import CalendarView from '@/components/CalendarView';
 import GanttView from '@/components/GanttView';
+import TableView from '@/components/TableView';
 import ManualView from '@/components/ManualView';
 import CardModal from '@/components/CardModal';
 import ProjectSelector from '@/components/ProjectSelector';
 import AuthModal from '@/components/AuthModal';
-import ProjectQuickSettings from '@/components/ProjectQuickSettings';
+import ProjectSettingsModal from '@/components/ProjectSettingsModal';
 import { Card, User, Project } from '@/types';
 
 function KanbanApp() {
@@ -24,6 +26,7 @@ function KanbanApp() {
   const [editingCard, setEditingCard] = useState<Card | undefined>();
   const [newCardColumnId, setNewCardColumnId] = useState<string>('');  
   const [isProjectSettingsOpen, setIsProjectSettingsOpen] = useState(false);
+  const [projectSettingsTab, setProjectSettingsTab] = useState<'general' | 'members' | 'requests' | 'columns' | 'invites' | 'integrations'>('general');
   const [allUsers, setAllUsers] = useState<User[]>([]);
 
   // 사용자 정보 가져오기
@@ -56,7 +59,8 @@ function KanbanApp() {
     deleteCard,
     updateWipLimit,
     createLabel,
-    createMilestone
+    createMilestone,
+    reloadBoard
   } = useKanbanAPI(currentProject?.projectId, user);
 
   // 전역 WebSocket 이벤트 처리는 GlobalWebSocketManager에서 담당
@@ -64,19 +68,30 @@ function KanbanApp() {
   // 프로젝트가 선택되지 않았거나 프로젝트 선택기를 표시해야 할 때
   if (!currentProject || showProjectSelector) {
     return (
-      <ProjectSelector
-        user={user!}
-        selectedProject={currentProject || undefined}
-        onProjectSelect={(project) => {
-          selectProject(project);
-          setShowProjectSelector(false);
-        }}
-        onProjectCreate={createProject}
-      />
+      <>
+        <Head>
+          <title>프로젝트 선택 - 프로젝트 관리 보드</title>
+        </Head>
+        <ProjectSelector
+          user={user!}
+          selectedProject={currentProject || undefined}
+          onProjectSelect={(project) => {
+            selectProject(project);
+            setShowProjectSelector(false);
+          }}
+          onProjectCreate={createProject}
+        />
+      </>
     );
   }
 
-  const allCards = board.columns.flatMap(column => column.cards);
+  // 모든 카드에 컬럼 정보 추가 (status 표시용)
+  const allCards = board.columns.flatMap(column =>
+    column.cards.map(card => ({
+      ...card,
+      status: column.title
+    }))
+  );
 
   const handleAddCard = (columnId?: string) => {
     setNewCardColumnId(columnId || 'backlog');
@@ -136,6 +151,14 @@ function KanbanApp() {
             onCardClick={handleEditCard}
           />
         );
+      case 'table':
+        return (
+          <TableView
+            cards={allCards}
+            users={allUsers}
+            onCardClick={handleEditCard}
+          />
+        );
       case 'manual':
         return <ManualView />;
       default:
@@ -170,17 +193,20 @@ function KanbanApp() {
   }
 
   return (
-    <Layout
-      viewMode={viewMode}
-      onViewModeChange={setViewMode}
-      onFilterToggle={() => setIsFilterOpen(true)}
-      onAddCard={() => handleAddCard()}
-      currentProject={currentProject}
-      onProjectChange={() => setShowProjectSelector(true)}
-      onProjectSettings={() => setIsProjectSettingsOpen(true)}
-      allProjects={projects}
-      onProjectSelect={selectProject}
-    >
+    <>
+      <Head>
+        <title>{currentProject.name} - 프로젝트 관리 보드</title>
+      </Head>
+      <Layout
+        viewMode={viewMode}
+        onViewModeChange={setViewMode}
+        onFilterToggle={() => setIsFilterOpen(true)}
+        currentProject={currentProject}
+        onProjectChange={() => setShowProjectSelector(true)}
+        onProjectSettings={() => setIsProjectSettingsOpen(true)}
+        allProjects={projects}
+        onProjectSelect={selectProject}
+      >
       {renderContent()}
 
       <FilterPanel
@@ -204,14 +230,21 @@ function KanbanApp() {
         onCreateMilestone={createMilestone}
       />
 
-      <ProjectQuickSettings
+      <ProjectSettingsModal
         project={currentProject}
         currentUser={user!}
         isOpen={isProjectSettingsOpen}
-        onClose={() => setIsProjectSettingsOpen(false)}
+        onClose={() => {
+          setIsProjectSettingsOpen(false);
+          setProjectSettingsTab('general'); // 모달 닫을 때 탭 리셋
+        }}
         onProjectUpdate={handleProjectUpdate}
+        onBoardUpdate={reloadBoard}
+        activeTab={projectSettingsTab}
+        onTabChange={setProjectSettingsTab}
       />
     </Layout>
+    </>
   );
 }
 
@@ -221,30 +254,40 @@ export default function Home() {
 
   if (loading) {
     return (
-      <div className="h-screen flex items-center justify-center">
-        <div className="text-lg">로딩 중...</div>
-      </div>
+      <>
+        <Head>
+          <title>프로젝트 관리 보드</title>
+        </Head>
+        <div className="h-screen flex items-center justify-center">
+          <div className="text-lg">로딩 중...</div>
+        </div>
+      </>
     );
   }
 
   if (!user) {
     return (
-      <div className="h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <h1 className="text-3xl font-bold text-gray-900 mb-4">프로젝트 관리 보드</h1>
-          <p className="text-gray-600 mb-6">로그인이 필요합니다.</p>
-          <button
-            onClick={() => setShowAuthModal(true)}
-            className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            로그인 / 회원가입
-          </button>
-          <AuthModal 
-            isOpen={showAuthModal} 
-            onClose={() => setShowAuthModal(false)} 
-          />
+      <>
+        <Head>
+          <title>프로젝트 관리 보드</title>
+        </Head>
+        <div className="h-screen bg-gray-50 flex items-center justify-center">
+          <div className="text-center">
+            <h1 className="text-3xl font-bold text-gray-900 mb-4">프로젝트 관리 보드</h1>
+            <p className="text-gray-600 mb-6">로그인이 필요합니다.</p>
+            <button
+              onClick={() => setShowAuthModal(true)}
+              className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              로그인 / 회원가입
+            </button>
+            <AuthModal
+              isOpen={showAuthModal}
+              onClose={() => setShowAuthModal(false)}
+            />
+          </div>
         </div>
-      </div>
+      </>
     );
   }
 

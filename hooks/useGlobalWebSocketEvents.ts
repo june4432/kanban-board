@@ -218,12 +218,42 @@ export const useGlobalWebSocketEvents = ({
       }
     };
 
+    // 멤버 참여 이벤트 (초대 링크 사용)
+    const handleMemberJoined = (data: {
+      projectId: string;
+      projectName: string;
+      newMember: { id: string; name: string; email: string };
+      timestamp: number;
+    }) => {
+      const eventId = `member-joined-${data.projectId}-${data.newMember.id}-${data.timestamp}`;
+
+      if (processedEventsRef.current.has(eventId)) {
+        console.log('🔄 [GlobalWebSocket] Duplicate member joined event ignored:', eventId);
+        return;
+      }
+      processedEventsRef.current.add(eventId);
+
+      console.log('📨 [GlobalWebSocket] Received member-joined:', data);
+
+      // 다른 사용자가 참여했을 때만 토스트 표시
+      if (data.newMember.id !== user.id) {
+        console.log('🎯 [GlobalWebSocket] Showing member joined toast');
+        addToast({
+          type: 'success',
+          title: '새 멤버 참여',
+          message: `${data.newMember.name}님이 "${data.projectName}" 프로젝트에 참여했습니다.`,
+          duration: 4000
+        });
+      }
+    };
+
     // 이벤트 리스너 등록
     socket.on('card-created', handleCardCreated);
     socket.on('card-updated', handleCardUpdated);
     socket.on('project-join-request', handleProjectJoinRequest);
     socket.on('project-join-response', handleProjectJoinResponse);
     socket.on('card-moved', handleCardMoved);
+    socket.on('member-joined', handleMemberJoined);
 
     // 정리 함수
     return () => {
@@ -233,6 +263,7 @@ export const useGlobalWebSocketEvents = ({
       socket.off('project-join-request', handleProjectJoinRequest);
       socket.off('project-join-response', handleProjectJoinResponse);
       socket.off('card-moved', handleCardMoved);
+      socket.off('member-joined', handleMemberJoined);
       
       // 이벤트 ID 캐시 정리 (30초 후)
       setTimeout(() => {

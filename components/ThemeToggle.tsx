@@ -42,88 +42,82 @@ const ThemeToggle: React.FC = () => {
 export default ThemeToggle;
 
 // 드롭다운 형태의 테마 토글 컴포넌트
-export const ThemeToggleDropdown: React.FC = () => {
-  const { theme, actualTheme, setTheme } = useTheme();
-  const [isOpen, setIsOpen] = React.useState(false);
+interface ThemeToggleDropdownProps {
+  showLabel?: boolean;
+  useDropdown?: boolean; // true면 드롭다운, false면 클릭 시 순환
+}
+
+export const ThemeToggleDropdown: React.FC<ThemeToggleDropdownProps> = ({
+  showLabel = true,
+  useDropdown = true
+}) => {
+  const { theme, setTheme } = useTheme();
 
   const themeOptions = [
     {
       value: 'light' as const,
-      label: '라이트 모드',
+      label: '라이트',
       icon: <Sun className="w-4 h-4" />,
     },
     {
       value: 'dark' as const,
-      label: '다크 모드',
+      label: '다크',
       icon: <Moon className="w-4 h-4" />,
     },
     {
       value: 'system' as const,
-      label: '시스템 설정',
+      label: '시스템',
       icon: <Monitor className="w-4 h-4" />,
     },
   ];
 
   const currentOption = themeOptions.find(option => option.value === theme);
 
-  React.useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      const target = event.target as HTMLElement;
-      if (!target.closest('.theme-toggle-dropdown')) {
-        setIsOpen(false);
-      }
-    };
+  // 순환 모드: light → dark → system → light...
+  const cycleTheme = () => {
+    const currentIndex = themeOptions.findIndex(opt => opt.value === theme);
+    const nextIndex = (currentIndex + 1) % themeOptions.length;
+    const nextTheme = themeOptions[nextIndex];
+    if (nextTheme) {
+      setTheme(nextTheme.value);
+    }
+  };
 
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+  // 드롭다운 모드 (사이드바 열림): 버튼 형태
+  if (useDropdown && showLabel) {
+    return (
+      <div className="flex items-center gap-1 bg-muted rounded-lg p-1">
+        {themeOptions.map((option) => {
+          const Icon = option.icon;
+          const isActive = theme === option.value;
+          return (
+            <button
+              key={option.value}
+              onClick={() => setTheme(option.value)}
+              className={`flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                isActive
+                  ? 'bg-background text-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+              title={option.label}
+            >
+              {Icon}
+              <span>{option.label}</span>
+            </button>
+          );
+        })}
+      </div>
+    );
+  }
 
+  // 아이콘만 모드 (사이드바 닫힘): 클릭 시 순환
   return (
-    <div className="relative inline-block text-left theme-toggle-dropdown">
-      <button
-        onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center space-x-2 px-3 py-2 text-sm font-medium text-foreground hover:bg-accent hover:text-accent-foreground rounded-md transition-colors"
-        title={`테마: ${currentOption?.label}${theme === 'system' ? ` (${actualTheme === 'dark' ? '다크' : '라이트'})` : ''}`}
-      >
-        {currentOption?.icon}
-        <span className="hidden sm:inline">
-          {currentOption?.label}
-          {theme === 'system' && (
-            <span className="text-muted-foreground ml-1">
-              ({actualTheme === 'dark' ? '다크' : '라이트'})
-            </span>
-          )}
-        </span>
-      </button>
-
-      {isOpen && (
-        <div className="absolute right-0 mt-2 w-48 bg-popover border border-border rounded-md shadow-lg z-50">
-          <div className="py-1">
-            {themeOptions.map((option) => (
-              <button
-                key={option.value}
-                onClick={() => {
-                  setTheme(option.value);
-                  setIsOpen(false);
-                }}
-                className={`w-full flex items-center space-x-3 px-3 py-2 text-left text-sm hover:bg-accent hover:text-accent-foreground transition-colors ${
-                  theme === option.value 
-                    ? 'bg-accent text-accent-foreground' 
-                    : 'text-popover-foreground'
-                }`}
-              >
-                {option.icon}
-                <span>{option.label}</span>
-                {theme === option.value && (
-                  <div className="ml-auto">
-                    <div className="w-2 h-2 bg-primary rounded-full"></div>
-                  </div>
-                )}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
+    <button
+      onClick={cycleTheme}
+      className="flex items-center justify-center p-2 text-sm font-medium text-foreground hover:bg-accent hover:text-accent-foreground rounded-md transition-colors"
+      title={`테마: ${currentOption?.label}`}
+    >
+      {currentOption?.icon}
+    </button>
   );
 };

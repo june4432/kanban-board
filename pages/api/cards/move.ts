@@ -39,7 +39,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponseW
 
     const { session, projectId } = auth;
 
-    const { cards, projects } = getRepositories();
+    const { cards, projects, boards } = getRepositories();
 
     // 카드 이동
     const success = cards.moveCard(cardId, destinationColumnId, destinationIndex);
@@ -90,6 +90,30 @@ export default async function handler(req: NextApiRequest, res: NextApiResponseW
         });
 
         console.log('📤 [API] Card moved event sent to project members only:', memberUserIds);
+
+        // Slack 알림 전송 (비동기, 실패해도 카드 이동은 성공)
+        if (project.slackEnabled && project.slackWebhookUrl) {
+          const board = boards.findByProjectId(projectId);
+          const fromColumn = board?.columns.find(col => col.id === sourceColumnId);
+          const toColumn = board?.columns.find(col => col.id === destinationColumnId);
+
+          fetch(`${req.headers.origin || 'http://localhost:3000'}/api/slack/notify`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Cookie': req.headers.cookie || '',
+            },
+            body: JSON.stringify({
+              projectId,
+              event: 'card_moved',
+              cardTitle: updatedCard?.title || '알 수 없는 카드',
+              cardId: cardId,
+              fromColumn: fromColumn?.title,
+              toColumn: toColumn?.title,
+              userName: session.user.name || '알 수 없는 사용자',
+            }),
+          }).catch((err) => console.error('Failed to send Slack notification:', err));
+        }
       } else {
         console.log('⚠️ [API] Project not found, skipping WebSocket event');
       }

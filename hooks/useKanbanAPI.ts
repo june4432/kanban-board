@@ -319,8 +319,9 @@ export const useKanbanAPI = (projectId?: string, user?: User | null) => {
 
       if (!cardToMove || !destinationColumn) return prevBoard;
 
-      // WIP 제한 체크
-      if (sourceColumnId !== destinationColumnId && 
+      // WIP 제한 체크 (wipLimit이 0이면 무제한)
+      if (sourceColumnId !== destinationColumnId &&
+          destinationColumn.wipLimit > 0 &&
           destinationColumn.cards.length >= destinationColumn.wipLimit) {
         alert(`WIP 제한 초과: ${destinationColumn.title} 컬럼의 최대 카드 수는 ${destinationColumn.wipLimit}개입니다.`);
         return prevBoard; // 변경하지 않음
@@ -573,23 +574,36 @@ export const useKanbanAPI = (projectId?: string, user?: User | null) => {
   // WIP 제한 업데이트
   const updateWipLimit = useCallback(async (columnId: string, newLimit: number) => {
     try {
-      const updatedBoard = {
-        ...board,
-        projectId: board.projectId || projectId || '',
-        columns: board.columns.map(column =>
-          column.id === columnId
-            ? { ...column, wipLimit: newLimit }
-            : column
-        )
-      };
+      console.log(`[useKanbanAPI] Updating WIP limit for column ${columnId} to ${newLimit}`);
 
-      await saveBoard(updatedBoard);
-      setBoard(updatedBoard);
+      // 새로운 API 사용
+      const response = await fetch(`${API_BASE_URL}/projects/${projectId}/columns/${columnId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          wipLimit: newLimit,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to update WIP limit');
+      }
+
+      const result = await response.json();
+      console.log('[useKanbanAPI] WIP limit updated successfully');
+
+      // 서버에서 반환된 최신 보드로 업데이트
+      if (result.board) {
+        setBoard(result.board);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to update WIP limit');
       alert(err instanceof Error ? err.message : 'Failed to update WIP limit');
     }
-  }, [board, saveBoard]);
+  }, [projectId]);
 
   // 라벨 생성
   const createLabel = useCallback(async (name: string, color: string) => {

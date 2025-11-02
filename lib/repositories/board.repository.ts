@@ -342,4 +342,93 @@ export class BoardRepository {
     const result = stmt.run(...values);
     return result.changes > 0;
   }
+
+  /**
+   * Create a new column
+   */
+  createColumn(boardId: string, data: { title: string; wipLimit: number }): Column {
+    const id = uuidv4();
+
+    // Get the highest position for this board
+    const posStmt = this.db.prepare(`
+      SELECT MAX(position) as max_pos FROM columns WHERE board_id = ?
+    `);
+    const posResult = posStmt.get(boardId) as any;
+    const position = (posResult?.max_pos ?? -1) + 1;
+
+    const stmt = this.db.prepare(`
+      INSERT INTO columns (id, board_id, title, wip_limit, position)
+      VALUES (?, ?, ?, ?, ?)
+    `);
+
+    stmt.run(id, boardId, data.title, data.wipLimit, position);
+
+    return {
+      id,
+      title: data.title,
+      wipLimit: data.wipLimit,
+      position,
+      cards: [],
+    };
+  }
+
+  /**
+   * Delete a column (only if it has no cards)
+   */
+  deleteColumn(columnId: string): { success: boolean; error?: string } {
+    // Check if column has cards
+    const checkStmt = this.db.prepare(`
+      SELECT COUNT(*) as count FROM cards WHERE column_id = ?
+    `);
+    const result = checkStmt.get(columnId) as any;
+
+    if (result.count > 0) {
+      return {
+        success: false,
+        error: 'Cannot delete column with cards. Please move or delete all cards first.',
+      };
+    }
+
+    // Delete the column
+    const deleteStmt = this.db.prepare('DELETE FROM columns WHERE id = ?');
+    const deleteResult = deleteStmt.run(columnId);
+
+    return {
+      success: deleteResult.changes > 0,
+    };
+  }
+
+  /**
+   * Reorder columns
+   */
+  reorderColumns(columnUpdates: { id: string; position: number }[]): boolean {
+    const stmt = this.db.prepare(`
+      UPDATE columns SET position = ? WHERE id = ?
+    `);
+
+    const transaction = this.db.transaction(() => {
+      for (const update of columnUpdates) {
+        stmt.run(update.position, update.id);
+      }
+    });
+
+    try {
+      transaction();
+      return true;
+    } catch (error) {
+      console.error('Failed to reorder columns:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Get board ID from project ID
+   */
+  getBoardIdByProjectId(projectId: string): string | null {
+    const stmt = this.db.prepare(`
+      SELECT board_id FROM boards WHERE project_id = ?
+    `);
+    const result = stmt.get(projectId) as any;
+    return result?.board_id || null;
+  }
 }
