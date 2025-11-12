@@ -3,6 +3,7 @@ import { Project, AuthUser } from '@/types';
 import { Plus, FolderOpen, Settings, Search, Globe, Lock, UserPlus, Clock, Users, LogOut, User, X, GripVertical, Trash2 } from 'lucide-react';
 import ProjectSettingsModal from './ProjectSettingsModal';
 import { useAuth } from '@/contexts/AuthContext';
+import { api } from '@/lib/api/v1-client';
 
 interface ProjectSelectorProps {
   user: AuthUser;
@@ -53,17 +54,13 @@ const ProjectSelector: React.FC<ProjectSelectorProps> = ({
   const fetchProjects = async () => {
     try {
       const [myResponse, publicResponse] = await Promise.all([
-        fetch(`/api/projects/my?userId=${user.id}`),
-        fetch('/api/projects/public')
+        api.projects.list({ page: 1, pageSize: 100 }),
+        api.projects.list({ page: 1, pageSize: 100, isPublic: true })
       ]);
-      
-      const [myData, publicData] = await Promise.all([
-        myResponse.json(),
-        publicResponse.json()
-      ]);
-      
-      setMyProjects(myData.projects || []);
-      setPublicProjects(publicData.projects || []);
+
+      // 내 프로젝트는 서버에서 자동으로 필터링됨 (세션 기반)
+      setMyProjects(myResponse.data || []);
+      setPublicProjects(publicResponse.data || []);
     } catch (error) {
       console.error('Failed to fetch projects:', error);
     } finally {
@@ -131,41 +128,31 @@ const ProjectSelector: React.FC<ProjectSelectorProps> = ({
         ? formData.customColumns
         : columnTemplates[formData.columnTemplate];
 
-      const response = await fetch('/api/projects', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          name: formData.name,
-          description: formData.description,
-          color: formData.color,
-          isPublic: formData.isPublic,
-          ownerId: user.id,
-          columns
-        }),
+      const response = await api.projects.create({
+        name: formData.name,
+        description: formData.description,
+        color: formData.color,
+        isPublic: formData.isPublic
+        // Note: columns는 v1 API에서 아직 지원되지 않으므로 나중에 추가 필요
       });
 
-      if (response.ok) {
-        const data = await response.json();
-        const newProject = data.project;
-        setMyProjects(prev => [...prev, newProject]);
-        onProjectSelect(newProject);
-        setFormData({
-          name: '',
-          description: '',
-          color: '#3b82f6',
-          isPublic: false,
-          columnTemplate: 'default',
-          customColumns: [
-            { title: 'Backlog', wipLimit: 10 },
-            { title: 'To Do', wipLimit: 5 },
-            { title: 'In Progress', wipLimit: 3 },
-            { title: 'Done', wipLimit: 0 }
-          ]
-        });
-        setShowCreateForm(false);
-      }
+      const newProject = response.data;
+      setMyProjects(prev => [...prev, newProject]);
+      onProjectSelect(newProject);
+      setFormData({
+        name: '',
+        description: '',
+        color: '#3b82f6',
+        isPublic: false,
+        columnTemplate: 'default',
+        customColumns: [
+          { title: 'Backlog', wipLimit: 10 },
+          { title: 'To Do', wipLimit: 5 },
+          { title: 'In Progress', wipLimit: 3 },
+          { title: 'Done', wipLimit: 0 }
+        ]
+      });
+      setShowCreateForm(false);
     } catch (error) {
       console.error('Failed to create project:', error);
     }

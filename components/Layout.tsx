@@ -8,9 +8,9 @@ import Sidebar from '@/components/Sidebar';
 
 interface LayoutProps {
   children: React.ReactNode;
-  viewMode: ViewMode;
-  onViewModeChange: (mode: ViewMode) => void;
-  onFilterToggle: () => void;
+  viewMode?: ViewMode;
+  onViewModeChange?: (mode: ViewMode) => void;
+  onFilterToggle?: () => void;
   currentProject?: Project;
   onProjectChange?: () => void;
   onProjectSettings?: () => void;
@@ -216,16 +216,18 @@ const Layout: React.FC<LayoutProps> = ({
             </div>
 
               {/* 오른쪽: 필터 버튼 */}
-              <div className="flex items-center flex-shrink-0">
-                <button
-                  onClick={onFilterToggle}
-                  className="flex items-center space-x-2 px-3 py-2 text-sm text-muted-foreground hover:text-foreground hover:bg-accent rounded-lg transition-colors"
-                  title="필터"
-                >
-                  <Filter className="w-4 h-4" />
-                  <span className="hidden sm:inline">필터</span>
-                </button>
-              </div>
+              {onFilterToggle && (
+                <div className="flex items-center flex-shrink-0">
+                  <button
+                    onClick={onFilterToggle}
+                    className="flex items-center space-x-2 px-3 py-2 text-sm text-muted-foreground hover:text-foreground hover:bg-accent rounded-lg transition-colors"
+                    title="필터"
+                  >
+                    <Filter className="w-4 h-4" />
+                    <span className="hidden sm:inline">필터</span>
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </header>

@@ -2,10 +2,13 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { Board, Card, FilterState, ViewMode, User, Label, Milestone } from '@/types';
 import { useSocket } from './useSocket';
+import { api } from '@/lib/api/v1-client';
+import { useToast } from '@/contexts/ToastContext';
 
 const API_BASE_URL = '/api';
 
 export const useKanbanAPI = (projectId?: string, user?: User | null) => {
+  const { addToast } = useToast();
   const [board, setBoard] = useState<Board>({
     boardId: '',
     projectId: '',
@@ -168,20 +171,13 @@ export const useKanbanAPI = (projectId?: string, user?: User | null) => {
     try {
       setLoading(true);
       setError(null);
-      
+
       console.log(`🚀 Loading board for projectId: ${projectId}`);
-      const response = await fetch(`${API_BASE_URL}/kanban?projectId=${projectId}`);
-      
-      console.log(`📡 API response status: ${response.status}`);
-      
-      if (!response.ok) {
-        throw new Error('Failed to load board data');
-      }
-      
-      const data = await response.json();
-      console.log('📦 Received board data:', data);
-      
-      setBoard(data.board);
+      const response = await api.projects.getBoard(projectId);
+
+      console.log('📦 Received board data:', response.data);
+
+      setBoard(response.data as any);
       console.log('✅ Board state updated successfully');
     } catch (err) {
       console.error('❌ Error loading board:', err);
@@ -323,7 +319,11 @@ export const useKanbanAPI = (projectId?: string, user?: User | null) => {
       if (sourceColumnId !== destinationColumnId &&
           destinationColumn.wipLimit > 0 &&
           destinationColumn.cards.length >= destinationColumn.wipLimit) {
-        alert(`WIP 제한 초과: ${destinationColumn.title} 컬럼의 최대 카드 수는 ${destinationColumn.wipLimit}개입니다.`);
+        addToast({
+          type: 'warning',
+          title: 'WIP 제한 초과',
+          message: `${destinationColumn.title} 컬럼의 최대 카드 수는 ${destinationColumn.wipLimit}개입니다.`
+        });
         return prevBoard; // 변경하지 않음
       }
 
@@ -354,48 +354,35 @@ export const useKanbanAPI = (projectId?: string, user?: User | null) => {
 
     // 백그라운드에서 API 호출
     try {
-      const currentUser = getCurrentUser();
-      console.log('🌐 [useKanbanAPI] Making API call to /api/cards/move');
-      console.log('🌐 [useKanbanAPI] Current user:', currentUser);
-      
-      const response = await fetch(`${API_BASE_URL}/cards/move`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          cardId,
-          sourceColumnId,
-          destinationColumnId,
-          destinationIndex,
-          projectId,
-          userId: currentUser.id,
-          userName: currentUser.name
-        }),
-      });
+      console.log('🌐 [useKanbanAPI] Making API call to v1 cards/move');
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to move card');
-      }
+      await api.cards.move(cardId, projectId!, {
+        columnId: destinationColumnId,
+        position: destinationIndex
+      });
 
       // API 성공 시에는 추가 작업 없음 (이미 로컬 상태 업데이트됨)
     } catch (err) {
       // API 실패 시 롤백
       setBoard(previousBoard);
-      setError(err instanceof Error ? err.message : 'Failed to move card');
-      alert(err instanceof Error ? err.message : 'Failed to move card');
+      const errorMessage = err instanceof Error ? err.message : 'Failed to move card';
+      setError(errorMessage);
+      // v1 API의 onError가 이미 Toast를 표시하므로 여기서는 추가 처리 불필요
     }
-  }, [board]);
+  }, [board, addToast]);
 
   // 카드 생성
   const createCard = useCallback(async (columnId: string, cardData: Partial<Card>) => {
     const column = board.columns.find(col => col.id === columnId);
     if (!column) return;
 
-    // WIP 제한 체크
-    if (column.cards.length >= column.wipLimit) {
-      alert(`WIP 제한 초과: ${column.title} 컬럼의 최대 카드 수는 ${column.wipLimit}개입니다.`);
+    // WIP 제한 체크 (wipLimit이 0이면 무제한)
+    if (column.wipLimit > 0 && column.cards.length >= column.wipLimit) {
+      addToast({
+        type: 'warning',
+        title: 'WIP 제한 초과',
+        message: `${column.title} 컬럼의 최대 카드 수는 ${column.wipLimit}개입니다.`
+      });
       return;
     }
 
@@ -428,29 +415,17 @@ export const useKanbanAPI = (projectId?: string, user?: User | null) => {
     }));
 
     try {
-      const currentUser = getCurrentUser();
-      const response = await fetch(`${API_BASE_URL}/cards`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          columnId,
-          cardData: {
-            ...cardData,
-            projectId
-          },
-          userId: currentUser.id,
-          userName: currentUser.name
-        }),
+      const result = await api.cards.create({
+        projectId: projectId!,
+        columnId,
+        title: cardData.title || '',
+        description: cardData.description,
+        priority: cardData.priority,
+        assignees: cardData.assignees,
+        labels: cardData.labels?.map(l => l.id),
+        dueDate: cardData.dueDate?.toISOString(),
+        tags: cardData.labels?.map(l => l.name)
       });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to create card');
-      }
-
-      const result = await response.json();
       
       // 임시 카드를 실제 서버 카드로 교체
       setBoard(prevBoard => ({
@@ -458,8 +433,8 @@ export const useKanbanAPI = (projectId?: string, user?: User | null) => {
         projectId: prevBoard.projectId || projectId || '',
         columns: prevBoard.columns.map(col =>
           col.id === columnId
-            ? { ...col, cards: col.cards.map(card => 
-                card.id === tempId ? result.card : card
+            ? { ...col, cards: col.cards.map(card =>
+                card.id === tempId ? result.data : card
               )}
             : col
         )
@@ -470,7 +445,7 @@ export const useKanbanAPI = (projectId?: string, user?: User | null) => {
         const currentUser = getCurrentUser();
         emitCardEvent('card-created', {
           projectId,
-          card: result.card,
+          card: result.data,
           user: currentUser,
           timestamp: Date.now()
         });
@@ -486,10 +461,11 @@ export const useKanbanAPI = (projectId?: string, user?: User | null) => {
             : col
         )
       }));
-      setError(err instanceof Error ? err.message : 'Failed to create card');
-      alert(err instanceof Error ? err.message : 'Failed to create card');
+      const errorMessage = err instanceof Error ? err.message : 'Failed to create card';
+      setError(errorMessage);
+      // v1 API의 onError가 이미 Toast를 표시
     }
-  }, [board.columns]);
+  }, [board.columns, projectId, addToast, emitCardEvent, getCurrentUser]);
 
   // 카드 업데이트
   const updateCard = useCallback(async (cardId: string, updates: Partial<Card>) => {
@@ -510,33 +486,25 @@ export const useKanbanAPI = (projectId?: string, user?: User | null) => {
     }));
 
     try {
-      const currentUser = getCurrentUser();
-      const response = await fetch(`${API_BASE_URL}/cards/${cardId}?projectId=${projectId}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          ...updates,
-          projectId,
-          userId: currentUser.id,
-          userName: currentUser.name
-        }),
+      await api.cards.update(cardId, projectId!, {
+        title: updates.title,
+        description: updates.description,
+        priority: updates.priority,
+        assignees: updates.assignees,
+        labels: updates.labels?.map(l => typeof l === 'string' ? l : l.id),
+        dueDate: updates.dueDate instanceof Date ? updates.dueDate.toISOString() : updates.dueDate,
+        tags: updates.labels?.map(l => typeof l === 'string' ? l : l.name)
       });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to update card');
-      }
 
       // API 성공 시에는 추가 작업 없음
     } catch (err) {
       // API 실패 시 롤백
       setBoard(previousBoard);
-      setError(err instanceof Error ? err.message : 'Failed to update card');
-      alert(err instanceof Error ? err.message : 'Failed to update card');
+      const errorMessage = err instanceof Error ? err.message : 'Failed to update card';
+      setError(errorMessage);
+      // v1 API의 onError가 이미 Toast를 표시
     }
-  }, [board]);
+  }, [board, projectId, addToast]);
 
   // 카드 삭제
   const deleteCard = useCallback(async (cardId: string) => {
@@ -553,106 +521,98 @@ export const useKanbanAPI = (projectId?: string, user?: User | null) => {
     }));
 
     try {
-      const response = await fetch(`${API_BASE_URL}/cards/${cardId}?projectId=${projectId}`, {
-        method: 'DELETE',
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to delete card');
-      }
+      await api.cards.delete(cardId, projectId!);
 
       // API 성공 시에는 추가 작업 없음
     } catch (err) {
       // API 실패 시 롤백
       setBoard(previousBoard);
-      setError(err instanceof Error ? err.message : 'Failed to delete card');
-      alert(err instanceof Error ? err.message : 'Failed to delete card');
+      const errorMessage = err instanceof Error ? err.message : 'Failed to delete card';
+      setError(errorMessage);
+      // v1 API의 onError가 이미 Toast를 표시
     }
-  }, [board]);
+  }, [board, projectId, addToast]);
 
   // WIP 제한 업데이트
   const updateWipLimit = useCallback(async (columnId: string, newLimit: number) => {
     try {
+      if (!projectId) {
+        throw new Error('Project ID is required');
+      }
+
       console.log(`[useKanbanAPI] Updating WIP limit for column ${columnId} to ${newLimit}`);
 
-      // 새로운 API 사용
-      const response = await fetch(`${API_BASE_URL}/projects/${projectId}/columns/${columnId}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          wipLimit: newLimit,
-        }),
+      const response = await api.projects.updateColumn(projectId, columnId, {
+        wipLimit: newLimit
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to update WIP limit');
-      }
-
-      const result = await response.json();
       console.log('[useKanbanAPI] WIP limit updated successfully');
 
-      // 서버에서 반환된 최신 보드로 업데이트
-      if (result.board) {
-        setBoard(result.board);
-      }
+      // 로컬 상태 업데이트
+      const updatedBoard = {
+        ...board,
+        columns: board.columns.map(col =>
+          col.id === columnId ? { ...col, wipLimit: newLimit } : col
+        )
+      };
+      setBoard(updatedBoard);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to update WIP limit');
-      alert(err instanceof Error ? err.message : 'Failed to update WIP limit');
+      // v1 API의 onError가 이미 Toast를 표시하므로 alert 제거
     }
-  }, [projectId]);
+  }, [board, projectId]);
 
   // 라벨 생성
   const createLabel = useCallback(async (name: string, color: string) => {
     try {
-      const newLabel: Label = {
-        id: uuidv4(),
-        name,
-        color
-      };
-      
+      if (!projectId) {
+        throw new Error('Project ID is required');
+      }
+
+      const response = await api.projects.createLabel(projectId, { name, color });
+      const newLabel = response.data.label;
+
+      // 로컬 상태 업데이트
       const updatedBoard = {
         ...board,
-        projectId: board.projectId || projectId || '',
         labels: [...board.labels, newLabel]
       };
-
-      await saveBoard(updatedBoard);
       setBoard(updatedBoard);
+
       return newLabel;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create label');
       throw err;
     }
-  }, [board, saveBoard]);
+  }, [board, projectId]);
 
   // 마일스톤 생성
   const createMilestone = useCallback(async (name: string, dueDate: Date, description?: string) => {
     try {
-      const newMilestone: Milestone = {
-        id: uuidv4(),
+      if (!projectId) {
+        throw new Error('Project ID is required');
+      }
+
+      const response = await api.projects.createMilestone(projectId, {
         name,
-        dueDate,
+        dueDate: dueDate.toISOString(),
         description
-      };
-      
+      });
+      const newMilestone = response.data.milestone;
+
+      // 로컬 상태 업데이트
       const updatedBoard = {
         ...board,
-        projectId: board.projectId || projectId || '',
         milestones: [...board.milestones, newMilestone]
       };
-
-      await saveBoard(updatedBoard);
       setBoard(updatedBoard);
+
       return newMilestone;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create milestone');
       throw err;
     }
-  }, [board, saveBoard]);
+  }, [board, projectId]);
 
   return {
     board: viewMode === 'kanban' ? { ...board, columns: filteredCards } : board,

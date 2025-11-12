@@ -41,8 +41,26 @@ export const cardUpdateSchema = z.object({
   priority: z.enum(['low', 'medium', 'high', 'urgent']).optional(),
   dueDate: z.union([z.string().datetime(), z.date(), z.null()]).optional(),
   assignees: z.array(z.string()).optional(),
-  labels: z.array(z.string()).optional(),
+  // labels can be either string array (IDs) or object array (full label objects)
+  labels: z.union([
+    z.array(z.string()),
+    z.array(z.object({
+      id: z.string(),
+      name: z.string(),
+      color: z.string(),
+    }))
+  ]).optional(),
   milestoneId: z.union([z.string(), z.null()]).optional(),
+  // milestone can be object or null
+  milestone: z.union([
+    z.object({
+      id: z.string(),
+      name: z.string(),
+      dueDate: z.union([z.string(), z.date()]),
+      description: z.string().optional(),
+    }),
+    z.null()
+  ]).optional(),
 });
 
 export const cardMoveSchema = z.object({

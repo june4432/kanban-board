@@ -1,0 +1,960 @@
+openapi: 3.0.3
+info:
+  title: Kanban Board API
+  version: 1.0.0
+  description: |
+    RESTful API for Kanban Board application with project management, card tracking, and organization features.
+
+    ## Authentication
+    This API supports two authentication methods:
+    1. **API Key Authentication**: Use `Authorization: Bearer sk_live_...` header
+    2. **Session Authentication**: Cookie-based authentication via NextAuth
+
+    ## API Key Management
+    - API keys can be generated in the web interface at `/settings/api-keys`
+    - Keys are in AWS-style format: `sk_live_...` (production) or `sk_test_...` (testing)
+    - Keys are hashed (SHA-256) and never stored in plain text
+
+    ## Rate Limiting
+    Currently no rate limiting is enforced, but it may be added in future versions.
+
+  contact:
+    name: API Support
+    email: support@example.com
+  license:
+    name: MIT
+
+servers:
+  - url: http://localhost:3000/api/v1
+    description: Development server
+  - url: https://your-domain.com/api/v1
+    description: Production server
+
+tags:
+  - name: Projects
+    description: Project management operations
+  - name: Cards
+    description: Card (task) management operations
+  - name: Organizations
+    description: Organization management operations
+  - name: API Keys
+    description: API key management (requires session authentication)
+
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: API Key
+      description: API key authentication using Bearer token (e.g., `Authorization: Bearer sk_live_...`)
+
+    SessionAuth:
+      type: apiKey
+      in: cookie
+      name: next-auth.session-token
+      description: Session-based authentication via NextAuth cookies
+
+  schemas:
+    Error:
+      type: object
+      required:
+        - error
+        - meta
+      properties:
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+              enum: [UNAUTHORIZED, FORBIDDEN, NOT_FOUND, VALIDATION_ERROR, INTERNAL_ERROR, INVALID_INPUT]
+            message:
+              type: string
+            details:
+              type: array
+              items:
+                type: object
+                properties:
+                  field:
+                    type: string
+                  message:
+                    type: string
+        meta:
+          $ref: '#/components/schemas/Meta'
+
+    Meta:
+      type: object
+      required:
+        - requestId
+        - timestamp
+      properties:
+        requestId:
+          type: string
+          format: uuid
+        timestamp:
+          type: string
+          format: date-time
+
+    Pagination:
+      type: object
+      properties:
+        page:
+          type: integer
+          minimum: 1
+          default: 1
+        pageSize:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 20
+        total:
+          type: integer
+        totalPages:
+          type: integer
+
+    Project:
+      type: object
+      required:
+        - projectId
+        - name
+        - ownerId
+        - createdAt
+        - updatedAt
+      properties:
+        projectId:
+          type: string
+          description: Unique project identifier
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+        description:
+          type: string
+          maxLength: 5000
+        ownerId:
+          type: string
+        color:
+          type: string
+          pattern: '^#[0-9A-Fa-f]{6}$'
+          default: '#3b82f6'
+        isPublic:
+          type: boolean
+          default: false
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        members:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProjectMember'
+        pendingRequests:
+          type: array
+          items:
+            type: object
+
+    ProjectMember:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+        avatar:
+          type: string
+          format: uri
+        role:
+          type: string
+          enum: [owner, member]
+
+    Card:
+      type: object
+      required:
+        - id
+        - title
+        - columnId
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+          minLength: 1
+          maxLength: 255
+        description:
+          type: string
+          maxLength: 5000
+        priority:
+          type: string
+          enum: [low, medium, high, urgent]
+        assignees:
+          type: array
+          items:
+            type: string
+        labels:
+          type: array
+          items:
+            type: string
+        columnId:
+          type: string
+        dueDate:
+          type: string
+          format: date-time
+        tags:
+          type: array
+          items:
+            type: string
+        position:
+          type: integer
+          minimum: 0
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    Organization:
+      type: object
+      required:
+        - id
+        - name
+        - slug
+        - plan
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+        slug:
+          type: string
+          pattern: '^[a-z0-9-]+$'
+          minLength: 3
+          maxLength: 50
+        description:
+          type: string
+          maxLength: 5000
+        plan:
+          type: string
+          enum: [free, pro, enterprise]
+          default: free
+        settings:
+          type: object
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    ApiKey:
+      type: object
+      required:
+        - id
+        - name
+        - keyPrefix
+        - scopes
+        - isActive
+        - createdAt
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        keyPrefix:
+          type: string
+          description: First 12 characters of the API key for identification
+        scopes:
+          type: string
+          description: Comma-separated scopes (e.g., "read,write")
+        isActive:
+          type: boolean
+        lastUsedAt:
+          type: string
+          format: date-time
+        usageCount:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+        expiresAt:
+          type: string
+          format: date-time
+
+security:
+  - ApiKeyAuth: []
+  - SessionAuth: []
+
+paths:
+  /projects:
+    get:
+      tags:
+        - Projects
+      summary: List projects
+      description: Get a list of projects the authenticated user has access to
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: organizationId
+          in: query
+          schema:
+            type: string
+        - name: isPublic
+          in: query
+          schema:
+            type: boolean
+        - name: search
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Project'
+                  meta:
+                    allOf:
+                      - $ref: '#/components/schemas/Meta'
+                      - $ref: '#/components/schemas/Pagination'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    post:
+      tags:
+        - Projects
+      summary: Create project
+      description: Create a new project
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+              properties:
+                name:
+                  type: string
+                  minLength: 1
+                  maxLength: 255
+                description:
+                  type: string
+                  maxLength: 5000
+                color:
+                  type: string
+                  pattern: '^#[0-9A-Fa-f]{6}$'
+                isPublic:
+                  type: boolean
+            example:
+              name: "My Project"
+              description: "Project description"
+              color: "#3b82f6"
+              isPublic: false
+      responses:
+        '201':
+          description: Project created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Project'
+                  meta:
+                    $ref: '#/components/schemas/Meta'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /projects/{projectId}:
+    get:
+      tags:
+        - Projects
+      summary: Get project
+      description: Get a single project by ID
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Project'
+                  meta:
+                    $ref: '#/components/schemas/Meta'
+        '404':
+          description: Project not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    patch:
+      tags:
+        - Projects
+      summary: Update project
+      description: Update project details
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  minLength: 1
+                  maxLength: 255
+                description:
+                  type: string
+                  maxLength: 5000
+                color:
+                  type: string
+                  pattern: '^#[0-9A-Fa-f]{6}$'
+                isPublic:
+                  type: boolean
+      responses:
+        '200':
+          description: Project updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Project'
+                  meta:
+                    $ref: '#/components/schemas/Meta'
+
+  /cards:
+    get:
+      tags:
+        - Cards
+      summary: List cards
+      description: Get a list of cards with optional filters
+      parameters:
+        - name: projectId
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: columnId
+          in: query
+          schema:
+            type: string
+        - name: priority
+          in: query
+          schema:
+            type: string
+            enum: [low, medium, high, urgent]
+        - name: assignee
+          in: query
+          schema:
+            type: string
+        - name: search
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Card'
+                  meta:
+                    $ref: '#/components/schemas/Meta'
+
+    post:
+      tags:
+        - Cards
+      summary: Create card
+      description: Create a new card
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - projectId
+                - columnId
+                - title
+              properties:
+                projectId:
+                  type: string
+                columnId:
+                  type: string
+                title:
+                  type: string
+                  minLength: 1
+                  maxLength: 255
+                description:
+                  type: string
+                  maxLength: 5000
+                priority:
+                  type: string
+                  enum: [low, medium, high, urgent]
+                assignees:
+                  type: array
+                  items:
+                    type: string
+                labels:
+                  type: array
+                  items:
+                    type: string
+                dueDate:
+                  type: string
+                  format: date-time
+                tags:
+                  type: array
+                  items:
+                    type: string
+            example:
+              projectId: "test-project-1"
+              columnId: "board-test-project-1-todo"
+              title: "Implement API documentation"
+              description: "Create OpenAPI spec and Swagger UI"
+              priority: "high"
+      responses:
+        '201':
+          description: Card created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Card'
+                  meta:
+                    $ref: '#/components/schemas/Meta'
+
+  /cards/{cardId}:
+    get:
+      tags:
+        - Cards
+      summary: Get card
+      description: Get a single card by ID
+      parameters:
+        - name: cardId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: projectId
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Card'
+                  meta:
+                    $ref: '#/components/schemas/Meta'
+
+    patch:
+      tags:
+        - Cards
+      summary: Update card
+      description: Update card details
+      parameters:
+        - name: cardId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: projectId
+          in: query
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                description:
+                  type: string
+                priority:
+                  type: string
+                  enum: [low, medium, high, urgent]
+                assignees:
+                  type: array
+                  items:
+                    type: string
+                labels:
+                  type: array
+                  items:
+                    type: string
+                dueDate:
+                  type: string
+                  format: date-time
+                tags:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        '200':
+          description: Card updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Card'
+                  meta:
+                    $ref: '#/components/schemas/Meta'
+
+    delete:
+      tags:
+        - Cards
+      summary: Delete card
+      description: Delete a card
+      parameters:
+        - name: cardId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: projectId
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Card deleted successfully
+
+  /cards/{cardId}/move:
+    post:
+      tags:
+        - Cards
+      summary: Move card
+      description: Move a card to a different column and/or position
+      parameters:
+        - name: cardId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: projectId
+          in: query
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - columnId
+              properties:
+                columnId:
+                  type: string
+                  description: Target column ID
+                position:
+                  type: integer
+                  minimum: 0
+                  description: Target position in the column (0-indexed)
+            example:
+              columnId: "board-test-project-1-in-progress"
+              position: 0
+      responses:
+        '200':
+          description: Card moved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Card'
+                  meta:
+                    $ref: '#/components/schemas/Meta'
+
+  /organizations:
+    get:
+      tags:
+        - Organizations
+      summary: List organizations
+      description: Get organizations the authenticated user belongs to
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Organization'
+                  meta:
+                    $ref: '#/components/schemas/Meta'
+
+    post:
+      tags:
+        - Organizations
+      summary: Create organization
+      description: Create a new organization
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+              properties:
+                name:
+                  type: string
+                  minLength: 1
+                  maxLength: 255
+                slug:
+                  type: string
+                  pattern: '^[a-z0-9-]+$'
+                  minLength: 3
+                  maxLength: 50
+                  description: Optional - will be auto-generated from name if not provided
+                description:
+                  type: string
+                  maxLength: 5000
+                plan:
+                  type: string
+                  enum: [free, pro, enterprise]
+            example:
+              name: "My Organization"
+              description: "Organization description"
+              plan: "free"
+      responses:
+        '201':
+          description: Organization created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Organization'
+                  meta:
+                    $ref: '#/components/schemas/Meta'
+
+  /organizations/{orgId}:
+    get:
+      tags:
+        - Organizations
+      summary: Get organization
+      description: Get a single organization by ID
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Organization'
+                  meta:
+                    $ref: '#/components/schemas/Meta'
+
+    patch:
+      tags:
+        - Organizations
+      summary: Update organization
+      description: Update organization details
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                description:
+                  type: string
+                plan:
+                  type: string
+                  enum: [free, pro, enterprise]
+      responses:
+        '200':
+          description: Organization updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Organization'
+                  meta:
+                    $ref: '#/components/schemas/Meta'
+
+    delete:
+      tags:
+        - Organizations
+      summary: Delete organization
+      description: Delete an organization (owner only)
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Organization deleted successfully
+
+  /organizations/{orgId}/members:
+    get:
+      tags:
+        - Organizations
+      summary: List organization members
+      description: Get list of members in an organization
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        userId:
+                          type: string
+                        userName:
+                          type: string
+                        userEmail:
+                          type: string
+                        role:
+                          type: string
+                          enum: [owner, admin, member]
+                        joinedAt:
+                          type: string
+                          format: date-time
+                  meta:
+                    $ref: '#/components/schemas/Meta'
+
+  /api-keys:
+    get:
+      tags:
+        - API Keys
+      summary: List API keys
+      description: Get list of API keys for the authenticated user (requires session authentication)
+      security:
+        - SessionAuth: []
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ApiKey'
+                  meta:
+                    $ref: '#/components/schemas/Meta'
+        '401':
+          description: Unauthorized - Session authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'

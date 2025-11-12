@@ -1,11 +1,12 @@
 import React from 'react';
 import { ViewMode, User } from '@/types';
-import { LayoutGrid, Calendar, BarChart3, Table, BookOpen, Settings, ChevronLeft, ChevronRight, LogOut } from 'lucide-react';
+import { LayoutGrid, Calendar, BarChart3, Table, BookOpen, Settings, ChevronLeft, ChevronRight, LogOut, Key, Home } from 'lucide-react';
 import { ThemeToggleDropdown } from '@/components/ThemeToggle';
+import { useRouter } from 'next/router';
 
 interface SidebarProps {
-  viewMode: ViewMode;
-  onViewModeChange: (mode: ViewMode) => void;
+  viewMode?: ViewMode;
+  onViewModeChange?: (mode: ViewMode) => void;
   onProjectSettings?: () => void;
   user: User;
   onLogout: () => void;
@@ -24,16 +25,24 @@ const Sidebar: React.FC<SidebarProps> = ({
   onToggle,
   isMobile
 }) => {
+  const router = useRouter();
+
   const navItems = [
-    { id: 'kanban' as ViewMode, icon: LayoutGrid, label: '칸반', onClick: () => onViewModeChange('kanban') },
-    { id: 'calendar' as ViewMode, icon: Calendar, label: '캘린더', onClick: () => onViewModeChange('calendar') },
-    { id: 'gantt' as ViewMode, icon: BarChart3, label: '간트', onClick: () => onViewModeChange('gantt') },
-    { id: 'table' as ViewMode, icon: Table, label: '테이블', onClick: () => onViewModeChange('table') },
-    { id: 'manual' as ViewMode, icon: BookOpen, label: '매뉴얼', onClick: () => onViewModeChange('manual') },
+    { id: 'kanban' as ViewMode, icon: LayoutGrid, label: '칸반', onClick: () => onViewModeChange?.('kanban') },
+    { id: 'calendar' as ViewMode, icon: Calendar, label: '캘린더', onClick: () => onViewModeChange?.('calendar') },
+    { id: 'gantt' as ViewMode, icon: BarChart3, label: '간트', onClick: () => onViewModeChange?.('gantt') },
+    { id: 'table' as ViewMode, icon: Table, label: '테이블', onClick: () => onViewModeChange?.('table') },
+    { id: 'manual' as ViewMode, icon: BookOpen, label: '매뉴얼', onClick: () => onViewModeChange?.('manual') },
   ];
 
+  const isApiKeysPage = router.pathname === '/settings/api-keys';
+
   const actionItems = [
-    ...(onProjectSettings ? [{ id: 'settings', icon: Settings, label: '설정', onClick: onProjectSettings }] : []),
+    // API Keys 페이지에서는 홈 버튼 표시
+    ...(isApiKeysPage ? [{ id: 'home', icon: Home, label: '홈', onClick: () => router.push('/') }] : []),
+    // 홈에서는 프로젝트 설정과 API Keys 표시
+    ...(!isApiKeysPage && onProjectSettings ? [{ id: 'settings', icon: Settings, label: '프로젝트 설정', onClick: onProjectSettings }] : []),
+    ...(!isApiKeysPage ? [{ id: 'api-keys', icon: Key, label: 'API Keys', onClick: () => router.push('/settings/api-keys') }] : []),
   ];
 
   return (
@@ -78,41 +87,45 @@ const Sidebar: React.FC<SidebarProps> = ({
 
         {/* 네비게이션 */}
         <nav className="flex-1 overflow-y-auto py-4">
-          {/* View Mode 섹션 */}
-          <div className="mb-6">
-            {isOpen && (
-              <div className="px-4 mb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                보기 모드
+          {/* View Mode 섹션 - viewMode가 있을 때만 표시 */}
+          {onViewModeChange && (
+            <>
+              <div className="mb-6">
+                {isOpen && (
+                  <div className="px-4 mb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                    보기 모드
+                  </div>
+                )}
+                <div className="space-y-1 px-2">
+                  {navItems.map((item) => {
+                    const Icon = item.icon;
+                    const isActive = viewMode === item.id;
+                    return (
+                      <button
+                        key={item.id}
+                        onClick={item.onClick}
+                        className={`
+                          w-full flex items-center px-3 py-2.5 rounded-lg transition-colors
+                          ${isActive
+                            ? 'bg-primary text-primary-foreground'
+                            : 'text-muted-foreground hover:text-foreground hover:bg-accent'
+                          }
+                          ${!isOpen && 'justify-center'}
+                        `}
+                        title={!isOpen ? item.label : undefined}
+                      >
+                        <Icon className={`w-5 h-5 flex-shrink-0 ${isOpen && 'mr-3'}`} />
+                        {isOpen && <span className="text-sm font-medium">{item.label}</span>}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
-            )}
-            <div className="space-y-1 px-2">
-              {navItems.map((item) => {
-                const Icon = item.icon;
-                const isActive = viewMode === item.id;
-                return (
-                  <button
-                    key={item.id}
-                    onClick={item.onClick}
-                    className={`
-                      w-full flex items-center px-3 py-2.5 rounded-lg transition-colors
-                      ${isActive
-                        ? 'bg-primary text-primary-foreground'
-                        : 'text-muted-foreground hover:text-foreground hover:bg-accent'
-                      }
-                      ${!isOpen && 'justify-center'}
-                    `}
-                    title={!isOpen ? item.label : undefined}
-                  >
-                    <Icon className={`w-5 h-5 flex-shrink-0 ${isOpen && 'mr-3'}`} />
-                    {isOpen && <span className="text-sm font-medium">{item.label}</span>}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
 
-          {/* 구분선 */}
-          <div className="mx-4 mb-4 border-t border-border" />
+              {/* 구분선 */}
+              <div className="mx-4 mb-4 border-t border-border" />
+            </>
+          )}
 
           {/* 액션 섹션 */}
           {actionItems.length > 0 && (

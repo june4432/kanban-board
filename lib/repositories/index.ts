@@ -6,6 +6,7 @@ import { CardRepository } from './card.repository';
 import { CommentRepository } from './comment.repository';
 import { AttachmentRepository } from './attachment.repository';
 import { NotificationSettingsRepository } from './notification-settings.repository';
+import { OrganizationRepository } from './organization.repository';
 
 /**
  * Get repository instances (singleton pattern via shared database connection)
@@ -15,6 +16,7 @@ export function getRepositories() {
 
   return {
     users: new UserRepository(db),
+    organizations: new OrganizationRepository(db),
     projects: new ProjectRepository(db),
     boards: new BoardRepository(db),
     cards: new CardRepository(db),
@@ -24,4 +26,13 @@ export function getRepositories() {
   };
 }
 
-export { UserRepository, ProjectRepository, BoardRepository, CardRepository, CommentRepository, AttachmentRepository, NotificationSettingsRepository };
+export {
+  UserRepository,
+  OrganizationRepository,
+  ProjectRepository,
+  BoardRepository,
+  CardRepository,
+  CommentRepository,
+  AttachmentRepository,
+  NotificationSettingsRepository,
+};

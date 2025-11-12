@@ -37,6 +37,23 @@ export default withErrorHandler(async (req: NextApiRequest, res: NextApiResponse
       // 입력 검증
       const validatedUpdates = validate(cardUpdateSchema, req.body);
 
+      // labels가 객체 배열인 경우 ID만 추출
+      if (validatedUpdates.labels && Array.isArray(validatedUpdates.labels)) {
+        if (validatedUpdates.labels.length > 0 && typeof validatedUpdates.labels[0] === 'object') {
+          validatedUpdates.labels = validatedUpdates.labels.map((label: any) =>
+            typeof label === 'object' ? label.id : label
+          );
+        }
+      }
+
+      // milestone이 객체인 경우 milestoneId로 변환
+      if (validatedUpdates.milestone) {
+        if (typeof validatedUpdates.milestone === 'object' && validatedUpdates.milestone !== null) {
+          validatedUpdates.milestoneId = validatedUpdates.milestone.id;
+        }
+        delete (validatedUpdates as any).milestone;
+      }
+
       // 기존 카드 정보 저장 (변경사항 추적용)
       const oldCard = cards.findById(cardId);
 
