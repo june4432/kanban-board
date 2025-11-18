@@ -37,7 +37,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
 // 초대 링크 삭제 (비활성화)
 function handleDeleteInvite(
-  req: NextApiRequest,
+  _req: NextApiRequest,
   res: NextApiResponse,
   db: any,
   projectId: string,

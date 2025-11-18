@@ -4,10 +4,10 @@
  */
 
 import { NextApiResponse } from 'next';
-import { ApiRequest } from '@/lib/api-v1/types';
+import { ApiRequest, ApiErrorCode } from '@/lib/api-v1/types';
 import { withErrorHandler } from '@/lib/api-v1/middleware/error-handler';
 import { requireAuth, requireProjectMember } from '@/lib/api-v1/middleware/auth';
-import { sendSuccess, sendMethodNotAllowed } from '@/lib/api-v1/utils/response';
+import { sendSuccess, sendMethodNotAllowed, sendError } from '@/lib/api-v1/utils/response';
 import { validateId, validateBody } from '@/lib/api-v1/utils/validation';
 import { getRepositories } from '@/lib/repositories';
 import { v4 as uuidv4 } from 'uuid';
@@ -50,29 +50,12 @@ async function handlePost(req: ApiRequest, res: NextApiResponse, projectId: stri
   const board = boards.findByProjectId(projectId);
 
   if (!board) {
-    // If no board exists, create an empty one with the milestone
-    const newMilestone = {
-      id: uuidv4(),
-      name: body.name,
-      dueDate: new Date(body.dueDate),
-      description: body.description,
-    };
-
-    boards.save({
-      boardId: `board-${projectId}`,
-      projectId,
-      columns: [],
-      labels: [],
-      milestones: [newMilestone],
-    });
-
-    return sendSuccess(
+    return sendError(
       res,
-      {
-        milestone: newMilestone,
-        message: 'Milestone created successfully',
-      },
-      201,
+      ApiErrorCode.NOT_FOUND,
+      'Board not found for this project',
+      404,
+      undefined,
       req.requestId
     );
   }
@@ -95,20 +78,11 @@ async function handlePost(req: ApiRequest, res: NextApiResponse, projectId: stri
   }
 
   // Create new milestone
-  const newMilestone = {
-    id: uuidv4(),
+  const newMilestone = boards.createMilestone(board.boardId, {
     name: body.name,
     dueDate: new Date(body.dueDate),
     description: body.description,
-  };
-
-  // Update board with new milestone
-  const updatedBoard = {
-    ...board,
-    milestones: [...(board.milestones || []), newMilestone],
-  };
-
-  boards.save(updatedBoard);
+  });
 
   sendSuccess(
     res,

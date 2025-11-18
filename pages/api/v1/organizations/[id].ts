@@ -25,7 +25,7 @@ const updateOrganizationSchema = z.object({
   name: validators.name.optional(),
   description: validators.description,
   plan: z.enum(['free', 'pro', 'enterprise']).optional(),
-  settings: z.record(z.any()).optional(),
+  settings: z.record(z.string(), z.any()).optional(),
 });
 
 async function handler(req: ApiRequest, res: NextApiResponse) {

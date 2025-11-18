@@ -4,10 +4,10 @@
  */
 
 import { NextApiResponse } from 'next';
-import { ApiRequest } from '@/lib/api-v1/types';
+import { ApiRequest, ApiErrorCode } from '@/lib/api-v1/types';
 import { withErrorHandler } from '@/lib/api-v1/middleware/error-handler';
 import { requireAuth, requireProjectMember } from '@/lib/api-v1/middleware/auth';
-import { sendSuccess, sendMethodNotAllowed } from '@/lib/api-v1/utils/response';
+import { sendSuccess, sendMethodNotAllowed, sendError } from '@/lib/api-v1/utils/response';
 import { validateId, validateBody } from '@/lib/api-v1/utils/validation';
 import { getRepositories } from '@/lib/repositories';
 import { v4 as uuidv4 } from 'uuid';
@@ -49,28 +49,12 @@ async function handlePost(req: ApiRequest, res: NextApiResponse, projectId: stri
   const board = boards.findByProjectId(projectId);
 
   if (!board) {
-    // If no board exists, create an empty one with the label
-    const newLabel = {
-      id: uuidv4(),
-      name: body.name,
-      color: body.color,
-    };
-
-    boards.save({
-      boardId: `board-${projectId}`,
-      projectId,
-      columns: [],
-      labels: [newLabel],
-      milestones: [],
-    });
-
-    return sendSuccess(
+    return sendError(
       res,
-      {
-        label: newLabel,
-        message: 'Label created successfully',
-      },
-      201,
+      ApiErrorCode.NOT_FOUND,
+      'Board not found for this project',
+      404,
+      undefined,
       req.requestId
     );
   }
@@ -93,19 +77,10 @@ async function handlePost(req: ApiRequest, res: NextApiResponse, projectId: stri
   }
 
   // Create new label
-  const newLabel = {
-    id: uuidv4(),
+  const newLabel = boards.createLabel(board.boardId, {
     name: body.name,
     color: body.color,
-  };
-
-  // Update board with new label
-  const updatedBoard = {
-    ...board,
-    labels: [...(board.labels || []), newLabel],
-  };
-
-  boards.save(updatedBoard);
+  });
 
   sendSuccess(
     res,

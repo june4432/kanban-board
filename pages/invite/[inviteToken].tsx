@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
-import { Globe, Lock, Calendar, Users, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
+import { Calendar, Users, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import AuthModal from '@/components/AuthModal';
 
