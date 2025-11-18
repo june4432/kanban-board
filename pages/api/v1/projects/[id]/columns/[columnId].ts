@@ -4,7 +4,7 @@
  */
 
 import { NextApiResponse } from 'next';
-import { ApiRequest } from '@/lib/api-v1/types';
+import { ApiRequest, ApiErrorCode } from '@/lib/api-v1/types';
 import { withErrorHandler } from '@/lib/api-v1/middleware/error-handler';
 import { requireAuth, requireProjectMember } from '@/lib/api-v1/middleware/auth';
 import { sendSuccess, sendMethodNotAllowed, sendError } from '@/lib/api-v1/utils/response';
@@ -51,42 +51,36 @@ async function handlePatch(req: ApiRequest, res: NextApiResponse, projectId: str
   if (!board) {
     return sendError(
       res,
+      ApiErrorCode.NOT_FOUND,
       'Board not found',
-      'NOT_FOUND',
       404,
+      undefined,
       req.requestId
     );
   }
 
   // Find the column
-  const columnIndex = board.columns.findIndex((col) => col.id === columnId);
+  const column = board.columns.find((col) => col.id === columnId);
 
-  if (columnIndex === -1) {
+  if (!column) {
     return sendError(
       res,
+      ApiErrorCode.NOT_FOUND,
       'Column not found',
-      'NOT_FOUND',
       404,
+      undefined,
       req.requestId
     );
   }
 
   // Update column properties
-  const updatedColumn = {
-    ...board.columns[columnIndex],
-    ...(body.wipLimit !== undefined && { wipLimit: body.wipLimit }),
-  };
+  boards.updateColumn(columnId, {
+    wipLimit: body.wipLimit,
+  });
 
-  // Update board with modified column
-  const updatedColumns = [...board.columns];
-  updatedColumns[columnIndex] = updatedColumn;
-
-  const updatedBoard = {
-    ...board,
-    columns: updatedColumns,
-  };
-
-  boards.save(updatedBoard);
+  // Fetch updated board to return
+  const updatedBoard = boards.findByProjectId(projectId);
+  const updatedColumn = updatedBoard?.columns.find((col) => col.id === columnId);
 
   sendSuccess(
     res,

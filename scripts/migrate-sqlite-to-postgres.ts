@@ -13,10 +13,9 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 import { getDatabase } from '../lib/database';
-import { getPool, query, withTransaction } from '../lib/postgres';
+import { query, withTransaction } from '../lib/postgres';
 import fs from 'fs';
 import path from 'path';
-import type { PoolClient } from 'pg';
 
 interface MigrationStats {
   users: number;

@@ -43,7 +43,7 @@ async function handler(req: ApiRequest, res: NextApiResponse) {
  */
 async function handleGet(req: ApiRequest, res: NextApiResponse) {
   const filters = validateQuery(req, cardFiltersSchema);
-  const { cards, boards, projects } = getRepositories();
+  const { boards } = getRepositories();
 
   // projectId is required for now (future: could search across all accessible projects)
   if (!filters.projectId) {

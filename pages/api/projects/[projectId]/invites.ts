@@ -74,7 +74,7 @@ function handleCreateInvite(
 
 // 초대 링크 목록 조회
 function handleListInvites(
-  req: NextApiRequest,
+  _req: NextApiRequest,
   res: NextApiResponse,
   db: any,
   projectId: string

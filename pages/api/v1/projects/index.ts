@@ -9,7 +9,6 @@ import { ApiRequest } from '@/lib/api-v1/types';
 import { withErrorHandler } from '@/lib/api-v1/middleware/error-handler';
 import { requireAuth } from '@/lib/api-v1/middleware/auth';
 import {
-  sendSuccess,
   sendCreated,
   sendMethodNotAllowed,
   sendPaginated,

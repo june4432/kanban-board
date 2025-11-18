@@ -4,7 +4,7 @@ import { authOptions } from '../../auth/[...nextauth]';
 import { getDatabase } from '@/lib/database';
 import { ApiKeyService } from '@/lib/services/api-key.service';
 import { withErrorHandler } from '@/lib/error-handler';
-import { UnauthorizedError, ValidationError } from '@/lib/errors';
+import { UnauthorizedError } from '@/lib/errors';
 import { z } from 'zod';
 import { validate } from '@/lib/validation';
 

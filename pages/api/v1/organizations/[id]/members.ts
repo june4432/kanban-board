@@ -12,7 +12,6 @@ import {
   sendSuccess,
   sendCreated,
   sendMethodNotAllowed,
-  sendNotFound,
   sendForbidden,
   sendValidationError,
 } from '@/lib/api-v1/utils/response';

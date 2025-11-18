@@ -1,6 +1,17 @@
 import Database from 'better-sqlite3';
 import { v4 as uuidv4 } from 'uuid';
-import { Card, Priority } from '@/types';
+import { Card, Priority, Label, Milestone } from '@/types';
+
+export interface CardUpdateInput {
+  title?: string;
+  description?: string;
+  priority?: Priority;
+  dueDate?: Date;
+  milestone?: Milestone;
+  assignees?: string[];
+  labels?: string[] | Label[];
+  tags?: string[];
+}
 
 export class CardRepository {
   constructor(private db: Database.Database) {}
@@ -88,7 +99,7 @@ export class CardRepository {
   /**
    * Update card
    */
-  update(cardId: string, data: Partial<Card>): Card | null {
+  update(cardId: string, data: CardUpdateInput): Card | null {
     const fields: string[] = ['updated_at = CURRENT_TIMESTAMP'];
     const values: any[] = [];
 
@@ -129,8 +140,15 @@ export class CardRepository {
     }
 
     // Update labels if provided
-    if (data.labels !== undefined) {
-      this.updateLabels(cardId, data.labels.map((l) => l.id));
+    if (data.labels !== undefined && data.labels.length > 0) {
+      // Handle both string[] and Label[] formats
+      const labelIds = typeof data.labels[0] === 'string'
+        ? data.labels as string[]
+        : (data.labels as Label[]).map((l) => l.id);
+      this.updateLabels(cardId, labelIds);
+    } else if (data.labels !== undefined && data.labels.length === 0) {
+      // Clear labels
+      this.updateLabels(cardId, []);
     }
 
     return this.findById(cardId);
