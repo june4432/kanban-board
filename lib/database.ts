@@ -38,12 +38,35 @@ export function initDatabase(): void {
   const db = getDatabase();
   const schemaPath = path.join(process.cwd(), 'lib', 'schema.sql');
 
+  // Run base schema
   if (fs.existsSync(schemaPath)) {
     const schema = fs.readFileSync(schemaPath, 'utf-8');
     db.exec(schema);
-    console.log('Database schema initialized');
+    console.log('✓ Database schema initialized');
   } else {
     console.warn('schema.sql not found, skipping initialization');
+  }
+
+  // Run migrations in order
+  const migrationsDir = path.join(process.cwd(), 'lib', 'migrations');
+  if (fs.existsSync(migrationsDir)) {
+    const migrationFiles = fs.readdirSync(migrationsDir)
+      .filter(file => file.endsWith('.sql'))
+      .sort(); // Ensures 001, 002, etc. run in order
+
+    migrationFiles.forEach(file => {
+      const migrationPath = path.join(migrationsDir, file);
+      const migration = fs.readFileSync(migrationPath, 'utf-8');
+      try {
+        db.exec(migration);
+        console.log(`✓ Migration applied: ${file}`);
+      } catch (error: any) {
+        // Ignore errors for already applied migrations
+        if (!error.message.includes('duplicate column name')) {
+          console.warn(`⚠ Migration ${file}: ${error.message}`);
+        }
+      }
+    });
   }
 }
 

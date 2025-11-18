@@ -33,7 +33,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponseW
 
 // 초대 링크 정보 조회 (로그인 필요 없음)
 function handleGetInviteInfo(
-  req: NextApiRequest,
+  _req: NextApiRequest,
   res: NextApiResponse,
   db: any,
   inviteToken: string
@@ -120,7 +120,7 @@ async function handleJoinProject(
     const existingMember = db.prepare(`
       SELECT * FROM project_members
       WHERE project_id = ? AND user_id = ?
-    `).get(invitation.project_id, session.user.id);
+    `).get(invitation.project_id, (session.user as any).id);
 
     if (existingMember) {
       return res.status(400).json({ error: 'Already a member of this project' });
@@ -130,7 +130,7 @@ async function handleJoinProject(
     db.prepare(`
       INSERT INTO project_members (project_id, user_id, role)
       VALUES (?, ?, 'member')
-    `).run(invitation.project_id, session.user.id);
+    `).run(invitation.project_id, (session.user as any).id);
 
     // 사용 횟수 증가
     db.prepare(`
@@ -158,7 +158,7 @@ async function handleJoinProject(
           projectId: invitation.project_id,
           projectName: projectData.name,
           newMember: {
-            id: session.user.id,
+            id: (session.user as any).id,
             name: newMemberName,
             email: session.user.email
           },
@@ -169,7 +169,7 @@ async function handleJoinProject(
         const memberUserIds = [
           projectData.ownerId, // 프로젝트 소유자
           ...projectData.members.map((member) => member.id), // 기존 멤버들
-        ].filter(id => id !== session.user.id); // 본인은 제외
+        ].filter(id => id !== (session.user as any)?.id); // 본인은 제외
 
         // 프로젝트 멤버들에게 이벤트 전송
         memberUserIds.forEach((memberId) => {

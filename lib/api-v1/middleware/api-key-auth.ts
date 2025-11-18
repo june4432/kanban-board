@@ -46,7 +46,7 @@ function extractApiKey(req: NextApiRequest): string | null {
 
   // Support "Bearer sk_live_..." format
   const match = authHeader.match(/^Bearer\s+(.+)$/i);
-  if (!match) {
+  if (!match || !match[1]) {
     return null;
   }
 
@@ -58,7 +58,7 @@ function extractApiKey(req: NextApiRequest): string | null {
  */
 export async function authenticateWithApiKey(
   req: NextApiRequest,
-  res: NextApiResponse
+  _res: NextApiResponse
 ): Promise<ApiKeyAuthContext | null> {
   const apiKey = extractApiKey(req);
 

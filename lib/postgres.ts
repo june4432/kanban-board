@@ -3,7 +3,7 @@
  * Connection pooling and query utilities
  */
 
-import { Pool, PoolClient, QueryResult } from 'pg';
+import { Pool, PoolClient, QueryResult, QueryResultRow } from 'pg';
 
 let pool: Pool | null = null;
 
@@ -63,7 +63,7 @@ export function getPool(): Pool {
 /**
  * Execute a query
  */
-export async function query<T = any>(
+export async function query<T extends QueryResultRow = any>(
   text: string,
   params?: any[]
 ): Promise<QueryResult<T>> {
@@ -85,7 +85,7 @@ export async function query<T = any>(
 /**
  * Execute a query and return the first row
  */
-export async function queryOne<T = any>(
+export async function queryOne<T extends QueryResultRow = any>(
   text: string,
   params?: any[]
 ): Promise<T | null> {
@@ -96,7 +96,7 @@ export async function queryOne<T = any>(
 /**
  * Execute a query and return all rows
  */
-export async function queryAll<T = any>(
+export async function queryAll<T extends QueryResultRow = any>(
   text: string,
   params?: any[]
 ): Promise<T[]> {

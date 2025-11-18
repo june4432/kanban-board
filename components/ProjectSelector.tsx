@@ -59,8 +59,8 @@ const ProjectSelector: React.FC<ProjectSelectorProps> = ({
       ]);
 
       // 내 프로젝트는 서버에서 자동으로 필터링됨 (세션 기반)
-      setMyProjects(myResponse.data || []);
-      setPublicProjects(publicResponse.data || []);
+      setMyProjects(myResponse.data as any || []);
+      setPublicProjects(publicResponse.data as any || []);
     } catch (error) {
       console.error('Failed to fetch projects:', error);
     } finally {
@@ -124,19 +124,15 @@ const ProjectSelector: React.FC<ProjectSelectorProps> = ({
   const handleCreateProject = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const columns = formData.columnTemplate === 'custom'
-        ? formData.customColumns
-        : columnTemplates[formData.columnTemplate];
-
+      // Note: columns는 v1 API에서 아직 지원되지 않으므로 나중에 추가 필요
       const response = await api.projects.create({
         name: formData.name,
         description: formData.description,
         color: formData.color,
         isPublic: formData.isPublic
-        // Note: columns는 v1 API에서 아직 지원되지 않으므로 나중에 추가 필요
       });
 
-      const newProject = response.data;
+      const newProject = response.data as any;
       setMyProjects(prev => [...prev, newProject]);
       onProjectSelect(newProject);
       setFormData({

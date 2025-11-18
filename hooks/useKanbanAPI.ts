@@ -1,11 +1,8 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { v4 as uuidv4 } from 'uuid';
-import { Board, Card, FilterState, ViewMode, User, Label, Milestone } from '@/types';
+import { Board, Card, FilterState, ViewMode, User } from '@/types';
 import { useSocket } from './useSocket';
 import { api } from '@/lib/api/v1-client';
 import { useToast } from '@/contexts/ToastContext';
-
-const API_BASE_URL = '/api';
 
 export const useKanbanAPI = (projectId?: string, user?: User | null) => {
   const { addToast } = useToast();
@@ -187,33 +184,33 @@ export const useKanbanAPI = (projectId?: string, user?: User | null) => {
     }
   }, [projectId]);
 
-  // 보드 데이터 저장
-  const saveBoard = useCallback(async (boardData: Board) => {
-    try {
-      // projectId가 없으면 현재 프로젝트 ID 추가
-      const boardToSave = {
-        ...boardData,
-        projectId: boardData.projectId || projectId || ''
-      };
-      
-      console.log('Saving board with projectId:', boardToSave.projectId); // 디버깅용
-      
-      const response = await fetch(`${API_BASE_URL}/kanban`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ board: boardToSave }),
-      });
+  // 보드 데이터 저장 (현재 사용되지 않음 - v1 API로 마이그레이션됨)
+  // const saveBoard = useCallback(async (boardData: Board) => {
+  //   try {
+  //     // projectId가 없으면 현재 프로젝트 ID 추가
+  //     const boardToSave = {
+  //       ...boardData,
+  //       projectId: boardData.projectId || projectId || ''
+  //     };
+  //
+  //     console.log('Saving board with projectId:', boardToSave.projectId); // 디버깅용
+  //
+  //     const response = await fetch(`${API_BASE_URL}/kanban`, {
+  //       method: 'PUT',
+  //       headers: {
+  //         'Content-Type': 'application/json',
+  //       },
+  //       body: JSON.stringify({ board: boardToSave }),
+  //     });
 
-      if (!response.ok) {
-        throw new Error('Failed to save board data');
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to save data');
-      throw err;
-    }
-  }, [projectId]);
+  //     if (!response.ok) {
+  //       throw new Error('Failed to save board data');
+  //     }
+  //   } catch (err) {
+  //     setError(err instanceof Error ? err.message : 'Failed to save data');
+  //     throw err;
+  //   }
+  // }, [projectId]);
 
   // 컴포넌트 마운트 시 데이터 로드
   useEffect(() => {
@@ -434,7 +431,7 @@ export const useKanbanAPI = (projectId?: string, user?: User | null) => {
         columns: prevBoard.columns.map(col =>
           col.id === columnId
             ? { ...col, cards: col.cards.map(card =>
-                card.id === tempId ? result.data : card
+                card.id === tempId ? result.data as any : card
               )}
             : col
         )
@@ -542,7 +539,7 @@ export const useKanbanAPI = (projectId?: string, user?: User | null) => {
 
       console.log(`[useKanbanAPI] Updating WIP limit for column ${columnId} to ${newLimit}`);
 
-      const response = await api.projects.updateColumn(projectId, columnId, {
+      await api.projects.updateColumn(projectId, columnId, {
         wipLimit: newLimit
       });
 

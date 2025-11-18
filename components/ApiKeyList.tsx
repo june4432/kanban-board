@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { formatDistanceToNow } from 'date-fns';
 import { ko } from 'date-fns/locale';
 
@@ -21,8 +20,6 @@ interface ApiKeyListProps {
 }
 
 export default function ApiKeyList({ apiKeys, onRevoke, onDelete }: ApiKeyListProps) {
-  const [expandedKey, setExpandedKey] = useState<string | null>(null);
-
   const getScopeColor = (scope: string) => {
     switch (scope) {
       case 'admin':

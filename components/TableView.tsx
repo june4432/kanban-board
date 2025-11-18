@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { Card, User } from '@/types';
-import { Calendar, User as UserIcon, Flag, Tag, Target, ArrowUpDown } from 'lucide-react';
+import { Calendar, Target, ArrowUpDown } from 'lucide-react';
 
 interface TableViewProps {
   cards: Card[];
@@ -33,10 +33,10 @@ const TableView: React.FC<TableViewProps> = ({ cards, users, onCardClick }) => {
           comparison = a.title.localeCompare(b.title);
           break;
         case 'status':
-          comparison = (a.status || '').localeCompare(b.status || '');
+          comparison = (a.columnId || '').localeCompare(b.columnId || '');
           break;
         case 'priority':
-          const priorityOrder = { high: 3, medium: 2, low: 1 };
+          const priorityOrder: Record<string, number> = { urgent: 4, high: 3, medium: 2, low: 1 };
           comparison = (priorityOrder[a.priority] || 0) - (priorityOrder[b.priority] || 0);
           break;
         case 'dueDate':
@@ -73,9 +73,9 @@ const TableView: React.FC<TableViewProps> = ({ cards, users, onCardClick }) => {
     }
   };
 
-  const formatDate = (dateString?: string) => {
-    if (!dateString) return '-';
-    const date = new Date(dateString);
+  const formatDate = (dateInput?: string | Date) => {
+    if (!dateInput) return '-';
+    const date = typeof dateInput === 'string' ? new Date(dateInput) : dateInput;
     return date.toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' });
   };
 
@@ -136,7 +136,7 @@ const TableView: React.FC<TableViewProps> = ({ cards, users, onCardClick }) => {
                   </td>
                   <td className="px-4 py-4 whitespace-nowrap">
                     <span className="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
-                      {card.status || '-'}
+                      {card.columnId || '-'}
                     </span>
                   </td>
                   <td className="px-4 py-4 whitespace-nowrap">

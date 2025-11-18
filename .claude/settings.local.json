@@ -50,7 +50,8 @@
       "Bash(while read pid)",
       "Bash(do kill -9 $pid)",
       "Bash(done)",
-      "Bash(sqlite3:*)"
+      "Bash(sqlite3:*)",
+      "Bash(git commit:*)"
     ],
     "deny": [],
     "ask": []

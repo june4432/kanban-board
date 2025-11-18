@@ -45,7 +45,7 @@ export function validateBody<T>(
 
   if (!result.success) {
     // Safely access error details
-    if (!result.error || !result.error.errors) {
+    if (!result.error || !result.error.issues) {
       console.error('[Validation Debug] result:', JSON.stringify(result, null, 2));
       console.error('[Validation Debug] result.error:', result.error);
       console.error('[Validation Debug] req.body:', req.body);
@@ -54,7 +54,7 @@ export function validateBody<T>(
       ]);
     }
 
-    const details = result.error.errors.map((err) => ({
+    const details = result.error.issues.map((err) => ({
       field: err.path.join('.'),
       message: err.message,
     }));
@@ -76,13 +76,13 @@ export function validateQuery<T>(
 
   if (!result.success) {
     // Safely access error details
-    if (!result.error || !result.error.errors) {
+    if (!result.error || !result.error.issues) {
       throw ApiErrors.validation('Invalid query parameters', [
         { field: 'query', message: 'Validation failed but no details available' }
       ]);
     }
 
-    const details = result.error.errors.map((err) => ({
+    const details = result.error.issues.map((err) => ({
       field: err.path.join('.'),
       message: err.message,
     }));

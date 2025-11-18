@@ -121,7 +121,7 @@ export async function checkProjectPermission(
   projectId: string,
   permission: Permission
 ): Promise<boolean> {
-  const { projects, organizations } = getRepositories();
+  const { projects } = getRepositories();
 
   const project = projects.findById(projectId);
   if (!project) return false;

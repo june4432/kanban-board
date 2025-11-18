@@ -129,9 +129,9 @@ class ApiClient {
   ): Promise<ApiResponse<T>> {
     const url = `${clientConfig.baseUrl}${endpoint}`;
 
-    const headers: HeadersInit = {
+    const headers: Record<string, string> = {
       'Content-Type': 'application/json',
-      ...options.headers,
+      ...(options.headers as Record<string, string>),
     };
 
     // Add API key if configured
@@ -178,7 +178,7 @@ class ApiClient {
       search?: string;
     }): Promise<ApiPaginatedResponse<Project>> => {
       const query = new URLSearchParams(params as any).toString();
-      return this.request<Project[]>(`/projects${query ? `?${query}` : ''}`);
+      return this.request<Project[]>(`/projects${query ? `?${query}` : ''}`) as any;
     },
 
     get: async (projectId: string): Promise<ApiResponse<Project>> => {
