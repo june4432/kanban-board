@@ -76,7 +76,7 @@ export default function ProjectDashboard() {
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Project Dashboard</h1>
           <p className="text-gray-600 dark:text-gray-400 mt-2">
-            Overview of your project's performance and team activity
+            Overview of your project&apos;s performance and team activity
           </p>
         </div>
 

@@ -5,6 +5,7 @@
 
 import { GetServerSideProps } from 'next';
 import dynamic from 'next/dynamic';
+import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import 'swagger-ui-react/swagger-ui.css';
 
@@ -36,18 +37,18 @@ export default function ApiDocs() {
           <h1 className="text-3xl font-bold mb-2">Kanban Board API Documentation</h1>
           <p className="text-blue-100">RESTful API v1 - Interactive Documentation</p>
           <div className="mt-4 flex gap-4 flex-wrap">
-            <a
+            <Link
               href="/"
               className="inline-flex items-center px-4 py-2 bg-white text-blue-600 rounded-md hover:bg-blue-50 transition-colors"
             >
               ← Back to App
-            </a>
-            <a
+            </Link>
+            <Link
               href="/settings/api-keys"
               className="inline-flex items-center px-4 py-2 bg-blue-800 text-white rounded-md hover:bg-blue-900 transition-colors"
             >
               🔑 Manage API Keys
-            </a>
+            </Link>
           </div>
         </div>
       </div>
