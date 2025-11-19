@@ -41,7 +41,7 @@ async function handlePatch(req: ApiRequest, res: NextApiResponse, projectId: str
   if (!membershipCheck) return;
 
   // Validate request body
-  const body = validateBody(req.body, UpdateColumnSchema);
+  const body = validateBody(req, UpdateColumnSchema);
 
   const { boards } = getRepositories();
 

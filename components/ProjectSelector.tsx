@@ -25,10 +25,12 @@ const ProjectSelector: React.FC<ProjectSelectorProps> = ({
   
   const [myProjects, setMyProjects] = useState<Project[]>([]);
   const [publicProjects, setPublicProjects] = useState<Project[]>([]);
+  const [organizations, setOrganizations] = useState<any[]>([]);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState<'my' | 'public'>('my');
+  const [selectedOrgFilter, setSelectedOrgFilter] = useState<string>('all');
   const [settingsProject, setSettingsProject] = useState<Project | null>(null);
   const [projectSettingsTab, setProjectSettingsTab] = useState<'general' | 'members' | 'requests' | 'columns' | 'invites' | 'integrations'>('general');
   const [formData, setFormData] = useState({
@@ -36,6 +38,7 @@ const ProjectSelector: React.FC<ProjectSelectorProps> = ({
     description: '',
     color: '#3b82f6',
     isPublic: false,
+    organizationId: '',
     columnTemplate: 'default' as 'default' | 'simple' | 'scrum' | 'custom',
     customColumns: [
       { title: 'Backlog', wipLimit: 10 },
@@ -47,7 +50,24 @@ const ProjectSelector: React.FC<ProjectSelectorProps> = ({
 
   useEffect(() => {
     fetchProjects();
+    fetchOrganizations();
   }, [user.id]);
+
+  const fetchOrganizations = async () => {
+    try {
+      const response = await fetch('/api/v1/organizations');
+      if (response.ok) {
+        const result = await response.json();
+        setOrganizations(result.data || []);
+        // Set default organization if available
+        if (result.data && result.data.length > 0 && !formData.organizationId) {
+          setFormData(prev => ({ ...prev, organizationId: result.data[0].id }));
+        }
+      }
+    } catch (error) {
+      console.error('Failed to fetch organizations:', error);
+    }
+  };
 
   // 프로젝트 참여 신청은 전체 브로드캐스트이므로 별도 룸 참여 불필요
 
@@ -123,13 +143,20 @@ const ProjectSelector: React.FC<ProjectSelectorProps> = ({
 
   const handleCreateProject = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!formData.organizationId) {
+      alert('조직을 선택해주세요');
+      return;
+    }
+
     try {
       // Note: columns는 v1 API에서 아직 지원되지 않으므로 나중에 추가 필요
       const response = await api.projects.create({
         name: formData.name,
         description: formData.description,
         color: formData.color,
-        isPublic: formData.isPublic
+        isPublic: formData.isPublic,
+        organizationId: formData.organizationId
       });
 
       const newProject = response.data as any;
@@ -140,6 +167,7 @@ const ProjectSelector: React.FC<ProjectSelectorProps> = ({
         description: '',
         color: '#3b82f6',
         isPublic: false,
+        organizationId: organizations.length > 0 ? organizations[0].id : '',
         columnTemplate: 'default',
         customColumns: [
           { title: 'Backlog', wipLimit: 10 },
@@ -151,6 +179,7 @@ const ProjectSelector: React.FC<ProjectSelectorProps> = ({
       setShowCreateForm(false);
     } catch (error) {
       console.error('Failed to create project:', error);
+      alert('프로젝트 생성에 실패했습니다');
     }
   };
 
@@ -189,20 +218,29 @@ const ProjectSelector: React.FC<ProjectSelectorProps> = ({
     ) || false;
   };
 
-  const filteredMyProjects = myProjects.filter(project =>
-    project.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (project.description || '').toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredMyProjects = myProjects.filter(project => {
+    // 검색어 필터링
+    const matchesSearch = project.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (project.description || '').toLowerCase().includes(searchQuery.toLowerCase());
+
+    // 조직 필터링
+    const matchesOrg = selectedOrgFilter === 'all' || project.organizationId === selectedOrgFilter;
+
+    return matchesSearch && matchesOrg;
+  });
 
   const filteredPublicProjects = publicProjects.filter(project => {
     // 검색어 필터링
     const matchesSearch = project.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (project.description || '').toLowerCase().includes(searchQuery.toLowerCase());
-    
+
+    // 조직 필터링
+    const matchesOrg = selectedOrgFilter === 'all' || project.organizationId === selectedOrgFilter;
+
     // 이미 가입된 프로젝트는 제외
     const notJoined = !isUserInProject(project);
-    
-    return matchesSearch && notJoined;
+
+    return matchesSearch && matchesOrg && notJoined;
   });
 
   if (loading) {
@@ -284,7 +322,7 @@ const ProjectSelector: React.FC<ProjectSelectorProps> = ({
             <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-6 lg:space-y-0 lg:space-x-8">
               
               {/* Search Section */}
-              <div className="flex-1 max-w-lg">
+              <div className="flex-1 max-w-lg space-y-3">
                 <div className="relative group">
                   <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                     <Search className="h-5 w-5 text-muted-foreground group-focus-within:text-primary transition-colors" />
@@ -306,6 +344,21 @@ const ProjectSelector: React.FC<ProjectSelectorProps> = ({
                       </button>
                     </div>
                   )}
+                </div>
+
+                {/* Organization Filter */}
+                <div className="flex items-center gap-2">
+                  <label className="text-sm font-medium text-foreground whitespace-nowrap">조직 필터:</label>
+                  <select
+                    value={selectedOrgFilter}
+                    onChange={(e) => setSelectedOrgFilter(e.target.value)}
+                    className="flex-1 px-4 py-2 bg-input/60 border border-border/50 rounded-lg focus:outline-none focus:ring-2 focus:ring-ring text-foreground text-sm transition-all"
+                  >
+                    <option value="all">전체 조직</option>
+                    {organizations.map(org => (
+                      <option key={org.id} value={org.id}>{org.name}</option>
+                    ))}
+                  </select>
                 </div>
               </div>
 
@@ -385,7 +438,28 @@ const ProjectSelector: React.FC<ProjectSelectorProps> = ({
                   required
                 />
               </div>
-                  
+
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-semibold text-foreground mb-2">
+                      소속 조직 *
+                    </label>
+                    <select
+                      value={formData.organizationId}
+                      onChange={(e) => setFormData(prev => ({ ...prev, organizationId: e.target.value }))}
+                      className="w-full px-4 py-3 bg-input border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:bg-background transition-all text-foreground"
+                      required
+                    >
+                      {organizations.length === 0 ? (
+                        <option value="">조직이 없습니다 (조직을 먼저 생성해주세요)</option>
+                      ) : (
+                        organizations.map(org => (
+                          <option key={org.id} value={org.id}>{org.name}</option>
+                        ))
+                      )}
+                    </select>
+                    <p className="text-xs text-muted-foreground mt-2">프로젝트가 속할 조직을 선택해주세요</p>
+                  </div>
+
                   <div className="md:col-span-2">
                     <label className="block text-sm font-semibold text-foreground mb-2">
                       프로젝트 설명
@@ -394,7 +468,7 @@ const ProjectSelector: React.FC<ProjectSelectorProps> = ({
                   value={formData.description}
                   onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
                   rows={3}
-                      className="w-full px-4 py-3 bg-gray-50 border-0 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all resize-none"
+                      className="w-full px-4 py-3 bg-input border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:bg-background transition-all resize-none text-foreground placeholder:text-muted-foreground"
                       placeholder="프로젝트에 대해 간단히 설명해주세요"
                 />
               </div>
@@ -409,14 +483,16 @@ const ProjectSelector: React.FC<ProjectSelectorProps> = ({
                     type="color"
                     value={formData.color}
                     onChange={(e) => setFormData(prev => ({ ...prev, color: e.target.value }))}
-                          className="w-12 h-12 rounded-xl border-2 border-border cursor-pointer"
+                          className="w-12 h-12 rounded-xl border-2 border-border cursor-pointer bg-background hover:border-primary transition-colors"
+                          style={{ colorScheme: 'dark' }}
                   />
                       </div>
                   <input
                     type="text"
                     value={formData.color}
                     onChange={(e) => setFormData(prev => ({ ...prev, color: e.target.value }))}
-                        className="flex-1 px-4 py-3 bg-gray-50 border-0 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all"
+                        className="flex-1 px-4 py-3 bg-input border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:bg-background transition-all text-foreground placeholder:text-muted-foreground"
+                        placeholder="#3b82f6"
                   />
                 </div>
               </div>

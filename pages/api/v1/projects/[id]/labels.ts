@@ -41,7 +41,7 @@ async function handlePost(req: ApiRequest, res: NextApiResponse, projectId: stri
   if (!membershipCheck) return;
 
   // Validate request body
-  const body = validateBody(req.body, CreateLabelSchema);
+  const body = validateBody(req, CreateLabelSchema);
 
   const { boards } = getRepositories();
 

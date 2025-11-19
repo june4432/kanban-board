@@ -21,8 +21,11 @@ import { v4 as uuidv4 } from 'uuid';
 import { z } from 'zod';
 
 const addMemberSchema = z.object({
-  userId: z.string().uuid('Invalid user ID'),
+  userId: z.string().uuid('Invalid user ID').optional(),
+  userEmail: z.string().email('Invalid email address').optional(),
   role: z.enum(['owner', 'admin', 'editor', 'viewer', 'member']).default('member'),
+}).refine((data) => data.userId || data.userEmail, {
+  message: 'Either userId or userEmail must be provided',
 });
 
 async function handler(req: ApiRequest, res: NextApiResponse) {
@@ -88,19 +91,43 @@ async function handlePost(req: ApiRequest, res: NextApiResponse, orgId: string) 
 
   const data = validateBody(req, addMemberSchema);
 
-  // Check if user exists
-  const targetUser = users.findById(data.userId);
-  if (!targetUser) {
+  // Find user by userId or userEmail
+  let targetUser;
+  let targetUserId: string;
+
+  if (data.userId) {
+    targetUser = users.findById(data.userId);
+    if (!targetUser) {
+      return sendValidationError(
+        res,
+        'User not found',
+        [{ field: 'userId', message: 'Invalid user ID' }],
+        req.requestId
+      );
+    }
+    targetUserId = data.userId;
+  } else if (data.userEmail) {
+    targetUser = users.findByEmail(data.userEmail);
+    if (!targetUser) {
+      return sendValidationError(
+        res,
+        'User not found',
+        [{ field: 'userEmail', message: 'User with this email does not exist' }],
+        req.requestId
+      );
+    }
+    targetUserId = targetUser.id;
+  } else {
     return sendValidationError(
       res,
-      'User not found',
-      [{ field: 'userId', message: 'Invalid user ID' }],
+      'Either userId or userEmail must be provided',
+      [{ field: 'userId', message: 'Missing user identifier' }],
       req.requestId
     );
   }
 
   // Check if already a member
-  const isAlreadyMember = organizations.isMember(orgId, data.userId);
+  const isAlreadyMember = organizations.isMember(orgId, targetUserId);
   if (isAlreadyMember) {
     return sendValidationError(
       res,
@@ -111,11 +138,11 @@ async function handlePost(req: ApiRequest, res: NextApiResponse, orgId: string) 
   }
 
   // Add member
-  organizations.addMember(orgId, data.userId, data.role);
+  organizations.addMember(orgId, targetUserId, data.role);
 
   // Return updated member list
   const members = organizations.getMembers(orgId);
-  const newMember = members.find((m) => m.userId === data.userId);
+  const newMember = members.find((m) => m.userId === targetUserId);
 
   sendCreated(res, newMember, req.requestId);
 }

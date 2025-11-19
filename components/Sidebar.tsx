@@ -1,6 +1,6 @@
 import React from 'react';
 import { ViewMode, User } from '@/types';
-import { LayoutGrid, Calendar, BarChart3, Table, BookOpen, Settings, ChevronLeft, ChevronRight, LogOut, Key, Home } from 'lucide-react';
+import { LayoutGrid, Calendar, BarChart3, Table, BookOpen, Settings, ChevronLeft, ChevronRight, LogOut, Key, Home, Building2, FileText } from 'lucide-react';
 import { ThemeToggleDropdown } from '@/components/ThemeToggle';
 import { useRouter } from 'next/router';
 
@@ -36,13 +36,19 @@ const Sidebar: React.FC<SidebarProps> = ({
   ];
 
   const isApiKeysPage = router.pathname === '/settings/api-keys';
+  const isOrganizationsPage = router.pathname.startsWith('/settings/organizations');
+  const isApiDocsPage = router.pathname === '/api-docs';
+  const isSettingsPage = isApiKeysPage || isOrganizationsPage || isApiDocsPage;
 
   const actionItems = [
-    // API Keys 페이지에서는 홈 버튼 표시
-    ...(isApiKeysPage ? [{ id: 'home', icon: Home, label: '홈', onClick: () => router.push('/') }] : []),
-    // 홈에서는 프로젝트 설정과 API Keys 표시
-    ...(!isApiKeysPage && onProjectSettings ? [{ id: 'settings', icon: Settings, label: '프로젝트 설정', onClick: onProjectSettings }] : []),
-    ...(!isApiKeysPage ? [{ id: 'api-keys', icon: Key, label: 'API Keys', onClick: () => router.push('/settings/api-keys') }] : []),
+    // 설정 페이지에서는 홈 버튼 표시
+    ...(isSettingsPage ? [{ id: 'home', icon: Home, label: '홈', onClick: () => router.push('/') }] : []),
+    // 홈에서는 프로젝트 설정 표시
+    ...(!isSettingsPage && onProjectSettings ? [{ id: 'settings', icon: Settings, label: '프로젝트 설정', onClick: onProjectSettings }] : []),
+    // 모든 페이지에서 조직 관리, API Keys, API Reference 표시
+    { id: 'organizations', icon: Building2, label: '조직 관리', onClick: () => router.push('/settings/organizations') },
+    { id: 'api-keys', icon: Key, label: 'API Keys', onClick: () => router.push('/settings/api-keys') },
+    { id: 'api-docs', icon: FileText, label: 'API Docs', onClick: () => router.push('/api-docs') },
   ];
 
   return (

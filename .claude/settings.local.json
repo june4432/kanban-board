@@ -51,7 +51,10 @@
       "Bash(do kill -9 $pid)",
       "Bash(done)",
       "Bash(sqlite3:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(npx tsx:*)",
+      "Bash(npm run migrate:to-postgres:*)",
+      "Bash(xargs kill:*)"
     ],
     "deny": [],
     "ask": []

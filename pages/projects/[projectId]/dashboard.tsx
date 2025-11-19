@@ -8,6 +8,13 @@ import RecentActivity from '@/components/dashboard/RecentActivity';
 import TrendsChart from '@/components/dashboard/TrendsChart';
 import type { DashboardStats } from '@/lib/services/dashboard.service';
 
+// Disable static generation for dynamic routes
+export async function getServerSideProps() {
+  return {
+    props: {}
+  };
+}
+
 export default function ProjectDashboard() {
   const router = useRouter();
   const { projectId } = router.query;

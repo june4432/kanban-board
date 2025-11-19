@@ -13,6 +13,13 @@ interface InvitationInfo {
   usesRemaining: number | null;
 }
 
+// Disable static generation for dynamic routes
+export async function getServerSideProps() {
+  return {
+    props: {}
+  };
+}
+
 export default function InvitePage() {
   const router = useRouter();
   const { inviteToken } = router.query;

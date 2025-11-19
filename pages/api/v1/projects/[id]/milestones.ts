@@ -16,7 +16,10 @@ import { z } from 'zod';
 // Validation schema for creating a milestone
 const CreateMilestoneSchema = z.object({
   name: z.string().min(1, 'Milestone name is required').max(100, 'Milestone name is too long'),
-  dueDate: z.string().datetime('Invalid date format (must be ISO 8601 datetime)'),
+  dueDate: z.string().refine((val) => {
+    // Accept YYYY-MM-DD format or ISO datetime
+    return /^\d{4}-\d{2}-\d{2}(T.*)?$/.test(val) && !isNaN(Date.parse(val));
+  }, 'Invalid date format (must be YYYY-MM-DD or ISO 8601 datetime)'),
   description: z.string().max(500, 'Description is too long').optional(),
 });
 
@@ -41,8 +44,14 @@ async function handlePost(req: ApiRequest, res: NextApiResponse, projectId: stri
   const membershipCheck = await requireProjectMember(req, res, projectId);
   if (!membershipCheck) return;
 
+  // Debug logging
+  console.log('[Milestone API] req.body:', JSON.stringify(req.body));
+  console.log('[Milestone API] req.body type:', typeof req.body);
+  console.log('[Milestone API] req.body is null:', req.body === null);
+  console.log('[Milestone API] req.body is undefined:', req.body === undefined);
+
   // Validate request body
-  const body = validateBody(req.body, CreateMilestoneSchema);
+  const body = validateBody(req, CreateMilestoneSchema);
 
   const { boards } = getRepositories();
 

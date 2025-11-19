@@ -8,14 +8,16 @@
  * 4. Validates data integrity
  */
 
-// Load environment variables
+// Load environment variables with override
 import dotenv from 'dotenv';
-dotenv.config();
+import path from 'path';
+
+const envPath = path.join(__dirname, '../.env');
+dotenv.config({ path: envPath, override: true });
 
 import { getDatabase } from '../lib/database';
 import { query, withTransaction } from '../lib/postgres';
 import fs from 'fs';
-import path from 'path';
 
 interface MigrationStats {
   users: number;

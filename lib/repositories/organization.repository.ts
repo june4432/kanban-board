@@ -345,4 +345,162 @@ export class OrganizationRepository {
       plan: org?.plan || 'free',
     };
   }
+
+  /**
+   * Create organization join request
+   */
+  createJoinRequest(organizationId: string, userId: string, message?: string): any {
+    const id = `req-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    const now = new Date().toISOString();
+
+    this.db
+      .prepare(
+        `INSERT INTO organization_join_requests (id, organization_id, user_id, message, status, created_at, updated_at)
+        VALUES (?, ?, ?, ?, 'pending', ?, ?)`
+      )
+      .run(id, organizationId, userId, message || null, now, now);
+
+    return this.getJoinRequest(id);
+  }
+
+  /**
+   * Get join request by ID
+   */
+  getJoinRequest(requestId: string): any {
+    const row = this.db
+      .prepare(
+        `SELECT
+          r.id, r.organization_id as organizationId, r.user_id as userId,
+          r.status, r.message, r.created_at as createdAt, r.updated_at as updatedAt,
+          u.name as userName, u.email as userEmail,
+          o.name as organizationName
+        FROM organization_join_requests r
+        JOIN users u ON r.user_id = u.id
+        JOIN organizations o ON r.organization_id = o.id
+        WHERE r.id = ?`
+      )
+      .get(requestId) as any;
+
+    if (!row) return null;
+
+    return {
+      ...row,
+      createdAt: new Date(row.createdAt),
+      updatedAt: new Date(row.updatedAt),
+    };
+  }
+
+  /**
+   * Get all join requests for an organization
+   */
+  getJoinRequests(organizationId: string, status?: string): any[] {
+    let query = `
+      SELECT
+        r.id, r.organization_id as organizationId, r.user_id as userId,
+        r.status, r.message, r.created_at as createdAt, r.updated_at as updatedAt,
+        u.name as userName, u.email as userEmail
+      FROM organization_join_requests r
+      JOIN users u ON r.user_id = u.id
+      WHERE r.organization_id = ?
+    `;
+
+    const params: any[] = [organizationId];
+
+    if (status) {
+      query += ' AND r.status = ?';
+      params.push(status);
+    }
+
+    query += ' ORDER BY r.created_at DESC';
+
+    const rows = this.db.prepare(query).all(...params) as any[];
+
+    return rows.map((row) => ({
+      ...row,
+      createdAt: new Date(row.createdAt),
+      updatedAt: new Date(row.updatedAt),
+    }));
+  }
+
+  /**
+   * Get user's join requests
+   */
+  getUserJoinRequests(userId: string): any[] {
+    const rows = this.db
+      .prepare(
+        `SELECT
+          r.id, r.organization_id as organizationId, r.user_id as userId,
+          r.status, r.message, r.created_at as createdAt, r.updated_at as updatedAt,
+          o.name as organizationName, o.slug as organizationSlug
+        FROM organization_join_requests r
+        JOIN organizations o ON r.organization_id = o.id
+        WHERE r.user_id = ?
+        ORDER BY r.created_at DESC`
+      )
+      .all(userId) as any[];
+
+    return rows.map((row) => ({
+      ...row,
+      createdAt: new Date(row.createdAt),
+      updatedAt: new Date(row.updatedAt),
+    }));
+  }
+
+  /**
+   * Approve join request
+   */
+  approveJoinRequest(requestId: string, role: string = 'member'): boolean {
+    const request = this.getJoinRequest(requestId);
+    if (!request || request.status !== 'pending') {
+      return false;
+    }
+
+    // Add user as member
+    this.addMember(request.organizationId, request.userId, role as any);
+
+    // Update request status
+    this.db
+      .prepare(
+        `UPDATE organization_join_requests
+        SET status = 'approved', updated_at = ?
+        WHERE id = ?`
+      )
+      .run(new Date().toISOString(), requestId);
+
+    return true;
+  }
+
+  /**
+   * Reject join request
+   */
+  rejectJoinRequest(requestId: string): boolean {
+    const request = this.getJoinRequest(requestId);
+    if (!request || request.status !== 'pending') {
+      return false;
+    }
+
+    this.db
+      .prepare(
+        `UPDATE organization_join_requests
+        SET status = 'rejected', updated_at = ?
+        WHERE id = ?`
+      )
+      .run(new Date().toISOString(), requestId);
+
+    return true;
+  }
+
+  /**
+   * Check if user has pending request
+   */
+  hasPendingRequest(organizationId: string, userId: string): boolean {
+    const result = this.db
+      .prepare(
+        `SELECT 1 FROM organization_join_requests
+        WHERE organization_id = ? AND user_id = ? AND status = 'pending'`
+      )
+      .get(organizationId, userId);
+
+    return !!result;
+  }
 }

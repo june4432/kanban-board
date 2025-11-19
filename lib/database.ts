@@ -8,6 +8,13 @@ let db: Database.Database | null = null;
  * Get or create database connection (Singleton pattern)
  */
 export function getDatabase(): Database.Database {
+  // Check if PostgreSQL is configured
+  if (process.env.DATABASE_TYPE === 'postgres') {
+    console.warn('⚠️  Warning: DATABASE_TYPE is set to "postgres" but repositories are using SQLite.');
+    console.warn('⚠️  Temporarily using SQLite until PostgreSQL repositories are implemented.');
+    console.warn('⚠️  To use PostgreSQL, update DATABASE_TYPE to "sqlite" or wait for repository migration.');
+  }
+
   if (!db) {
     const dbPath = process.env.DATABASE_PATH || path.join(process.cwd(), 'data', 'kanban.db');
 

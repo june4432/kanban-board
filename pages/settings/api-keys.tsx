@@ -17,6 +17,13 @@ interface ApiKey {
   expiresAt: string | null;
 }
 
+// Disable static generation for this page
+export async function getServerSideProps() {
+  return {
+    props: {}
+  };
+}
+
 export default function ApiKeysPage() {
   const { status } = useSession();
   const router = useRouter();

@@ -17,6 +17,13 @@ import AuthModal from '@/components/AuthModal';
 import ProjectSettingsModal from '@/components/ProjectSettingsModal';
 import { Card, User, Project } from '@/types';
 
+// Disable static generation for this page
+export async function getServerSideProps() {
+  return {
+    props: {}
+  };
+}
+
 function KanbanApp() {
   const { user } = useAuth();
   const { currentProject, selectProject, createProject, projects, fetchProjects } = useProject();
