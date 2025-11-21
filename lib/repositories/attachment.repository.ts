@@ -3,8 +3,8 @@
  * 파일 첨부 데이터 관리
  */
 
-import { Database } from 'better-sqlite3';
 import { v4 as uuidv4 } from 'uuid';
+import { query, queryOne, queryAll } from '@/lib/postgres';
 
 export interface Attachment {
   id: string;
@@ -32,24 +32,22 @@ export interface AttachmentCreateInput {
 }
 
 export class AttachmentRepository {
-  constructor(private db: Database) {}
+  constructor(_db?: any) { }
 
   /**
    * 파일 첨부 생성
    */
-  create(input: AttachmentCreateInput): Attachment {
+  async create(input: AttachmentCreateInput): Promise<Attachment> {
     const id = uuidv4();
     const now = new Date().toISOString();
 
-    const stmt = this.db.prepare(`
+    await query(`
       INSERT INTO attachments (
         id, card_id, user_id, filename, original_name,
         mime_type, size, storage_path, created_at
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `);
-
-    stmt.run(
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+    `, [
       id,
       input.cardId,
       input.userId,
@@ -59,110 +57,103 @@ export class AttachmentRepository {
       input.size,
       input.storagePath,
       now
-    );
+    ]);
 
-    return this.findById(id)!;
+    return (await this.findById(id))!;
   }
 
   /**
    * ID로 첨부파일 조회
    */
-  findById(id: string): Attachment | null {
-    const stmt = this.db.prepare(`
+  async findById(id: string): Promise<Attachment | null> {
+    const row = await queryOne(`
       SELECT
         a.*,
         u.name as user_name,
         u.avatar as user_avatar
       FROM attachments a
       LEFT JOIN users u ON a.user_id = u.id
-      WHERE a.id = ?
-    `);
+      WHERE a.id = $1
+    `, [id]);
 
-    const row = stmt.get(id) as any;
     return row ? this.mapRowToAttachment(row) : null;
   }
 
   /**
    * 카드의 모든 첨부파일 조회
    */
-  findByCardId(cardId: string): Attachment[] {
-    const stmt = this.db.prepare(`
+  async findByCardId(cardId: string): Promise<Attachment[]> {
+    const rows = await queryAll(`
       SELECT
         a.*,
         u.name as user_name,
         u.avatar as user_avatar
       FROM attachments a
       LEFT JOIN users u ON a.user_id = u.id
-      WHERE a.card_id = ?
+      WHERE a.card_id = $1
       ORDER BY a.created_at DESC
-    `);
+    `, [cardId]);
 
-    const rows = stmt.all(cardId) as any[];
-    return rows.map(row => this.mapRowToAttachment(row));
+    return rows.map((row: any) => this.mapRowToAttachment(row));
   }
 
   /**
    * 사용자가 업로드한 모든 첨부파일 조회
    */
-  findByUserId(userId: string, limit: number = 50): Attachment[] {
-    const stmt = this.db.prepare(`
+  async findByUserId(userId: string, limit: number = 50): Promise<Attachment[]> {
+    const rows = await queryAll(`
       SELECT
         a.*,
         u.name as user_name,
         u.avatar as user_avatar
       FROM attachments a
       LEFT JOIN users u ON a.user_id = u.id
-      WHERE a.user_id = ?
+      WHERE a.user_id = $1
       ORDER BY a.created_at DESC
-      LIMIT ?
-    `);
+      LIMIT $2
+    `, [userId, limit]);
 
-    const rows = stmt.all(userId, limit) as any[];
-    return rows.map(row => this.mapRowToAttachment(row));
+    return rows.map((row: any) => this.mapRowToAttachment(row));
   }
 
   /**
    * 첨부파일 삭제
    */
-  delete(id: string): boolean {
-    const stmt = this.db.prepare('DELETE FROM attachments WHERE id = ?');
-    const result = stmt.run(id);
-    return result.changes > 0;
+  async delete(id: string): Promise<boolean> {
+    const result = await query('DELETE FROM attachments WHERE id = $1', [id]);
+    return (result as any).rowCount > 0;
   }
 
   /**
    * 카드의 첨부파일 개수 조회
    */
-  countByCardId(cardId: string): number {
-    const stmt = this.db.prepare('SELECT COUNT(*) as count FROM attachments WHERE card_id = ?');
-    const result = stmt.get(cardId) as any;
-    return result.count;
+  async countByCardId(cardId: string): Promise<number> {
+    const result = await queryOne('SELECT COUNT(*) as count FROM attachments WHERE card_id = $1', [cardId]);
+    return result?.count || 0;
   }
 
   /**
    * 카드의 총 첨부파일 크기 (bytes)
    */
-  getTotalSizeByCardId(cardId: string): number {
-    const stmt = this.db.prepare('SELECT SUM(size) as total FROM attachments WHERE card_id = ?');
-    const result = stmt.get(cardId) as any;
-    return result.total || 0;
+  async getTotalSizeByCardId(cardId: string): Promise<number> {
+    const result = await queryOne('SELECT SUM(size) as total FROM attachments WHERE card_id = $1', [cardId]);
+    return result?.total || 0;
   }
 
   /**
    * 프로젝트의 총 저장 공간 사용량 (bytes)
    */
-  getTotalSizeByProjectId(projectId: string): number {
-    const stmt = this.db.prepare(`
+  async getTotalSizeByProjectId(projectId: string): Promise<number> {
+    const result = await queryOne(`
       SELECT SUM(a.size) as total
       FROM attachments a
       JOIN cards c ON a.card_id = c.id
       JOIN columns col ON c.column_id = col.id
       JOIN boards b ON col.board_id = b.board_id
-      WHERE b.project_id = ?
-    `);
+      WHERE b.project_id = $1
+    `, [projectId]);
 
-    const result = stmt.get(projectId) as any;
-    return result.total || 0;
+    return result?.total || 0;
   }
 
   /**

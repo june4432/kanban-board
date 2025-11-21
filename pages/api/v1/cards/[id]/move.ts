@@ -44,13 +44,13 @@ async function handlePost(req: ApiRequest, res: NextApiResponse, cardId: string)
   const { columnId, position } = validateBody(req, moveCardSchema);
   const { cards, boards } = getRepositories();
 
-  const card = cards.findById(cardId);
+  const card = await cards.findById(cardId);
   if (!card) {
     return sendNotFound(res, 'Card', req.requestId);
   }
 
   // Get board to validate column
-  const board = boards.findByProjectId(accessCheck.projectId);
+  const board = await boards.findByProjectId(accessCheck.projectId);
   if (!board) {
     return sendValidationError(
       res,
@@ -88,14 +88,14 @@ async function handlePost(req: ApiRequest, res: NextApiResponse, cardId: string)
   }
 
   // Move card
-  const success = cards.moveCard(cardId, columnId, position ?? 0);
+  const success = await cards.moveCard(cardId, columnId, position ?? 0);
 
   if (!success) {
     return sendValidationError(res, 'Failed to move card', undefined, req.requestId);
   }
 
   // Fetch updated card
-  const movedCard = cards.findById(cardId);
+  const movedCard = await cards.findById(cardId);
   if (!movedCard) {
     return sendNotFound(res, 'Card', req.requestId);
   }

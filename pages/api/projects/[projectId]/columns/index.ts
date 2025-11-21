@@ -2,7 +2,6 @@ import { NextApiRequest, NextApiResponse } from 'next';
 import { getRepositories } from '@/lib/repositories';
 import { requireAuth } from '@/lib/auth-helpers';
 import { ProjectRepository } from '@/lib/repositories/project.repository';
-import { getDatabase } from '@/lib/database';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const { projectId } = req.query;
@@ -33,8 +32,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     console.log('[DEBUG][COLUMNS API] Auth success for user:', session.user.id);
 
     // 프로젝트 멤버십 확인
-    const db = getDatabase();
-    const projectRepo = new ProjectRepository(db);
+    const projectRepo = new ProjectRepository();
 
     const project = projectRepo.findById(projectId);
     if (!project) {
@@ -53,7 +51,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const { boards } = getRepositories();
 
     // 보드 ID 가져오기
-    const boardId = boards.getBoardIdByProjectId(projectId);
+    const boardId = await boards.getBoardIdByProjectId(projectId);
     if (!boardId) {
       console.log('[DEBUG][COLUMNS API] Board not found');
       return res.status(404).json({ error: 'Board not found for this project' });
@@ -68,15 +66,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(400).json({ error: 'Column title is required' });
     }
 
-    const column = boards.createColumn(boardId, {
-      title,
-      wipLimit: wipLimit ?? 5, // 기본값 5
+    const column = await boards.createColumn(boardId, {
+      title: req.body.title,
+      wipLimit: req.body.wipLimit || 0,
     });
 
     console.log('[DEBUG][COLUMNS API] Column created:', column.id);
 
     // 업데이트된 보드 반환
-    const board = boards.findByProjectId(projectId);
+    const board = await boards.findByProjectId(projectId);
     console.log('[DEBUG][COLUMNS API] Returning updated board');
     console.log('[DEBUG][COLUMNS API] ===== REQUEST END =====');
 

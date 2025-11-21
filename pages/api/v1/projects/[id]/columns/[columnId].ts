@@ -46,7 +46,7 @@ async function handlePatch(req: ApiRequest, res: NextApiResponse, projectId: str
   const { boards } = getRepositories();
 
   // Get current board
-  const board = boards.findByProjectId(projectId);
+  const board = await boards.findByProjectId(projectId);
 
   if (!board) {
     return sendError(
@@ -74,12 +74,12 @@ async function handlePatch(req: ApiRequest, res: NextApiResponse, projectId: str
   }
 
   // Update column properties
-  boards.updateColumn(columnId, {
+  await boards.updateColumn(columnId, {
     wipLimit: body.wipLimit,
   });
 
   // Fetch updated board to return
-  const updatedBoard = boards.findByProjectId(projectId);
+  const updatedBoard = await boards.findByProjectId(projectId);
   const updatedColumn = updatedBoard?.columns.find((col) => col.id === columnId);
 
   sendSuccess(

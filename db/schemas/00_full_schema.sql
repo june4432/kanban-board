@@ -149,13 +149,18 @@ CREATE INDEX IF NOT EXISTS idx_columns_position ON columns(board_id, position);
 -- ==========================================
 CREATE TABLE IF NOT EXISTS milestones (
   id VARCHAR(255) PRIMARY KEY,
-  board_id VARCHAR(255) NOT NULL REFERENCES boards(board_id) ON DELETE CASCADE,
+  scope VARCHAR(20) NOT NULL CHECK(scope IN ('organization', 'project', 'board')),
+  scope_id VARCHAR(255) NOT NULL,  -- organization_id, project_id, or board_id
+  board_id VARCHAR(255) REFERENCES boards(board_id) ON DELETE CASCADE,  -- DEPRECATED: kept for backward compatibility
   name VARCHAR(255) NOT NULL,
   description TEXT,
-  due_date TIMESTAMP
+  due_date TIMESTAMP,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE INDEX IF NOT EXISTS idx_milestones_board ON milestones(board_id);
+CREATE INDEX IF NOT EXISTS idx_milestones_scope ON milestones(scope, scope_id);
 
 -- ==========================================
 -- 10. Cards Table
@@ -188,12 +193,17 @@ CREATE INDEX IF NOT EXISTS idx_cards_fulltext ON cards USING GIN (
 -- ==========================================
 CREATE TABLE IF NOT EXISTS labels (
   id VARCHAR(255) PRIMARY KEY,
-  board_id VARCHAR(255) NOT NULL REFERENCES boards(board_id) ON DELETE CASCADE,
+  scope VARCHAR(20) NOT NULL CHECK(scope IN ('organization', 'project', 'board')),
+  scope_id VARCHAR(255) NOT NULL,  -- organization_id, project_id, or board_id
+  board_id VARCHAR(255) REFERENCES boards(board_id) ON DELETE CASCADE,  -- DEPRECATED: kept for backward compatibility
   name VARCHAR(255) NOT NULL,
-  color VARCHAR(20) NOT NULL
+  color VARCHAR(20) NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE INDEX IF NOT EXISTS idx_labels_board ON labels(board_id);
+CREATE INDEX IF NOT EXISTS idx_labels_scope ON labels(scope, scope_id);
 
 -- ==========================================
 -- 12. Card Labels (Many-to-Many)
@@ -368,6 +378,12 @@ CREATE TRIGGER update_comments_updated_at BEFORE UPDATE ON comments
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 CREATE TRIGGER update_organizations_updated_at BEFORE UPDATE ON organizations
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_labels_updated_at BEFORE UPDATE ON labels
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_milestones_updated_at BEFORE UPDATE ON milestones
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 -- ==========================================

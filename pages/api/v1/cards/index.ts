@@ -9,7 +9,6 @@ import { ApiRequest } from '@/lib/api-v1/types';
 import { withErrorHandler } from '@/lib/api-v1/middleware/error-handler';
 import { requireAuth, requireProjectMember } from '@/lib/api-v1/middleware/auth';
 import {
-  sendSuccess,
   sendCreated,
   sendMethodNotAllowed,
   sendPaginated,
@@ -43,9 +42,9 @@ async function handler(req: ApiRequest, res: NextApiResponse) {
  */
 async function handleGet(req: ApiRequest, res: NextApiResponse) {
   const filters = validateQuery(req, cardFiltersSchema);
-  const { boards } = getRepositories();
+  const { cards } = getRepositories();
 
-  // projectId is required for now (future: could search across all accessible projects)
+  // projectId is required for now
   if (!filters.projectId) {
     return sendValidationError(
       res,
@@ -59,103 +58,50 @@ async function handleGet(req: ApiRequest, res: NextApiResponse) {
   const membershipCheck = await requireProjectMember(req, res, filters.projectId);
   if (!membershipCheck) return;
 
-  const board = boards.findByProjectId(filters.projectId);
-  if (!board) {
-    return sendSuccess(res, [], 200, req.requestId);
-  }
-
-  // Collect all cards from board
-  let allCards: any[] = [];
-  for (const column of board.columns) {
-    allCards = allCards.concat(
-      column.cards.map((card) => ({
-        ...card,
-        columnId: column.id,
-        columnTitle: column.title,
-      }))
-    );
-  }
-
-  // Apply filters
-  if (filters.columnId) {
-    allCards = allCards.filter((c) => c.columnId === filters.columnId);
-  }
-
-  if (filters.assignee) {
-    allCards = allCards.filter((c) => c.assignees?.includes(filters.assignee));
-  }
-
-  if (filters.priority) {
-    allCards = allCards.filter((c) => c.priority === filters.priority);
-  }
-
-  if (filters.search) {
-    const searchLower = filters.search.toLowerCase();
-    allCards = allCards.filter(
-      (c) =>
-        c.title.toLowerCase().includes(searchLower) ||
-        c.description?.toLowerCase().includes(searchLower)
-    );
-  }
-
-  if (filters.tags) {
-    const tagsArray = filters.tags.split(',').map((t) => t.trim());
-    allCards = allCards.filter((c) =>
-      c.tags?.some((tag: string) => tagsArray.includes(tag))
-    );
-  }
-
-  if (filters.dueDateFrom) {
-    const fromDate = new Date(filters.dueDateFrom);
-    allCards = allCards.filter((c) => c.dueDate && new Date(c.dueDate) >= fromDate);
-  }
-
-  if (filters.dueDateTo) {
-    const toDate = new Date(filters.dueDateTo);
-    allCards = allCards.filter((c) => c.dueDate && new Date(c.dueDate) <= toDate);
-  }
-
-  // Sorting
-  if (filters.sort) {
-    const [field, order] = filters.sort.startsWith('-')
-      ? [filters.sort.slice(1), 'desc']
-      : [filters.sort, 'asc'];
-
-    allCards.sort((a, b) => {
-      let aVal = (a as any)[field];
-      let bVal = (b as any)[field];
-
-      if (typeof aVal === 'string') {
-        aVal = aVal.toLowerCase();
-        bVal = bVal.toLowerCase();
+  // Prepare query options
+  const queryOptions = {
+    projectId: filters.projectId,
+    filters: {
+      status: filters.columnId ? [filters.columnId] : undefined, // Map columnId to status/column filter
+      priority: filters.priority ? [filters.priority] : undefined,
+      assignee: filters.assignee ? [filters.assignee] : undefined,
+      tags: filters.tags ? filters.tags.split(',').map(t => t.trim()) : undefined,
+      search: filters.search,
+      dueDate: {
+        gte: filters.dueDateFrom ? new Date(filters.dueDateFrom) : undefined,
+        lte: filters.dueDateTo ? new Date(filters.dueDateTo) : undefined,
       }
-
-      if (order === 'desc') {
-        return aVal < bVal ? 1 : aVal > bVal ? -1 : 0;
-      } else {
-        return aVal > bVal ? 1 : aVal < bVal ? -1 : 0;
-      }
-    });
-  }
-
-  // Pagination
-  const total = allCards.length;
-  const totalPages = Math.ceil(total / filters.pageSize);
-  const startIndex = (filters.page - 1) * filters.pageSize;
-  const endIndex = startIndex + filters.pageSize;
-  const paginatedCards = allCards.slice(startIndex, endIndex);
-
-  sendPaginated(
-    res,
-    {
-      items: paginatedCards,
-      total,
-      page: filters.page,
-      pageSize: filters.pageSize,
-      totalPages,
     },
-    req.requestId
-  );
+    sort: filters.sort ? [{
+      field: filters.sort.startsWith('-') ? filters.sort.slice(1) : filters.sort,
+      direction: (filters.sort.startsWith('-') ? 'desc' : 'asc') as 'asc' | 'desc'
+    }] : [],
+    pagination: {
+      page: filters.page,
+      pageSize: filters.pageSize
+    }
+  };
+
+  try {
+    const result = await cards.findAll(queryOptions);
+
+    sendPaginated(
+      res,
+      {
+        items: result.cards,
+        total: result.total,
+        page: filters.page,
+        pageSize: filters.pageSize,
+        totalPages: Math.ceil(result.total / filters.pageSize),
+      },
+      req.requestId
+    );
+  } catch (error) {
+    console.error('Failed to fetch cards:', error);
+    // Fallback or error response?
+    // For now, let the error handler catch it or send internal error
+    throw error;
+  }
 }
 
 /**
@@ -171,7 +117,9 @@ async function handlePost(req: ApiRequest, res: NextApiResponse) {
   if (!membershipCheck) return;
 
   // Get board and validate column
-  const board = boards.findByProjectId(data.projectId);
+  // Note: boards repo might still be SQLite, but we can use it for validation if it works.
+  // If boards repo is not migrated, findByProjectId might be sync.
+  const board = await boards.findByProjectId(data.projectId);
   if (!board) {
     return sendValidationError(
       res,
@@ -207,7 +155,7 @@ async function handlePost(req: ApiRequest, res: NextApiResponse) {
   }
 
   // Create card
-  const newCard = cards.create({
+  const newCard = await cards.create({
     columnId: data.columnId,
     title: data.title,
     description: data.description || '',

@@ -49,7 +49,7 @@ describe('BoardService', () => {
 
       expect(board.projectId).toBe('project_1');
       expect(board.columns).toHaveLength(5);
-      expect(board.columns[0].title).toBe('Backlog');
+      expect(board.columns[0]?.title).toBe('Backlog');
       expect(fs.writeFileSync).toHaveBeenCalled();
     });
   });

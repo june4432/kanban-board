@@ -12,7 +12,6 @@ import { deleteFile, fileExists, UPLOAD_DIR } from '@/lib/file-upload';
 import { NotFoundError, ValidationError, ForbiddenError } from '@/lib/errors';
 import { logEvent } from '@/lib/logger';
 import { AuditLogService } from '@/lib/services/audit-log.service';
-import { getDatabase } from '@/lib/database';
 import fs from 'fs';
 import path from 'path';
 
@@ -36,11 +35,10 @@ export default withErrorHandler(async (req: NextApiRequest, res: NextApiResponse
 
   const { session, projectId } = auth;
   const { attachments } = getRepositories();
-  const db = getDatabase();
-  const auditLogService = new AuditLogService(db);
+  const auditLogService = new AuditLogService();
 
   // 첨부파일 조회
-  const attachment = attachments.findById(attachmentId);
+  const attachment = await attachments.findById(attachmentId);
 
   if (!attachment) {
     throw new NotFoundError('Attachment');
@@ -85,7 +83,7 @@ export default withErrorHandler(async (req: NextApiRequest, res: NextApiResponse
     case 'DELETE': {
       // 삭제 권한 확인: 업로더 본인 또는 프로젝트 오너만
       const { projects } = getRepositories();
-      const project = projects.findById(projectId);
+      const project = await projects.findById(projectId);
 
       if (!project) {
         throw new NotFoundError('Project');
@@ -107,14 +105,14 @@ export default withErrorHandler(async (req: NextApiRequest, res: NextApiResponse
       }
 
       // DB에서 삭제
-      const deleted = attachments.delete(attachmentId);
+      const deleted = await attachments.delete(attachmentId);
 
       if (!deleted) {
         throw new NotFoundError('Attachment');
       }
 
       // 감사 로그 기록
-      auditLogService.log({
+      await auditLogService.log({
         userId: session.user.id,
         userName: session.user.name || 'Unknown',
         action: 'delete',

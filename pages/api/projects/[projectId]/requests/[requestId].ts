@@ -34,7 +34,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponseW
     }
 
     const { projects, users } = getRepositories();
-    const project = projects.findById(projectId);
+    const project = await projects.findById(projectId);
 
     if (!project) {
       return res.status(404).json({ error: 'Project not found' });
@@ -46,28 +46,26 @@ export default async function handler(req: NextApiRequest, res: NextApiResponseW
       return res.status(404).json({ error: 'Request not found' });
     }
 
-    let success;
-
-    if (action === 'approve') {
-      // 가입 신청 승인
-      success = projects.approveJoinRequest(requestId);
-    } else {
-      // 가입 신청 거부
-      success = projects.rejectJoinRequest(requestId);
-    }
-
-    if (!success) {
+    try {
+      if (action === 'approve') {
+        // 가입 신청 승인
+        await projects.acceptJoinRequest(requestId);
+      } else {
+        // 가입 신청 거부
+        await projects.rejectJoinRequest(requestId);
+      }
+    } catch (err) {
       return res.status(500).json({ error: 'Failed to process join request' });
     }
 
     // Get updated project
-    const updatedProject = projects.findById(projectId);
+    const updatedProject = await projects.findById(projectId);
     if (!updatedProject) {
       return res.status(404).json({ error: 'Project not found after update' });
     }
 
     // 사용자 정보 가져오기 (WebSocket 이벤트용)
-    const user = users.findById(request.userId);
+    const user = await users.findById(request.userId);
 
     // WebSocket으로 승인/거부 결과 전송 (전체 브로드캐스트)
     const socketRes = res as NextApiResponseWithSocket;

@@ -26,7 +26,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 async function handleGet(projectId: string, _req: NextApiRequest, res: NextApiResponse) {
   try {
     const { projects } = getRepositories();
-    const project = projects.findById(projectId);
+    const project = await projects.findById(projectId);
 
     if (!project) {
       return res.status(404).json({ error: 'Project not found' });
@@ -72,7 +72,7 @@ async function handlePatch(projectId: string, req: NextApiRequest, res: NextApiR
     if (slackEnabled !== undefined) updates.slackEnabled = slackEnabled;
 
     const { projects } = getRepositories();
-    const updatedProject = projects.update(projectId, updates);
+    const updatedProject = await projects.update(projectId, updates);
 
     res.status(200).json({ project: updatedProject });
   } catch (error) {
@@ -89,7 +89,7 @@ async function handleDelete(projectId: string, req: NextApiRequest, res: NextApi
     if (!session) return; // 이미 에러 응답 전송됨
 
     const { projects } = getRepositories();
-    const deleted = projects.delete(projectId);
+    const deleted = await projects.delete(projectId);
 
     if (!deleted) {
       return res.status(500).json({ error: 'Failed to delete project' });

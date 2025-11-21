@@ -29,6 +29,7 @@ const createOrganizationSchema = z.object({
     .optional(), // Make slug optional - will auto-generate from name if not provided
   description: validators.description,
   plan: z.enum(['free', 'pro', 'enterprise']).optional(),
+  companyId: z.string().uuid().optional(),
 });
 
 async function handler(req: ApiRequest, res: NextApiResponse) {
@@ -54,7 +55,7 @@ async function handleGet(req: ApiRequest, res: NextApiResponse) {
   }
 
   const { organizations } = getRepositories();
-  const userOrgs = organizations.findByUserId(req.user.id);
+  const userOrgs = await organizations.findByUserId(req.user.id);
 
   sendSuccess(res, userOrgs, 200, req.requestId);
 }
@@ -75,7 +76,7 @@ async function handlePost(req: ApiRequest, res: NextApiResponse) {
   const slug = data.slug || data.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 
   // Check if slug already exists
-  const existingOrg = organizations.findBySlug(slug);
+  const existingOrg = await organizations.findBySlug(slug);
   if (existingOrg) {
     return sendValidationError(
       res,
@@ -85,12 +86,13 @@ async function handlePost(req: ApiRequest, res: NextApiResponse) {
     );
   }
 
-  const newOrg = organizations.create({
+  const newOrg = await organizations.create({
     name: data.name,
     slug: slug,
     description: data.description,
     plan: data.plan || 'free',
     ownerId: req.user.id,
+    companyId: data.companyId,
   });
 
   sendCreated(res, newOrg, req.requestId);

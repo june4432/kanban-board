@@ -3,7 +3,7 @@
  * 프로젝트 진행률 및 통계 데이터 제공
  */
 
-import { Database } from 'better-sqlite3';
+import { DatabaseAdapter } from '../database-adapter';
 
 export interface DashboardStats {
   // 카드 통계
@@ -51,101 +51,117 @@ export interface DashboardStats {
 }
 
 export class DashboardService {
-  constructor(private db: Database) {}
+  private isPostgres: boolean;
+
+  constructor(private db: DatabaseAdapter) {
+    this.isPostgres = process.env.DATABASE_TYPE === 'postgres';
+  }
 
   /**
    * 프로젝트 대시보드 통계 조회
    */
-  getProjectDashboard(projectId: string): DashboardStats {
+  async getProjectDashboard(projectId: string): Promise<DashboardStats> {
+    const [cardStats, progress, teamActivity, recentActivity, trends] = await Promise.all([
+      this.getCardStats(projectId),
+      this.getProgress(projectId),
+      this.getTeamActivity(projectId),
+      this.getRecentActivity(projectId, 20),
+      this.getTrends(projectId, 30),
+    ]);
+
     return {
-      cardStats: this.getCardStats(projectId),
-      progress: this.getProgress(projectId),
-      teamActivity: this.getTeamActivity(projectId),
-      recentActivity: this.getRecentActivity(projectId, 20),
-      trends: this.getTrends(projectId, 30),
+      cardStats,
+      progress,
+      teamActivity,
+      recentActivity,
+      trends,
     };
   }
 
   /**
    * 카드 통계
    */
-  private getCardStats(projectId: string): DashboardStats['cardStats'] {
+  private async getCardStats(projectId: string): Promise<DashboardStats['cardStats']> {
     // 전체 카드 수
-    const totalStmt = this.db.prepare(`
+    const totalResult = await this.db.queryOne(`
       SELECT COUNT(*) as total
       FROM cards c
       JOIN columns col ON c.column_id = col.id
       JOIN boards b ON col.board_id = b.board_id
       WHERE b.project_id = ?
-    `);
-    const total = (totalStmt.get(projectId) as any).total;
+    `, [projectId]);
+    const total = Number(totalResult?.total || 0);
 
     // 컬럼별 카드 수
-    const byColumnStmt = this.db.prepare(`
+    const byColumnRows = await this.db.query(`
       SELECT col.title, COUNT(*) as count
       FROM cards c
       JOIN columns col ON c.column_id = col.id
       JOIN boards b ON col.board_id = b.board_id
       WHERE b.project_id = ?
       GROUP BY col.title
-    `);
-    const byColumnRows = byColumnStmt.all(projectId) as any[];
+    `, [projectId]);
+
     const byColumn: Record<string, number> = {};
-    byColumnRows.forEach(row => {
-      byColumn[row.title] = row.count;
+    byColumnRows.rows.forEach(row => {
+      byColumn[row.title] = Number(row.count);
     });
 
     // 우선순위별 카드 수
-    const byPriorityStmt = this.db.prepare(`
+    const byPriorityRows = await this.db.query(`
       SELECT c.priority, COUNT(*) as count
       FROM cards c
       JOIN columns col ON c.column_id = col.id
       JOIN boards b ON col.board_id = b.board_id
       WHERE b.project_id = ?
       GROUP BY c.priority
-    `);
-    const byPriorityRows = byPriorityStmt.all(projectId) as any[];
+    `, [projectId]);
+
     const byPriority: Record<string, number> = {};
-    byPriorityRows.forEach(row => {
-      byPriority[row.priority || 'medium'] = row.count;
+    byPriorityRows.rows.forEach(row => {
+      byPriority[row.priority || 'medium'] = Number(row.count);
     });
 
+    // 날짜 비교 구문
+    const now = this.isPostgres ? 'NOW()' : "datetime('now')";
+    const sevenDaysLater = this.isPostgres ? "NOW() + INTERVAL '7 days'" : "datetime('now', '+7 days')";
+
     // 기한 초과 카드
-    const overdueStmt = this.db.prepare(`
+    const overdueResult = await this.db.queryOne(`
       SELECT COUNT(*) as count
       FROM cards c
       JOIN columns col ON c.column_id = col.id
       JOIN boards b ON col.board_id = b.board_id
       WHERE b.project_id = ?
         AND c.due_date IS NOT NULL
-        AND c.due_date < datetime('now')
+        AND c.due_date < ${now}
         AND col.title NOT IN ('Done', 'Completed', '완료')
-    `);
-    const overdue = (overdueStmt.get(projectId) as any).count;
+    `, [projectId]);
+    const overdue = Number(overdueResult?.count || 0);
 
     // 곧 마감되는 카드 (7일 이내)
-    const dueSoonStmt = this.db.prepare(`
+    const dueSoonResult = await this.db.queryOne(`
       SELECT COUNT(*) as count
       FROM cards c
       JOIN columns col ON c.column_id = col.id
       JOIN boards b ON col.board_id = b.board_id
       WHERE b.project_id = ?
         AND c.due_date IS NOT NULL
-        AND c.due_date BETWEEN datetime('now') AND datetime('now', '+7 days')
+        AND c.due_date BETWEEN ${now} AND ${sevenDaysLater}
         AND col.title NOT IN ('Done', 'Completed', '완료')
-    `);
-    const dueSoon = (dueSoonStmt.get(projectId) as any).count;
+    `, [projectId]);
+    const dueSoon = Number(dueSoonResult?.count || 0);
 
     // 완료된 카드 (Done, Completed, 완료 컬럼)
-    const completedStmt = this.db.prepare(`
+    const completedResult = await this.db.queryOne(`
       SELECT COUNT(*) as count
       FROM cards c
       JOIN columns col ON c.column_id = col.id
       JOIN boards b ON col.board_id = b.board_id
       WHERE b.project_id = ?
         AND col.title IN ('Done', 'Completed', '완료')
-    `);
-    const completed = (completedStmt.get(projectId) as any).count;
+    `, [projectId]);
+    const completed = Number(completedResult?.count || 0);
 
     return {
       total,
@@ -160,8 +176,8 @@ export class DashboardService {
   /**
    * 프로젝트 진행률
    */
-  private getProgress(projectId: string): DashboardStats['progress'] {
-    const stmt = this.db.prepare(`
+  private async getProgress(projectId: string): Promise<DashboardStats['progress']> {
+    const result = await this.db.queryOne(`
       SELECT
         COUNT(*) as total,
         SUM(CASE WHEN col.title IN ('Done', 'Completed', '완료') THEN 1 ELSE 0 END) as completed
@@ -169,11 +185,10 @@ export class DashboardService {
       JOIN columns col ON c.column_id = col.id
       JOIN boards b ON col.board_id = b.board_id
       WHERE b.project_id = ?
-    `);
+    `, [projectId]);
 
-    const result = stmt.get(projectId) as any;
-    const totalCards = result.total || 0;
-    const completedCards = result.completed || 0;
+    const totalCards = Number(result?.total || 0);
+    const completedCards = Number(result?.completed || 0);
     const percentage = totalCards > 0 ? Math.round((completedCards / totalCards) * 100) : 0;
 
     return {
@@ -186,8 +201,8 @@ export class DashboardService {
   /**
    * 팀 활동 통계
    */
-  private getTeamActivity(projectId: string): DashboardStats['teamActivity'] {
-    const stmt = this.db.prepare(`
+  private async getTeamActivity(projectId: string): Promise<DashboardStats['teamActivity']> {
+    const result = await this.db.query(`
       SELECT
         u.id as user_id,
         u.name as user_name,
@@ -210,24 +225,22 @@ export class DashboardService {
       WHERE pm.project_id = ?
       GROUP BY u.id, u.name
       ORDER BY cards_assigned DESC
-    `);
+    `, [projectId, projectId, projectId]);
 
-    const rows = stmt.all(projectId, projectId, projectId) as any[];
-
-    return rows.map(row => ({
+    return result.rows.map(row => ({
       userId: row.user_id,
       userName: row.user_name,
-      cardsAssigned: row.cards_assigned || 0,
-      cardsCompleted: row.cards_completed || 0,
-      commentsCount: row.comments_count || 0,
+      cardsAssigned: Number(row.cards_assigned || 0),
+      cardsCompleted: Number(row.cards_completed || 0),
+      commentsCount: Number(row.comments_count || 0),
     }));
   }
 
   /**
    * 최근 활동 (감사 로그 기반)
    */
-  private getRecentActivity(projectId: string, limit: number = 20): DashboardStats['recentActivity'] {
-    const stmt = this.db.prepare(`
+  private async getRecentActivity(projectId: string, limit: number = 20): Promise<DashboardStats['recentActivity']> {
+    const result = await this.db.query(`
       SELECT
         action,
         user_name,
@@ -238,11 +251,9 @@ export class DashboardService {
       WHERE project_id = ?
       ORDER BY created_at DESC
       LIMIT ?
-    `);
+    `, [projectId, limit]);
 
-    const rows = stmt.all(projectId, limit) as any[];
-
-    return rows.map(row => ({
+    return result.rows.map(row => ({
       action: row.action,
       userName: row.user_name,
       resourceType: row.resource_type,
@@ -254,57 +265,106 @@ export class DashboardService {
   /**
    * 시간별 추세 (최근 N일)
    */
-  private getTrends(projectId: string, days: number = 30): DashboardStats['trends'] {
-    const stmt = this.db.prepare(`
-      WITH RECURSIVE dates(date) AS (
-        SELECT date('now', '-' || ? || ' days')
-        UNION ALL
-        SELECT date(date, '+1 day')
+  private async getTrends(projectId: string, days: number = 30): Promise<DashboardStats['trends']> {
+    let sql: string;
+
+    if (this.isPostgres) {
+      // PostgreSQL Query
+      sql = `
+        WITH RECURSIVE dates(date) AS (
+          SELECT CURRENT_DATE - ($1 || ' days')::interval
+          UNION ALL
+          SELECT date + INTERVAL '1 day'
+          FROM dates
+          WHERE date < CURRENT_DATE
+        )
+        SELECT
+          to_char(dates.date, 'YYYY-MM-DD') as date,
+          COALESCE(created.count, 0) as cards_created,
+          COALESCE(completed.count, 0) as cards_completed,
+          COALESCE(active.count, 0) as cards_active
         FROM dates
-        WHERE date < date('now')
-      )
-      SELECT
-        dates.date,
-        COALESCE(created.count, 0) as cards_created,
-        COALESCE(completed.count, 0) as cards_completed,
-        COALESCE(active.count, 0) as cards_active
-      FROM dates
-      LEFT JOIN (
-        SELECT date(c.created_at) as date, COUNT(*) as count
-        FROM cards c
-        JOIN columns col ON c.column_id = col.id
-        JOIN boards b ON col.board_id = b.board_id
-        WHERE b.project_id = ?
-        GROUP BY date(c.created_at)
-      ) created ON dates.date = created.date
-      LEFT JOIN (
-        SELECT date(al.created_at) as date, COUNT(*) as count
-        FROM audit_logs al
-        WHERE al.project_id = ?
-          AND al.resource_type = 'card'
-          AND al.action = 'update'
-          AND al.changes LIKE '%Done%'
-        GROUP BY date(al.created_at)
-      ) completed ON dates.date = completed.date
-      LEFT JOIN (
-        SELECT date(c.updated_at) as date, COUNT(*) as count
-        FROM cards c
-        JOIN columns col ON c.column_id = col.id
-        JOIN boards b ON col.board_id = b.board_id
-        WHERE b.project_id = ?
-          AND col.title NOT IN ('Done', 'Completed', '완료')
-        GROUP BY date(c.updated_at)
-      ) active ON dates.date = active.date
-      ORDER BY dates.date
-    `);
+        LEFT JOIN (
+          SELECT date(c.created_at) as date, COUNT(*) as count
+          FROM cards c
+          JOIN columns col ON c.column_id = col.id
+          JOIN boards b ON col.board_id = b.board_id
+          WHERE b.project_id = $2
+          GROUP BY date(c.created_at)
+        ) created ON date(dates.date) = created.date
+        LEFT JOIN (
+          SELECT date(al.created_at) as date, COUNT(*) as count
+          FROM audit_logs al
+          WHERE al.project_id = $3
+            AND al.resource_type = 'card'
+            AND al.action = 'update'
+            AND al.changes LIKE '%Done%'
+          GROUP BY date(al.created_at)
+        ) completed ON date(dates.date) = completed.date
+        LEFT JOIN (
+          SELECT date(c.updated_at) as date, COUNT(*) as count
+          FROM cards c
+          JOIN columns col ON c.column_id = col.id
+          JOIN boards b ON col.board_id = b.board_id
+          WHERE b.project_id = $4
+            AND col.title NOT IN ('Done', 'Completed', '완료')
+          GROUP BY date(c.updated_at)
+        ) active ON date(dates.date) = active.date
+        ORDER BY dates.date
+      `;
+    } else {
+      // SQLite Query
+      sql = `
+        WITH RECURSIVE dates(date) AS (
+          SELECT date('now', '-' || ? || ' days')
+          UNION ALL
+          SELECT date(date, '+1 day')
+          FROM dates
+          WHERE date < date('now')
+        )
+        SELECT
+          dates.date,
+          COALESCE(created.count, 0) as cards_created,
+          COALESCE(completed.count, 0) as cards_completed,
+          COALESCE(active.count, 0) as cards_active
+        FROM dates
+        LEFT JOIN (
+          SELECT date(c.created_at) as date, COUNT(*) as count
+          FROM cards c
+          JOIN columns col ON c.column_id = col.id
+          JOIN boards b ON col.board_id = b.board_id
+          WHERE b.project_id = ?
+          GROUP BY date(c.created_at)
+        ) created ON dates.date = created.date
+        LEFT JOIN (
+          SELECT date(al.created_at) as date, COUNT(*) as count
+          FROM audit_logs al
+          WHERE al.project_id = ?
+            AND al.resource_type = 'card'
+            AND al.action = 'update'
+            AND al.changes LIKE '%Done%'
+          GROUP BY date(al.created_at)
+        ) completed ON dates.date = completed.date
+        LEFT JOIN (
+          SELECT date(c.updated_at) as date, COUNT(*) as count
+          FROM cards c
+          JOIN columns col ON c.column_id = col.id
+          JOIN boards b ON col.board_id = b.board_id
+          WHERE b.project_id = ?
+            AND col.title NOT IN ('Done', 'Completed', '완료')
+          GROUP BY date(c.updated_at)
+        ) active ON dates.date = active.date
+        ORDER BY dates.date
+      `;
+    }
 
-    const rows = stmt.all(days, projectId, projectId, projectId) as any[];
+    const result = await this.db.query(sql, [days, projectId, projectId, projectId]);
 
-    return rows.map(row => ({
+    return result.rows.map(row => ({
       date: row.date,
-      cardsCreated: row.cards_created,
-      cardsCompleted: row.cards_completed,
-      cardsActive: row.cards_active,
+      cardsCreated: Number(row.cards_created || 0),
+      cardsCompleted: Number(row.cards_completed || 0),
+      cardsActive: Number(row.cards_active || 0),
     }));
   }
 }

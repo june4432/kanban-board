@@ -33,7 +33,7 @@ async function testConnection() {
 
   try {
     console.log('\n🔌 Testing connection...');
-    const pool = getPool();
+    getPool();
     console.log('\n✅ Pool created successfully');
 
     console.log('\n🏥 Running health check...');

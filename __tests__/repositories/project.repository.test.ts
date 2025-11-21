@@ -1,26 +1,15 @@
-import Database from 'better-sqlite3';
 import { ProjectRepository } from '@/lib/repositories/project.repository';
 import { UserRepository } from '@/lib/repositories/user.repository';
-import fs from 'fs';
-import path from 'path';
 
+// Note: These tests require PostgreSQL connection
 describe('ProjectRepository', () => {
-  let db: Database.Database;
   let projectRepo: ProjectRepository;
   let userRepo: UserRepository;
   let testOwnerId: string;
 
   beforeEach(async () => {
-    // Create in-memory database for each test
-    db = new Database(':memory:');
-
-    // Initialize schema
-    const schemaPath = path.join(process.cwd(), 'lib', 'schema.sql');
-    const schema = fs.readFileSync(schemaPath, 'utf-8');
-    db.exec(schema);
-
-    projectRepo = new ProjectRepository(db);
-    userRepo = new UserRepository(db);
+    projectRepo = new ProjectRepository();
+    userRepo = new UserRepository();
 
     // Create a test owner
     const owner = await userRepo.create({
@@ -31,13 +20,9 @@ describe('ProjectRepository', () => {
     testOwnerId = owner.id;
   });
 
-  afterEach(() => {
-    db.close();
-  });
-
   describe('create', () => {
-    it('should create a project with default board and columns', () => {
-      const project = projectRepo.create({
+    it('should create a project with default board and columns', async () => {
+      const project = await projectRepo.create({
         name: 'Test Project',
         description: 'Test Description',
         ownerId: testOwnerId,
@@ -55,9 +40,9 @@ describe('ProjectRepository', () => {
       expect(project.members[0].id).toBe(testOwnerId);
     });
 
-    it('should preserve custom projectId', () => {
+    it('should preserve custom projectId', async () => {
       const customId = 'custom-project-id';
-      const project = projectRepo.create({
+      const project = await projectRepo.create({
         projectId: customId,
         name: 'Test Project',
         ownerId: testOwnerId,
@@ -66,46 +51,46 @@ describe('ProjectRepository', () => {
       expect(project.projectId).toBe(customId);
     });
 
-    it('should create default board with 4 columns', () => {
-      const project = projectRepo.create({
+    it('should create default board with 4 columns', async () => {
+      const project = await projectRepo.create({
         name: 'Test Project',
         ownerId: testOwnerId,
       });
 
       // Verify board exists by checking if we can find the project
-      const found = projectRepo.findById(project.projectId);
+      const found = await projectRepo.findById(project.projectId);
       expect(found).toBeDefined();
     });
   });
 
   describe('findById', () => {
-    it('should find project by ID', () => {
-      const created = projectRepo.create({
+    it('should find project by ID', async () => {
+      const created = await projectRepo.create({
         name: 'Test Project',
         ownerId: testOwnerId,
       });
 
-      const found = projectRepo.findById(created.projectId);
+      const found = await projectRepo.findById(created.projectId);
 
       expect(found).toBeDefined();
       expect(found?.projectId).toBe(created.projectId);
       expect(found?.name).toBe('Test Project');
     });
 
-    it('should return null for non-existent project', () => {
-      const found = projectRepo.findById('non-existent');
+    it('should return null for non-existent project', async () => {
+      const found = await projectRepo.findById('non-existent');
       expect(found).toBeNull();
     });
   });
 
   describe('findByUserId', () => {
-    it('should find projects owned by user', () => {
-      projectRepo.create({
+    it('should find projects owned by user', async () => {
+      await projectRepo.create({
         name: 'My Project',
         ownerId: testOwnerId,
       });
 
-      const projects = projectRepo.findByUserId(testOwnerId);
+      const projects = await projectRepo.findByUserId(testOwnerId);
 
       expect(projects).toHaveLength(1);
       expect(projects[0].name).toBe('My Project');
@@ -118,14 +103,14 @@ describe('ProjectRepository', () => {
         password: 'password123',
       });
 
-      const project = projectRepo.create({
+      const project = await projectRepo.create({
         name: 'Team Project',
         ownerId: testOwnerId,
       });
 
-      projectRepo.addMember(project.projectId, member.id, 'member');
+      await projectRepo.addMember(project.projectId, member.id, 'member');
 
-      const projects = projectRepo.findByUserId(member.id);
+      const projects = await projectRepo.findByUserId(member.id);
 
       expect(projects).toHaveLength(1);
       expect(projects[0].projectId).toBe(project.projectId);
@@ -133,22 +118,22 @@ describe('ProjectRepository', () => {
   });
 
   describe('findPublicProjects', () => {
-    it('should return only public projects', () => {
-      projectRepo.create({
+    it('should return only public projects', async () => {
+      await projectRepo.create({
         projectId: 'public-project-1',
         name: 'Public Project',
         ownerId: testOwnerId,
         isPublic: true,
       });
 
-      projectRepo.create({
+      await projectRepo.create({
         projectId: 'private-project-1',
         name: 'Private Project',
         ownerId: testOwnerId,
         isPublic: false,
       });
 
-      const projects = projectRepo.findPublicProjects();
+      const projects = await projectRepo.findPublicProjects();
 
       expect(projects).toHaveLength(1);
       expect(projects[0].name).toBe('Public Project');
@@ -157,13 +142,13 @@ describe('ProjectRepository', () => {
   });
 
   describe('update', () => {
-    it('should update project fields', () => {
-      const project = projectRepo.create({
+    it('should update project fields', async () => {
+      const project = await projectRepo.create({
         name: 'Original Name',
         ownerId: testOwnerId,
       });
 
-      const updated = projectRepo.update(project.projectId, {
+      const updated = await projectRepo.update(project.projectId, {
         name: 'Updated Name',
         description: 'Updated Description',
         isPublic: true,
@@ -183,16 +168,16 @@ describe('ProjectRepository', () => {
         password: 'password123',
       });
 
-      const project = projectRepo.create({
+      const project = await projectRepo.create({
         name: 'Test Project',
         ownerId: testOwnerId,
       });
 
-      const added = projectRepo.addMember(project.projectId, member.id, 'member');
+      const added = await projectRepo.addMember(project.projectId, member.id, 'member');
 
       expect(added).toBe(true);
 
-      const found = projectRepo.findById(project.projectId);
+      const found = await projectRepo.findById(project.projectId);
       expect(found?.members).toHaveLength(2); // Owner + New Member
     });
 
@@ -203,13 +188,13 @@ describe('ProjectRepository', () => {
         password: 'password123',
       });
 
-      const project = projectRepo.create({
+      const project = await projectRepo.create({
         name: 'Test Project',
         ownerId: testOwnerId,
       });
 
-      projectRepo.addMember(project.projectId, member.id, 'member');
-      const added = projectRepo.addMember(project.projectId, member.id, 'member');
+      await projectRepo.addMember(project.projectId, member.id, 'member');
+      const added = await projectRepo.addMember(project.projectId, member.id, 'member');
 
       expect(added).toBe(false);
     });
@@ -223,29 +208,29 @@ describe('ProjectRepository', () => {
         password: 'password123',
       });
 
-      const project = projectRepo.create({
+      const project = await projectRepo.create({
         name: 'Test Project',
         ownerId: testOwnerId,
       });
 
-      projectRepo.addMember(project.projectId, member.id, 'member');
-      const removed = projectRepo.removeMember(project.projectId, member.id);
+      await projectRepo.addMember(project.projectId, member.id, 'member');
+      const removed = await projectRepo.removeMember(project.projectId, member.id);
 
       expect(removed).toBe(true);
 
-      const found = projectRepo.findById(project.projectId);
+      const found = await projectRepo.findById(project.projectId);
       expect(found?.members).toHaveLength(1); // Only owner remains
     });
   });
 
   describe('isMember', () => {
-    it('should return true for project member', () => {
-      const project = projectRepo.create({
+    it('should return true for project member', async () => {
+      const project = await projectRepo.create({
         name: 'Test Project',
         ownerId: testOwnerId,
       });
 
-      const isMember = projectRepo.isMember(project.projectId, testOwnerId);
+      const isMember = await projectRepo.isMember(project.projectId, testOwnerId);
 
       expect(isMember).toBe(true);
     });
@@ -257,12 +242,12 @@ describe('ProjectRepository', () => {
         password: 'password123',
       });
 
-      const project = projectRepo.create({
+      const project = await projectRepo.create({
         name: 'Test Project',
         ownerId: testOwnerId,
       });
 
-      const isMember = projectRepo.isMember(project.projectId, nonMember.id);
+      const isMember = await projectRepo.isMember(project.projectId, nonMember.id);
 
       expect(isMember).toBe(false);
     });

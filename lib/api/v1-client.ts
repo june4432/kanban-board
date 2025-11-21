@@ -190,6 +190,8 @@ class ApiClient {
       description?: string;
       color?: string;
       isPublic?: boolean;
+      organizationId?: string;
+      companyId?: string;
     }): Promise<ApiResponse<Project>> => {
       return this.request<Project>('/projects', {
         method: 'POST',

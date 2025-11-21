@@ -8,7 +8,6 @@ import { NextApiRequest, NextApiResponse } from 'next';
 import { withErrorHandler } from '@/lib/error-handler';
 import { requireAuth } from '@/lib/auth-helpers';
 import { CommentRepository } from '@/lib/repositories/comment.repository';
-import { getDatabase } from '@/lib/database';
 import { commentUpdateSchema, validate } from '@/lib/validation';
 import { logEvent } from '@/lib/logger';
 import { ValidationError, NotFoundError, ForbiddenError } from '@/lib/errors';
@@ -28,11 +27,10 @@ export default withErrorHandler(async (req: NextApiRequest, res: NextApiResponse
   const session = await requireAuth(req, res);
   if (!session) return;
 
-  const db = getDatabase();
-  const commentRepo = new CommentRepository(db);
+  const commentRepo = new CommentRepository();
 
   // 댓글 조회
-  const comment = commentRepo.findById(commentId);
+  const comment = await commentRepo.findById(commentId);
   if (!comment) {
     throw new NotFoundError('Comment');
   }
@@ -46,7 +44,7 @@ export default withErrorHandler(async (req: NextApiRequest, res: NextApiResponse
     // 댓글 수정
     const validatedData = validate(commentUpdateSchema, req.body);
 
-    const updatedComment = commentRepo.update(commentId, validatedData.content);
+    const updatedComment = await commentRepo.update(commentId, validatedData.content);
 
     if (!updatedComment) {
       throw new NotFoundError('Comment');
@@ -73,7 +71,7 @@ export default withErrorHandler(async (req: NextApiRequest, res: NextApiResponse
 
   if (req.method === 'DELETE') {
     // 댓글 삭제 (Soft delete)
-    const deleted = commentRepo.softDelete(commentId);
+    const deleted = await commentRepo.softDelete(commentId);
 
     if (!deleted) {
       throw new NotFoundError('Comment');

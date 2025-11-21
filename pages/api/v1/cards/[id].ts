@@ -49,7 +49,7 @@ async function handleGet(req: ApiRequest, res: NextApiResponse, cardId: string) 
   if (!accessCheck) return;
 
   const { cards } = getRepositories();
-  const card = cards.findById(cardId);
+  const card = await cards.findById(cardId);
 
   if (!card) {
     return sendNotFound(res, 'Card', req.requestId);
@@ -75,7 +75,7 @@ async function handlePatch(req: ApiRequest, res: NextApiResponse, cardId: string
     dueDate: updates.dueDate ? new Date(updates.dueDate) : undefined,
   };
 
-  const updatedCard = cards.update(cardId, updatesWithDates);
+  const updatedCard = await cards.update(cardId, updatesWithDates);
 
   if (!updatedCard) {
     return sendNotFound(res, 'Card', req.requestId);
@@ -93,7 +93,7 @@ async function handleDelete(req: ApiRequest, res: NextApiResponse, cardId: strin
   if (!accessCheck) return;
 
   const { cards } = getRepositories();
-  const deleted = cards.delete(cardId);
+  const deleted = await cards.delete(cardId);
 
   if (!deleted) {
     return sendNotFound(res, 'Card', req.requestId);

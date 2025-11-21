@@ -39,7 +39,7 @@ async function handler(req: ApiRequest, res: NextApiResponse) {
   const { organizations } = getRepositories();
 
   // Check if user is admin or owner
-  const userRole = organizations.getUserRole(orgId, req.user.id);
+  const userRole = await organizations.getUserRole(orgId, req.user.id);
   if (!['owner', 'admin'].includes(userRole || '')) {
     return sendForbidden(
       res,
@@ -51,13 +51,13 @@ async function handler(req: ApiRequest, res: NextApiResponse) {
   const data = validateBody(req, approveRequestSchema);
 
   // Approve the request
-  const approved = organizations.approveJoinRequest(requestId, data.role);
+  const approved = await organizations.approveJoinRequest(requestId, data.role);
 
   if (!approved) {
     return sendNotFound(res, 'Join request', req.requestId);
   }
 
-  const request = organizations.getJoinRequest(requestId);
+  const request = await organizations.getJoinRequest(requestId);
   sendSuccess(res, request, 200, req.requestId);
 }
 

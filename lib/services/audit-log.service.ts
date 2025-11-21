@@ -8,8 +8,8 @@
  * - 어떻게 변경했는지 (action, changes)
  */
 
-import { Database } from 'better-sqlite3';
 import { v4 as uuidv4 } from 'uuid';
+import { query, queryOne, queryAll } from '@/lib/postgres';
 
 export interface AuditLogEntry {
   userId: string;
@@ -35,23 +35,21 @@ export interface AuditLog extends AuditLogEntry {
 }
 
 export class AuditLogService {
-  constructor(private db: Database) {}
+  constructor() { }
 
   /**
    * 감사 로그 기록
    */
-  log(entry: AuditLogEntry): void {
+  async log(entry: AuditLogEntry): Promise<void> {
     const id = uuidv4();
 
-    const stmt = this.db.prepare(`
+    await query(`
       INSERT INTO audit_logs (
         id, user_id, user_name, action, resource_type, resource_id,
         project_id, changes, ip_address, user_agent
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `);
-
-    stmt.run(
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+    `, [
       id,
       entry.userId,
       entry.userName,
@@ -62,127 +60,122 @@ export class AuditLogService {
       entry.changes ? JSON.stringify(entry.changes) : null,
       entry.ipAddress || null,
       entry.userAgent || null
-    );
+    ]);
   }
 
   /**
    * 프로젝트의 감사 로그 조회
    */
-  getProjectLogs(projectId: string, limit: number = 50, offset: number = 0): AuditLog[] {
-    const stmt = this.db.prepare(`
+  async getProjectLogs(projectId: string, limit: number = 50, offset: number = 0): Promise<AuditLog[]> {
+    const rows = await queryAll(`
       SELECT * FROM audit_logs
-      WHERE project_id = ?
+      WHERE project_id = $1
       ORDER BY created_at DESC
-      LIMIT ? OFFSET ?
-    `);
+      LIMIT $2 OFFSET $3
+    `, [projectId, limit, offset]);
 
-    const rows = stmt.all(projectId, limit, offset) as any[];
-    return rows.map(row => this.mapRowToAuditLog(row));
+    return rows.map((row: any) => this.mapRowToAuditLog(row));
   }
 
   /**
    * 특정 리소스의 히스토리 조회
    */
-  getResourceHistory(resourceType: string, resourceId: string): AuditLog[] {
-    const stmt = this.db.prepare(`
+  async getResourceHistory(resourceType: string, resourceId: string): Promise<AuditLog[]> {
+    const rows = await queryAll(`
       SELECT * FROM audit_logs
-      WHERE resource_type = ? AND resource_id = ?
+      WHERE resource_type = $1 AND resource_id = $2
       ORDER BY created_at DESC
-    `);
+    `, [resourceType, resourceId]);
 
-    const rows = stmt.all(resourceType, resourceId) as any[];
-    return rows.map(row => this.mapRowToAuditLog(row));
+    return rows.map((row: any) => this.mapRowToAuditLog(row));
   }
 
   /**
    * 사용자의 활동 로그 조회
    */
-  getUserActivity(userId: string, limit: number = 50): AuditLog[] {
-    const stmt = this.db.prepare(`
+  async getUserActivity(userId: string, limit: number = 50): Promise<AuditLog[]> {
+    const rows = await queryAll(`
       SELECT * FROM audit_logs
-      WHERE user_id = ?
+      WHERE user_id = $1
       ORDER BY created_at DESC
-      LIMIT ?
-    `);
+      LIMIT $2
+    `, [userId, limit]);
 
-    const rows = stmt.all(userId, limit) as any[];
-    return rows.map(row => this.mapRowToAuditLog(row));
+    return rows.map((row: any) => this.mapRowToAuditLog(row));
   }
 
   /**
    * 특정 기간의 로그 조회
    */
-  getLogsByDateRange(startDate: Date, endDate: Date, projectId?: string): AuditLog[] {
-    let query = `
+  async getLogsByDateRange(startDate: Date, endDate: Date, projectId?: string): Promise<AuditLog[]> {
+    let sql = `
       SELECT * FROM audit_logs
-      WHERE created_at BETWEEN ? AND ?
+      WHERE created_at BETWEEN $1 AND $2
     `;
     const params: any[] = [startDate.toISOString(), endDate.toISOString()];
 
     if (projectId) {
-      query += ` AND project_id = ?`;
+      sql += ` AND project_id = $3`;
       params.push(projectId);
     }
 
-    query += ` ORDER BY created_at DESC`;
+    sql += ` ORDER BY created_at DESC`;
 
-    const stmt = this.db.prepare(query);
-    const rows = stmt.all(...params) as any[];
-    return rows.map(row => this.mapRowToAuditLog(row));
+    const rows = await queryAll(sql, params);
+    return rows.map((row: any) => this.mapRowToAuditLog(row));
   }
 
   /**
    * 감사 로그 통계
    */
-  getStatistics(projectId: string, days: number = 30): {
+  async getStatistics(projectId: string, days: number = 30): Promise<{
     totalActions: number;
     actionsByType: Record<string, number>;
     actionsByUser: Record<string, number>;
     recentActivity: AuditLog[];
-  } {
+  }> {
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - days);
 
     // 총 액션 수
-    const totalStmt = this.db.prepare(`
+    const totalResult = await queryOne(`
       SELECT COUNT(*) as count
       FROM audit_logs
-      WHERE project_id = ? AND created_at >= ?
-    `);
-    const totalResult = totalStmt.get(projectId, startDate.toISOString()) as any;
+      WHERE project_id = $1 AND created_at >= $2
+    `, [projectId, startDate.toISOString()]);
 
     // 액션 타입별 통계
-    const actionTypeStmt = this.db.prepare(`
+    const actionTypeRows = await queryAll(`
       SELECT action, COUNT(*) as count
       FROM audit_logs
-      WHERE project_id = ? AND created_at >= ?
+      WHERE project_id = $1 AND created_at >= $2
       GROUP BY action
-    `);
-    const actionTypeRows = actionTypeStmt.all(projectId, startDate.toISOString()) as any[];
+    `, [projectId, startDate.toISOString()]);
+
     const actionsByType: Record<string, number> = {};
-    actionTypeRows.forEach(row => {
-      actionsByType[row.action] = row.count;
+    actionTypeRows.forEach((row: any) => {
+      actionsByType[row.action] = parseInt(row.count);
     });
 
     // 사용자별 통계
-    const userStmt = this.db.prepare(`
+    const userRows = await queryAll(`
       SELECT user_name, COUNT(*) as count
       FROM audit_logs
-      WHERE project_id = ? AND created_at >= ?
+      WHERE project_id = $1 AND created_at >= $2
       GROUP BY user_id, user_name
       ORDER BY count DESC
-    `);
-    const userRows = userStmt.all(projectId, startDate.toISOString()) as any[];
+    `, [projectId, startDate.toISOString()]);
+
     const actionsByUser: Record<string, number> = {};
-    userRows.forEach(row => {
-      actionsByUser[row.user_name] = row.count;
+    userRows.forEach((row: any) => {
+      actionsByUser[row.user_name] = parseInt(row.count);
     });
 
     // 최근 활동
-    const recentActivity = this.getProjectLogs(projectId, 10);
+    const recentActivity = await this.getProjectLogs(projectId, 10);
 
     return {
-      totalActions: totalResult.count,
+      totalActions: parseInt(totalResult?.count || '0'),
       actionsByType,
       actionsByUser,
       recentActivity,
@@ -192,17 +185,16 @@ export class AuditLogService {
   /**
    * 오래된 로그 삭제 (데이터 보관 정책)
    */
-  deleteOldLogs(daysToKeep: number = 365): number {
+  async deleteOldLogs(daysToKeep: number = 365): Promise<number> {
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - daysToKeep);
 
-    const stmt = this.db.prepare(`
+    const result = await query(`
       DELETE FROM audit_logs
-      WHERE created_at < ?
-    `);
+      WHERE created_at < $1
+    `, [cutoffDate.toISOString()]);
 
-    const result = stmt.run(cutoffDate.toISOString());
-    return result.changes;
+    return (result as any).rowCount || 0;
   }
 
   /**

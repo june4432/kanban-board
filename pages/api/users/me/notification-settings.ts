@@ -26,7 +26,7 @@ export default withErrorHandler(async (req: NextApiRequest, res: NextApiResponse
   switch (req.method) {
     case 'GET': {
       // 전역 알림 설정 조회
-      const settings = notificationSettings.getGlobalSettings(session.user.id);
+      const settings = await notificationSettings.getGlobalSettings(session.user.id);
 
       return res.status(200).json({ settings });
     }
@@ -35,7 +35,7 @@ export default withErrorHandler(async (req: NextApiRequest, res: NextApiResponse
       // 전역 알림 설정 업데이트
       const validatedInput = validate(notificationSettingsSchema, req.body);
 
-      const updatedSettings = notificationSettings.updateGlobalSettings(
+      const updatedSettings = await notificationSettings.updateGlobalSettings(
         session.user.id,
         validatedInput
       );

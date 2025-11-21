@@ -21,6 +21,7 @@ const CreateMilestoneSchema = z.object({
     return /^\d{4}-\d{2}-\d{2}(T.*)?$/.test(val) && !isNaN(Date.parse(val));
   }, 'Invalid date format (must be YYYY-MM-DD or ISO 8601 datetime)'),
   description: z.string().max(500, 'Description is too long').optional(),
+  scope: z.enum(['organization', 'project', 'board']).optional().default('board'),
 });
 
 async function handler(req: ApiRequest, res: NextApiResponse) {
@@ -53,11 +54,36 @@ async function handlePost(req: ApiRequest, res: NextApiResponse, projectId: stri
   // Validate request body
   const body = validateBody(req, CreateMilestoneSchema);
 
-  const { boards } = getRepositories();
+  const { boards, projects } = getRepositories();
 
-  // Get current board
-  const board = boards.findByProjectId(projectId);
+  // Determine scope and scope_id based on the scope parameter
+  let scopeId: string;
+  // Map 'board' to 'project' for backward compatibility
+  const scope: 'company' | 'organization' | 'project' =
+    (body.scope === 'board' || !body.scope) ? 'project' :
+    (body.scope as 'company' | 'organization' | 'project');
 
+  if (scope === 'organization') {
+    // Get organization_id from project
+    const project = await projects.findById(projectId);
+    if (!project || !project.organizationId) {
+      return sendError(
+        res,
+        ApiErrorCode.NOT_FOUND,
+        'Organization not found for this project',
+        404,
+        undefined,
+        req.requestId
+      );
+    }
+    scopeId = project.organizationId;
+  } else {
+    // scope === 'project' or 'company' - use project ID
+    scopeId = projectId;
+  }
+
+  // Get current board for checking existing milestones
+  const board = await boards.findByProjectId(projectId);
   if (!board) {
     return sendError(
       res,
@@ -69,7 +95,7 @@ async function handlePost(req: ApiRequest, res: NextApiResponse, projectId: stri
     );
   }
 
-  // Check if milestone with same name already exists
+  // Check if milestone with same name already exists in this scope
   const existingMilestone = board.milestones?.find(
     (m) => m.name.toLowerCase() === body.name.toLowerCase()
   );
@@ -86,11 +112,12 @@ async function handlePost(req: ApiRequest, res: NextApiResponse, projectId: stri
     );
   }
 
-  // Create new milestone
-  const newMilestone = boards.createMilestone(board.boardId, {
+  // Create new milestone with scope
+  const newMilestone = await boards.createMilestone(scopeId, {
     name: body.name,
     dueDate: new Date(body.dueDate),
     description: body.description,
+    scope: scope,
   });
 
   sendSuccess(

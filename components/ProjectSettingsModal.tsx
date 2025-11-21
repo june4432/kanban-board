@@ -71,11 +71,11 @@ const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
   const [userSearchResults, setUserSearchResults] = useState<User[]>([]);
   const [searchingUsers, setSearchingUsers] = useState(false);
   const { addToast } = useToast();
-  
+
   // 프로젝트 소유자인지 확인
   const isOwner = project.ownerId === currentUser.id;
   const isMember = project.members?.some(member => member.id === currentUser.id);
-  
+
   // 대기중인 가입 신청들
   const pendingRequests = project.pendingRequests?.filter(req => req.status === 'pending') || [];
 
@@ -615,10 +615,12 @@ const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
           name: newMilestoneName.trim(),
           dueDate: newMilestoneDueDate, // YYYY-MM-DD format
           description: newMilestoneDescription.trim() || undefined,
+          scope: 'project',
         }),
       });
 
       if (response.ok) {
+        const data = await response.json();
         addToast({
           type: 'success',
           title: '마일스톤 생성',
@@ -628,9 +630,9 @@ const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
         setNewMilestoneName('');
         setNewMilestoneDescription('');
         setNewMilestoneDueDate('');
-        fetchMilestones();
-        if (onBoardUpdate) {
-          onBoardUpdate();
+        // 새로 생성된 마일스톤을 로컬 상태에 추가 (전체 보드 리로드 방지)
+        if (data.data?.milestone) {
+          setMilestones(prev => [...prev, data.data.milestone]);
         }
       } else {
         const error = await response.json();
@@ -666,10 +668,12 @@ const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
         body: JSON.stringify({
           name: newLabelName.trim(),
           color: newLabelColor,
+          scope: 'project',
         }),
       });
 
       if (response.ok) {
+        const data = await response.json();
         addToast({
           type: 'success',
           title: '라벨 생성',
@@ -678,9 +682,9 @@ const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
         });
         setNewLabelName('');
         setNewLabelColor('#3b82f6');
-        fetchLabels();
-        if (onBoardUpdate) {
-          onBoardUpdate();
+        // 새로 생성된 라벨을 로컬 상태에 추가 (전체 보드 리로드 방지)
+        if (data.data?.label) {
+          setLabels(prev => [...prev, data.data.label]);
         }
       } else {
         const error = await response.json();
@@ -749,6 +753,7 @@ const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
       });
 
       if (response.ok) {
+        const data = await response.json();
         addToast({
           type: 'success',
           title: '마일스톤 수정',
@@ -756,9 +761,9 @@ const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
           duration: 3000
         });
         cancelEditingMilestone();
-        fetchMilestones();
-        if (onBoardUpdate) {
-          onBoardUpdate();
+        // 수정된 마일스톤을 로컬 상태에 반영 (전체 보드 리로드 방지)
+        if (data.data?.milestone) {
+          setMilestones(prev => prev.map(m => m.id === editingMilestoneId ? data.data.milestone : m));
         }
       } else {
         const error = await response.json();
@@ -791,10 +796,8 @@ const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
           message: '마일스톤이 성공적으로 삭제되었습니다.',
           duration: 3000
         });
-        fetchMilestones();
-        if (onBoardUpdate) {
-          onBoardUpdate();
-        }
+        // 삭제된 마일스톤을 로컬 상태에서 제거 (전체 보드 리로드 방지)
+        setMilestones(prev => prev.filter(m => m.id !== milestoneId));
       } else {
         const error = await response.json();
         throw new Error(error.error?.message || '마일스톤 삭제에 실패했습니다.');
@@ -847,6 +850,7 @@ const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
       });
 
       if (response.ok) {
+        const data = await response.json();
         addToast({
           type: 'success',
           title: '라벨 수정',
@@ -854,9 +858,9 @@ const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
           duration: 3000
         });
         cancelEditingLabel();
-        fetchLabels();
-        if (onBoardUpdate) {
-          onBoardUpdate();
+        // 수정된 라벨을 로컬 상태에 반영 (전체 보드 리로드 방지)
+        if (data.data?.label) {
+          setLabels(prev => prev.map(l => l.id === editingLabelId ? data.data.label : l));
         }
       } else {
         const error = await response.json();
@@ -889,10 +893,8 @@ const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
           message: '라벨이 성공적으로 삭제되었습니다.',
           duration: 3000
         });
-        fetchLabels();
-        if (onBoardUpdate) {
-          onBoardUpdate();
-        }
+        // 삭제된 라벨을 로컬 상태에서 제거 (전체 보드 리로드 방지)
+        setLabels(prev => prev.filter(l => l.id !== labelId));
       } else {
         const error = await response.json();
         throw new Error(error.error?.message || '라벨 삭제에 실패했습니다.');
@@ -1266,8 +1268,8 @@ const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-0 sm:p-4" onClick={onClose}>
-      <div className="bg-card border border-border rounded-none sm:rounded-xl shadow-xl w-full max-w-2xl h-full sm:h-auto sm:max-h-[90vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-0 sm:p-4" onMouseDown={onClose}>
+      <div className="bg-card border border-border rounded-none sm:rounded-xl shadow-xl w-full max-w-2xl h-full sm:h-auto sm:max-h-[90vh] overflow-hidden" onMouseDown={(e) => e.stopPropagation()}>
         {/* 헤더 */}
         <div className="flex items-center justify-between p-4 sm:p-6 border-b border-border">
           <h2 className="text-lg sm:text-xl font-semibold text-card-foreground">프로젝트 설정</h2>
@@ -1283,33 +1285,30 @@ const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
         <div className="flex border-b border-border overflow-x-auto overflow-y-hidden">
           <button
             onClick={() => onTabChange('general')}
-            className={`flex items-center justify-center gap-1.5 px-3 sm:px-6 py-3 font-medium text-xs sm:text-sm border-b-2 transition-colors whitespace-nowrap ${
-              activeTab === 'general'
-                ? 'border-primary text-primary bg-accent'
-                : 'border-transparent text-muted-foreground hover:text-foreground'
-            }`}
+            className={`flex items-center justify-center gap-1.5 px-3 sm:px-6 py-3 font-medium text-xs sm:text-sm border-b-2 transition-colors whitespace-nowrap ${activeTab === 'general'
+              ? 'border-primary text-primary bg-accent'
+              : 'border-transparent text-muted-foreground hover:text-foreground'
+              }`}
           >
             <Settings className="w-4 h-4 flex-shrink-0" />
             <span>일반</span>
           </button>
           <button
             onClick={() => onTabChange('columns')}
-            className={`flex items-center justify-center gap-1.5 px-3 sm:px-6 py-3 font-medium text-xs sm:text-sm border-b-2 transition-colors whitespace-nowrap ${
-              activeTab === 'columns'
-                ? 'border-primary text-primary bg-accent'
-                : 'border-transparent text-muted-foreground hover:text-foreground'
-            }`}
+            className={`flex items-center justify-center gap-1.5 px-3 sm:px-6 py-3 font-medium text-xs sm:text-sm border-b-2 transition-colors whitespace-nowrap ${activeTab === 'columns'
+              ? 'border-primary text-primary bg-accent'
+              : 'border-transparent text-muted-foreground hover:text-foreground'
+              }`}
           >
             <Columns className="w-4 h-4 flex-shrink-0" />
             <span>컬럼</span>
           </button>
           <button
             onClick={() => onTabChange('members')}
-            className={`flex items-center justify-center gap-1.5 px-3 sm:px-6 py-3 font-medium text-xs sm:text-sm border-b-2 transition-colors whitespace-nowrap ${
-              activeTab === 'members'
-                ? 'border-primary text-primary bg-accent'
-                : 'border-transparent text-muted-foreground hover:text-foreground'
-            }`}
+            className={`flex items-center justify-center gap-1.5 px-3 sm:px-6 py-3 font-medium text-xs sm:text-sm border-b-2 transition-colors whitespace-nowrap ${activeTab === 'members'
+              ? 'border-primary text-primary bg-accent'
+              : 'border-transparent text-muted-foreground hover:text-foreground'
+              }`}
           >
             <Users className="w-4 h-4 flex-shrink-0" />
             <span>멤버</span>
@@ -1318,11 +1317,10 @@ const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
           {isOwner && pendingRequests.length > 0 && (
             <button
               onClick={() => onTabChange('requests')}
-              className={`flex items-center justify-center gap-1.5 px-3 sm:px-6 py-3 font-medium text-xs sm:text-sm border-b-2 transition-colors whitespace-nowrap ${
-                activeTab === 'requests'
-                  ? 'border-primary text-primary bg-accent'
-                  : 'border-transparent text-muted-foreground hover:text-foreground'
-              }`}
+              className={`flex items-center justify-center gap-1.5 px-3 sm:px-6 py-3 font-medium text-xs sm:text-sm border-b-2 transition-colors whitespace-nowrap ${activeTab === 'requests'
+                ? 'border-primary text-primary bg-accent'
+                : 'border-transparent text-muted-foreground hover:text-foreground'
+                }`}
             >
               <UserPlus className="w-4 h-4 flex-shrink-0" />
               <span>신청</span>
@@ -1332,11 +1330,10 @@ const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
           {isOwner && (
             <button
               onClick={() => onTabChange('invites')}
-              className={`flex items-center justify-center gap-1.5 px-3 sm:px-6 py-3 font-medium text-xs sm:text-sm border-b-2 transition-colors whitespace-nowrap ${
-                activeTab === 'invites'
-                  ? 'border-primary text-primary bg-accent'
-                  : 'border-transparent text-muted-foreground hover:text-foreground'
-              }`}
+              className={`flex items-center justify-center gap-1.5 px-3 sm:px-6 py-3 font-medium text-xs sm:text-sm border-b-2 transition-colors whitespace-nowrap ${activeTab === 'invites'
+                ? 'border-primary text-primary bg-accent'
+                : 'border-transparent text-muted-foreground hover:text-foreground'
+                }`}
             >
               <Link className="w-4 h-4 flex-shrink-0" />
               <span>초대</span>
@@ -1344,33 +1341,30 @@ const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
           )}
           <button
             onClick={() => onTabChange('integrations')}
-            className={`flex items-center justify-center gap-1.5 px-3 sm:px-6 py-3 font-medium text-xs sm:text-sm border-b-2 transition-colors whitespace-nowrap ${
-              activeTab === 'integrations'
-                ? 'border-primary text-primary bg-accent'
-                : 'border-transparent text-muted-foreground hover:text-foreground'
-            }`}
+            className={`flex items-center justify-center gap-1.5 px-3 sm:px-6 py-3 font-medium text-xs sm:text-sm border-b-2 transition-colors whitespace-nowrap ${activeTab === 'integrations'
+              ? 'border-primary text-primary bg-accent'
+              : 'border-transparent text-muted-foreground hover:text-foreground'
+              }`}
           >
             <Bell className="w-4 h-4 flex-shrink-0" />
             <span>통합</span>
           </button>
           <button
             onClick={() => onTabChange('milestones')}
-            className={`flex items-center justify-center gap-1.5 px-3 sm:px-6 py-3 font-medium text-xs sm:text-sm border-b-2 transition-colors whitespace-nowrap ${
-              activeTab === 'milestones'
-                ? 'border-primary text-primary bg-accent'
-                : 'border-transparent text-muted-foreground hover:text-foreground'
-            }`}
+            className={`flex items-center justify-center gap-1.5 px-3 sm:px-6 py-3 font-medium text-xs sm:text-sm border-b-2 transition-colors whitespace-nowrap ${activeTab === 'milestones'
+              ? 'border-primary text-primary bg-accent'
+              : 'border-transparent text-muted-foreground hover:text-foreground'
+              }`}
           >
             <Target className="w-4 h-4 flex-shrink-0" />
             <span>마일스톤</span>
           </button>
           <button
             onClick={() => onTabChange('labels')}
-            className={`flex items-center justify-center gap-1.5 px-3 sm:px-6 py-3 font-medium text-xs sm:text-sm border-b-2 transition-colors whitespace-nowrap ${
-              activeTab === 'labels'
-                ? 'border-primary text-primary bg-accent'
-                : 'border-transparent text-muted-foreground hover:text-foreground'
-            }`}
+            className={`flex items-center justify-center gap-1.5 px-3 sm:px-6 py-3 font-medium text-xs sm:text-sm border-b-2 transition-colors whitespace-nowrap ${activeTab === 'labels'
+              ? 'border-primary text-primary bg-accent'
+              : 'border-transparent text-muted-foreground hover:text-foreground'
+              }`}
           >
             <Tag className="w-4 h-4 flex-shrink-0" />
             <span>라벨</span>
@@ -1534,9 +1528,8 @@ const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
                                   <div
                                     ref={provided.innerRef}
                                     {...provided.draggableProps}
-                                    className={`p-3 sm:p-4 bg-muted rounded-lg border border-border hover:border-primary/50 transition-colors ${
-                                      snapshot.isDragging ? 'shadow-lg ring-2 ring-primary' : ''
-                                    }`}
+                                    className={`p-3 sm:p-4 bg-muted rounded-lg border border-border hover:border-primary/50 transition-colors ${snapshot.isDragging ? 'shadow-lg ring-2 ring-primary' : ''
+                                      }`}
                                   >
                                     <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
                                       <div className="flex items-start gap-3 flex-1 min-w-0">
@@ -1634,107 +1627,107 @@ const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
                                       </div>
                                     </div>
 
-                        {/* WIP 경고 */}
-                        {column.wipLimit > 0 && column.cards && column.cards.length >= column.wipLimit && (
-                          <div className="flex items-center space-x-2 p-2 mt-3 bg-destructive/10 text-destructive-foreground rounded-md text-sm border border-destructive/20">
-                            <Settings className="w-4 h-4" />
-                            <span>WIP 제한에 도달했습니다!</span>
-                          </div>
-                        )}
+                                    {/* WIP 경고 */}
+                                    {column.wipLimit > 0 && column.cards && column.cards.length >= column.wipLimit && (
+                                      <div className="flex items-center space-x-2 p-2 mt-3 bg-destructive/10 text-destructive-foreground rounded-md text-sm border border-destructive/20">
+                                        <Settings className="w-4 h-4" />
+                                        <span>WIP 제한에 도달했습니다!</span>
+                                      </div>
+                                    )}
 
-                        {/* 컬럼 삭제 */}
-                        {(isOwner || isMember) && (
-                          <div className="flex justify-end mt-3 pt-3 border-t border-border">
+                                    {/* 컬럼 삭제 */}
+                                    {(isOwner || isMember) && (
+                                      <div className="flex justify-end mt-3 pt-3 border-t border-border">
+                                        <button
+                                          onClick={() => deleteColumn(column.id, column.title)}
+                                          className="flex items-center space-x-2 px-3 py-1.5 text-sm text-destructive hover:bg-destructive/10 rounded-lg transition-colors"
+                                          title="컬럼 삭제"
+                                        >
+                                          <Trash2 className="w-4 h-4" />
+                                          <span>삭제</span>
+                                        </button>
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+                              </Draggable>
+                            );
+                          })}
+
+                          {columns.length === 0 && !isAddingColumn && (
+                            <div className="text-center py-8 text-muted-foreground">
+                              컬럼이 없습니다.
+                            </div>
+                          )}
+
+                          {provided.placeholder}
+                        </div>
+                      )}
+                    </Droppable>
+
+                    {/* 인라인 컬럼 추가 폼 */}
+                    {isAddingColumn && (
+                      <div className="p-4 bg-accent rounded-lg border-2 border-primary">
+                        <div className="space-y-4">
+                          <div>
+                            <label className="block text-sm font-medium text-card-foreground mb-2">
+                              컬럼 제목
+                            </label>
+                            <input
+                              type="text"
+                              value={newColumnTitle}
+                              onChange={(e) => setNewColumnTitle(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  saveNewColumn();
+                                } else if (e.key === 'Escape') {
+                                  cancelAddingColumn();
+                                }
+                              }}
+                              placeholder="새 컬럼의 제목을 입력하세요"
+                              className="w-full px-3 py-2 bg-input border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-foreground"
+                              autoFocus
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-sm font-medium text-card-foreground mb-2">
+                              WIP 제한 (0 = 무제한)
+                            </label>
+                            <input
+                              type="number"
+                              min="0"
+                              value={newColumnWipLimit}
+                              onChange={(e) => setNewColumnWipLimit(parseInt(e.target.value) || 0)}
+                              className="w-full px-3 py-2 bg-input border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-foreground"
+                            />
+                          </div>
+
+                          <div className="flex flex-col sm:flex-row items-center gap-2">
                             <button
-                              onClick={() => deleteColumn(column.id, column.title)}
-                              className="flex items-center space-x-2 px-3 py-1.5 text-sm text-destructive hover:bg-destructive/10 rounded-lg transition-colors"
-                              title="컬럼 삭제"
+                              onClick={saveNewColumn}
+                              className="w-full sm:flex-1 px-4 py-2.5 sm:py-2 text-sm bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
                             >
-                              <Trash2 className="w-4 h-4" />
-                              <span>삭제</span>
+                              저장
+                            </button>
+                            <button
+                              onClick={cancelAddingColumn}
+                              className="w-full sm:flex-1 px-4 py-2.5 sm:py-2 text-sm bg-secondary text-secondary-foreground rounded-lg hover:bg-secondary/80 transition-colors"
+                            >
+                              취소
                             </button>
                           </div>
-                        )}
-                    </div>
-                  )}
-                </Draggable>
-              );
-            })}
+                        </div>
+                      </div>
+                    )}
+                  </DragDropContext>
+                )}
 
-            {columns.length === 0 && !isAddingColumn && (
-              <div className="text-center py-8 text-muted-foreground">
-                컬럼이 없습니다.
-              </div>
-            )}
-
-            {provided.placeholder}
-          </div>
-        )}
-      </Droppable>
-
-      {/* 인라인 컬럼 추가 폼 */}
-      {isAddingColumn && (
-        <div className="p-4 bg-accent rounded-lg border-2 border-primary">
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-card-foreground mb-2">
-                컬럼 제목
-              </label>
-              <input
-                type="text"
-                value={newColumnTitle}
-                onChange={(e) => setNewColumnTitle(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    saveNewColumn();
-                  } else if (e.key === 'Escape') {
-                    cancelAddingColumn();
-                  }
-                }}
-                placeholder="새 컬럼의 제목을 입력하세요"
-                className="w-full px-3 py-2 bg-input border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-foreground"
-                autoFocus
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-card-foreground mb-2">
-                WIP 제한 (0 = 무제한)
-              </label>
-              <input
-                type="number"
-                min="0"
-                value={newColumnWipLimit}
-                onChange={(e) => setNewColumnWipLimit(parseInt(e.target.value) || 0)}
-                className="w-full px-3 py-2 bg-input border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-foreground"
-              />
-            </div>
-
-            <div className="flex flex-col sm:flex-row items-center gap-2">
-              <button
-                onClick={saveNewColumn}
-                className="w-full sm:flex-1 px-4 py-2.5 sm:py-2 text-sm bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
-              >
-                저장
-              </button>
-              <button
-                onClick={cancelAddingColumn}
-                className="w-full sm:flex-1 px-4 py-2.5 sm:py-2 text-sm bg-secondary text-secondary-foreground rounded-lg hover:bg-secondary/80 transition-colors"
-              >
-                취소
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </DragDropContext>
-  )}
-
-  {!isOwner && !isMember && (
-    <div className="text-sm text-muted-foreground bg-muted p-3 rounded-lg">
-      컬럼 설정을 변경할 권한이 없습니다.
-    </div>
-  )}
+                {!isOwner && !isMember && (
+                  <div className="text-sm text-muted-foreground bg-muted p-3 rounded-lg">
+                    컬럼 설정을 변경할 권한이 없습니다.
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -1870,10 +1863,10 @@ const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
                         }
                         return true;
                       }).length === 0 && (
-                        <div className="text-center py-4 text-sm text-muted-foreground">
-                          {memberSearchQuery ? '검색 결과가 없습니다.' : '추가할 수 있는 조직 멤버가 없습니다.'}
-                        </div>
-                      )}
+                          <div className="text-center py-4 text-sm text-muted-foreground">
+                            {memberSearchQuery ? '검색 결과가 없습니다.' : '추가할 수 있는 조직 멤버가 없습니다.'}
+                          </div>
+                        )}
                     </div>
                   </div>
                 )}
@@ -2373,14 +2366,21 @@ const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
 
                               <div className="flex gap-2">
                                 <button
-                                  onClick={() => startEditingMilestone(milestone)}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    startEditingMilestone(milestone);
+                                  }}
                                   className="p-2 text-primary hover:bg-primary/10 rounded-lg transition-colors"
                                   title="수정"
                                 >
                                   <Edit3 className="w-4 h-4" />
                                 </button>
                                 <button
-                                  onClick={() => deleteMilestone(milestone.id, milestone.name)}
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    deleteMilestone(milestone.id, milestone.name);
+                                  }}
                                   className="p-2 text-destructive hover:bg-destructive/10 rounded-lg transition-colors"
                                   title="삭제"
                                 >
@@ -2555,14 +2555,21 @@ const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
                             </div>
                             <div className="flex gap-1 flex-shrink-0">
                               <button
-                                onClick={() => startEditingLabel(label)}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  startEditingLabel(label);
+                                }}
                                 className="p-1.5 text-primary hover:bg-primary/10 rounded transition-colors"
                                 title="수정"
                               >
                                 <Edit3 className="w-3.5 h-3.5" />
                               </button>
                               <button
-                                onClick={() => deleteLabel(label.id, label.name)}
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  deleteLabel(label.id, label.name);
+                                }}
                                 className="p-1.5 text-destructive hover:bg-destructive/10 rounded transition-colors"
                                 title="삭제"
                               >

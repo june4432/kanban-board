@@ -10,7 +10,7 @@ type NextApiResponseWithSocket = NextApiResponse & {
   };
 };
 
-export default function handler(req: NextApiRequest, res: NextApiResponseWithSocket) {
+export default async function handler(req: NextApiRequest, res: NextApiResponseWithSocket) {
   const { projectId } = req.query;
 
   if (typeof projectId !== 'string') {
@@ -31,8 +31,8 @@ export default function handler(req: NextApiRequest, res: NextApiResponseWithSoc
 
     const { projects, users } = getRepositories();
 
-    const project = projects.findById(projectId);
-    const user = users.findById(userId);
+    const project = await projects.findById(projectId);
+    const user = await users.findById(userId);
 
     if (!project) {
       return res.status(404).json({ error: 'Project not found' });
@@ -48,7 +48,7 @@ export default function handler(req: NextApiRequest, res: NextApiResponseWithSoc
     }
 
     // 이미 멤버인지 확인
-    if (projects.isMember(projectId, userId)) {
+    if (await projects.isMember(projectId, userId)) {
       return res.status(400).json({ error: 'User is already a member' });
     }
 
@@ -60,16 +60,17 @@ export default function handler(req: NextApiRequest, res: NextApiResponseWithSoc
       return res.status(400).json({ error: 'Join request already exists' });
     }
 
-    // 새 가입 신청 생성
-    const newRequest = projects.createJoinRequest({
+    // 새 가입 신청 생성 (use email instead of userId for new schema)
+    await projects.createJoinRequest({
       projectId,
-      userId,
+      email: user.email,
+      invitedBy: userId, // Self-invite for join requests
       message: message || '',
     });
 
-    if (!newRequest) {
-      return res.status(500).json({ error: 'Failed to create join request' });
-    }
+    // Get the created request
+    const updatedProject = await projects.findById(projectId);
+    const newRequest = updatedProject?.pendingRequests?.[0];
 
     // WebSocket으로 프로젝트 참여 신청 이벤트 전송 (전체 브로드캐스트)
     const socketRes = res as NextApiResponseWithSocket;

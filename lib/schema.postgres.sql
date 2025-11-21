@@ -149,13 +149,16 @@ CREATE INDEX IF NOT EXISTS idx_columns_position ON columns(board_id, position);
 -- ==========================================
 CREATE TABLE IF NOT EXISTS milestones (
   id VARCHAR(255) PRIMARY KEY,
-  board_id VARCHAR(255) NOT NULL REFERENCES boards(board_id) ON DELETE CASCADE,
+  board_id VARCHAR(255) REFERENCES boards(board_id) ON DELETE CASCADE,
+  scope VARCHAR(20) NOT NULL DEFAULT 'board' CHECK (scope IN ('organization', 'project', 'board')),
+  scope_id VARCHAR(255) NOT NULL,
   name VARCHAR(255) NOT NULL,
   description TEXT,
   due_date TIMESTAMP
 );
 
 CREATE INDEX IF NOT EXISTS idx_milestones_board ON milestones(board_id);
+CREATE INDEX IF NOT EXISTS idx_milestones_scope ON milestones(scope, scope_id);
 
 -- ==========================================
 -- 10. Cards Table
@@ -170,7 +173,8 @@ CREATE TABLE IF NOT EXISTS cards (
   due_date TIMESTAMP,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  milestone_id VARCHAR(255) REFERENCES milestones(id) ON DELETE SET NULL
+  milestone_id VARCHAR(255) REFERENCES milestones(id) ON DELETE SET NULL,
+  search_vector tsvector
 );
 
 CREATE INDEX IF NOT EXISTS idx_cards_column ON cards(column_id);
@@ -179,21 +183,36 @@ CREATE INDEX IF NOT EXISTS idx_cards_position ON cards(column_id, position);
 CREATE INDEX IF NOT EXISTS idx_cards_due_date ON cards(due_date);
 
 -- Full-text search index for cards
-CREATE INDEX IF NOT EXISTS idx_cards_fulltext ON cards USING GIN (
-  to_tsvector('english', coalesce(title, '') || ' ' || coalesce(description, ''))
-);
+CREATE INDEX IF NOT EXISTS idx_cards_search ON cards USING GIN(search_vector);
+
+-- Trigger to update search_vector
+CREATE OR REPLACE FUNCTION cards_search_trigger() RETURNS trigger AS $$
+begin
+  new.search_vector :=
+    setweight(to_tsvector('english', coalesce(new.title, '')), 'A') ||
+    setweight(to_tsvector('english', coalesce(new.description, '')), 'B');
+  return new;
+end
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS tsvectorupdate ON cards;
+CREATE TRIGGER tsvectorupdate BEFORE INSERT OR UPDATE
+ON cards FOR EACH ROW EXECUTE FUNCTION cards_search_trigger();
 
 -- ==========================================
 -- 11. Labels Table
 -- ==========================================
 CREATE TABLE IF NOT EXISTS labels (
   id VARCHAR(255) PRIMARY KEY,
-  board_id VARCHAR(255) NOT NULL REFERENCES boards(board_id) ON DELETE CASCADE,
+  board_id VARCHAR(255) REFERENCES boards(board_id) ON DELETE CASCADE,
+  scope VARCHAR(20) NOT NULL DEFAULT 'board' CHECK (scope IN ('organization', 'project', 'board')),
+  scope_id VARCHAR(255) NOT NULL,
   name VARCHAR(255) NOT NULL,
   color VARCHAR(20) NOT NULL
 );
 
 CREATE INDEX IF NOT EXISTS idx_labels_board ON labels(board_id);
+CREATE INDEX IF NOT EXISTS idx_labels_scope ON labels(scope, scope_id);
 
 -- ==========================================
 -- 12. Card Labels (Many-to-Many)
@@ -246,8 +265,8 @@ CREATE TABLE IF NOT EXISTS audit_logs (
   organization_id VARCHAR(255) REFERENCES organizations(id) ON DELETE CASCADE,
   user_id VARCHAR(255) NOT NULL REFERENCES users(id),
   user_name VARCHAR(255) NOT NULL,
-  action VARCHAR(20) NOT NULL CHECK(action IN ('create', 'update', 'delete', 'move')),
-  resource_type VARCHAR(50) NOT NULL CHECK(resource_type IN ('card', 'project', 'member', 'comment', 'organization')),
+  action VARCHAR(20) NOT NULL CHECK(action IN ('create', 'update', 'delete', 'move', 'view', 'export', 'login', 'logout')),
+  resource_type VARCHAR(50) NOT NULL, -- Removed strict check to allow flexibility for new resources
   resource_id VARCHAR(255) NOT NULL,
   project_id VARCHAR(255) REFERENCES projects(project_id) ON DELETE CASCADE,
   changes JSONB,  -- JSON 형식의 변경사항

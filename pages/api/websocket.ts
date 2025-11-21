@@ -65,8 +65,8 @@ const SocketHandler = async (_req: NextApiRequest, res: NextApiResponseWithSocke
 
         const res = {
           getHeader: () => null,
-          setHeader: () => {},
-          end: () => {}
+          setHeader: () => { },
+          end: () => { }
         } as any;
 
         const session = await getServerSession(req, res, authOptions) as AuthSession | null;
@@ -103,14 +103,14 @@ const SocketHandler = async (_req: NextApiRequest, res: NextApiResponseWithSocke
       socket.on('join-project', async (projectId: string) => {
         try {
           const { projects } = getRepositories();
-          const project = projects.findById(projectId);
+          const project = await projects.findById(projectId);
 
           if (!project) {
             socket.emit('error', { message: 'Project not found' });
             return;
           }
 
-          const isMember = projects.isMember(projectId, userId);
+          const isMember = await projects.isMember(projectId, userId);
 
           if (isMember) {
             socket.join(`project-${projectId}`);

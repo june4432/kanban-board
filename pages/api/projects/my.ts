@@ -18,7 +18,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const { projects } = getRepositories();
 
     // 사용자가 소유하거나 멤버인 프로젝트들
-    const myProjects = projects.findByUserId(userId);
+    const myProjects = await projects.findByUserId(userId);
 
     console.log(`[DEBUG] User ${userId} has ${myProjects.length} projects`);
     res.status(200).json({ projects: myProjects });

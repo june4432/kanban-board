@@ -30,7 +30,7 @@ async function handleGet(req: ApiRequest, res: NextApiResponse) {
   const { users } = getRepositories();
 
   // Get all users, excluding sensitive information
-  const allUsers = users.findAll().map(user => ({
+  const allUsers = (await users.findAll()).map(user => ({
     id: user.id,
     name: user.name,
     email: user.email,

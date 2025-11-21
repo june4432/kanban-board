@@ -1,4 +1,3 @@
-import { getDatabase } from '../database';
 import { UserRepository } from './user.repository';
 import { ProjectRepository } from './project.repository';
 import { BoardRepository } from './board.repository';
@@ -7,22 +6,23 @@ import { CommentRepository } from './comment.repository';
 import { AttachmentRepository } from './attachment.repository';
 import { NotificationSettingsRepository } from './notification-settings.repository';
 import { OrganizationRepository } from './organization.repository';
+import { AuditLogRepository } from './audit-log.repository';
 
 /**
- * Get repository instances (singleton pattern via shared database connection)
+ * Get repository instances
+ * All repositories now use PostgreSQL via lib/postgres.ts
  */
 export function getRepositories() {
-  const db = getDatabase();
-
   return {
-    users: new UserRepository(db),
-    organizations: new OrganizationRepository(db),
-    projects: new ProjectRepository(db),
-    boards: new BoardRepository(db),
-    cards: new CardRepository(db),
-    comments: new CommentRepository(db),
-    attachments: new AttachmentRepository(db),
-    notificationSettings: new NotificationSettingsRepository(db),
+    users: new UserRepository(),
+    organizations: new OrganizationRepository(),
+    projects: new ProjectRepository(),
+    boards: new BoardRepository(),
+    cards: new CardRepository(),
+    comments: new CommentRepository(),
+    attachments: new AttachmentRepository(),
+    notificationSettings: new NotificationSettingsRepository(),
+    auditLogs: new AuditLogRepository(),
   };
 }
 
@@ -35,4 +35,5 @@ export {
   CommentRepository,
   AttachmentRepository,
   NotificationSettingsRepository,
+  AuditLogRepository,
 };

@@ -58,7 +58,7 @@ async function migrateUsers() {
   for (const user of users) {
     try {
       // Check if user already exists
-      const existing = userRepo.findByEmail(user.email);
+      const existing = await userRepo.findByEmail(user.email);
       if (existing) {
         console.log(`   ⏭️  User ${user.email} already exists, skipping`);
         continue;
@@ -82,7 +82,7 @@ async function migrateUsers() {
   console.log('✅ Users migration completed\n');
 }
 
-function migrateProjects() {
+async function migrateProjects() {
   const projectsPath = path.join(process.cwd(), 'data', 'projects.json');
 
   if (!fs.existsSync(projectsPath)) {
@@ -100,15 +100,15 @@ function migrateProjects() {
   for (const project of projects) {
     try {
       // Check if project already exists
-      const existing = projectRepo.findById(project.projectId);
+      const existing = await projectRepo.findById(project.projectId);
       if (existing) {
         console.log(`   ⏭️  Project ${project.projectId} already exists, skipping`);
         continue;
       }
 
       // Create project
-      projectRepo.create({
-        projectId: project.projectId,  // Preserve original ID
+      await projectRepo.create({
+        id: project.projectId,  // Preserve original ID
         name: project.name,
         description: project.description,
         ownerId: project.ownerId,
@@ -124,25 +124,16 @@ function migrateProjects() {
           const userId = typeof member === 'string' ? member : member.userId || member.id;
 
           if (userId && userId !== project.ownerId) {
-            projectRepo.addMember(project.projectId, userId, 'member');
+            await projectRepo.addMember(project.projectId, userId, 'member');
             console.log(`      👥 Added member: ${userId}`);
           }
         }
       }
 
-      // Migrate join requests
-      if (project.pendingRequests && Array.isArray(project.pendingRequests)) {
-        for (const request of project.pendingRequests) {
-          if (request.status === 'pending') {
-            projectRepo.createJoinRequest({
-              projectId: project.projectId,
-              userId: request.userId,
-              message: request.message,
-            });
-            console.log(`      📝 Added join request from: ${request.userId}`);
-          }
-        }
-      }
+      // Skip join requests migration - API now uses email-based invitations
+      // if (project.pendingRequests && Array.isArray(project.pendingRequests)) {
+      //   console.log('      ⚠️ Skipping pending requests migration (new API uses email)');
+      // }
     } catch (error: any) {
       console.error(`   ❌ Error migrating project ${project.name}:`, error.message);
     }
@@ -151,7 +142,7 @@ function migrateProjects() {
   console.log('✅ Projects migration completed\n');
 }
 
-function migrateBoards() {
+async function migrateBoards() {
   const boardsPath = path.join(process.cwd(), 'data', 'kanban-boards.json');
 
   if (!fs.existsSync(boardsPath)) {
@@ -171,7 +162,7 @@ function migrateBoards() {
       console.log(`   📋 Migrating board for project: ${board.projectId}`);
 
       // Board is already created by ProjectRepository, so we just need to verify
-      const existingBoard = boardRepo.findByProjectId(board.projectId);
+      const existingBoard = await boardRepo.findByProjectId(board.projectId);
       if (!existingBoard) {
         console.log(`   ⚠️  Board for project ${board.projectId} not found, skipping`);
         continue;
@@ -180,7 +171,7 @@ function migrateBoards() {
       // Migrate labels
       for (const label of board.labels || []) {
         try {
-          boardRepo.createLabel(board.boardId, {
+          await boardRepo.createLabel(board.boardId, {
             name: label.name,
             color: label.color,
           });
@@ -193,7 +184,7 @@ function migrateBoards() {
       // Migrate milestones
       for (const milestone of board.milestones || []) {
         try {
-          boardRepo.createMilestone(board.boardId, {
+          await boardRepo.createMilestone(board.boardId, {
             name: milestone.name,
             dueDate: new Date(milestone.dueDate),
             description: milestone.description,
@@ -210,7 +201,7 @@ function migrateBoards() {
 
         // Update column if needed (title, wipLimit)
         try {
-          boardRepo.updateColumn(column.id, {
+          await boardRepo.updateColumn(column.id, {
             title: column.title,
             wipLimit: column.wipLimit || 0,
           });
@@ -221,7 +212,7 @@ function migrateBoards() {
         // Migrate cards
         for (const card of column.cards || []) {
           try {
-            cardRepo.create({
+            await cardRepo.create({
               columnId: column.id,
               title: card.title,
               description: card.description,

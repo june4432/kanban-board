@@ -1,5 +1,5 @@
 import React from 'react';
-import { ViewMode, User } from '@/types';
+import { ViewMode, User, Project } from '@/types';
 import { LayoutGrid, Calendar, BarChart3, Table, BookOpen, Settings, ChevronLeft, ChevronRight, LogOut, Key, Home, Building2, FileText } from 'lucide-react';
 import { ThemeToggleDropdown } from '@/components/ThemeToggle';
 import { useRouter } from 'next/router';
@@ -13,6 +13,7 @@ interface SidebarProps {
   isOpen: boolean;
   onToggle: () => void;
   isMobile: boolean;
+  currentProject?: Project;
 }
 
 const Sidebar: React.FC<SidebarProps> = ({
@@ -23,18 +24,25 @@ const Sidebar: React.FC<SidebarProps> = ({
   onLogout,
   isOpen,
   onToggle,
-  isMobile
+  isMobile,
+  currentProject
 }) => {
   const router = useRouter();
 
+  const { projectId: queryProjectId } = router.query;
+  // currentProject가 있으면 그것을 사용하고, 없으면 쿼리 파라미터에서 가져옴
+  const projectId = currentProject?.projectId || (typeof queryProjectId === 'string' ? queryProjectId : undefined);
+
   const navItems = [
-    { id: 'kanban' as ViewMode, icon: LayoutGrid, label: '칸반', onClick: () => onViewModeChange?.('kanban') },
-    { id: 'calendar' as ViewMode, icon: Calendar, label: '캘린더', onClick: () => onViewModeChange?.('calendar') },
-    { id: 'gantt' as ViewMode, icon: BarChart3, label: '간트', onClick: () => onViewModeChange?.('gantt') },
-    { id: 'table' as ViewMode, icon: Table, label: '테이블', onClick: () => onViewModeChange?.('table') },
-    { id: 'manual' as ViewMode, icon: BookOpen, label: '매뉴얼', onClick: () => onViewModeChange?.('manual') },
+    // 대시보드를 보기 모드의 첫 번째로 이동 (projectId가 있을 때만)
+    ...(projectId ? [{ id: 'dashboard' as ViewMode, icon: BarChart3, label: '대시보드' }] : []),
+    { id: 'kanban' as ViewMode, icon: LayoutGrid, label: '칸반' },
+    { id: 'calendar' as ViewMode, icon: Calendar, label: '캘린더' },
+    { id: 'gantt' as ViewMode, icon: BarChart3, label: '간트' },
+    { id: 'table' as ViewMode, icon: Table, label: '테이블' },
   ];
 
+  // 설정 페이지 여부 확인
   const isApiKeysPage = router.pathname === '/settings/api-keys';
   const isOrganizationsPage = router.pathname.startsWith('/settings/organizations');
   const isApiDocsPage = router.pathname === '/api-docs';
@@ -43,11 +51,18 @@ const Sidebar: React.FC<SidebarProps> = ({
   const actionItems = [
     // 설정 페이지에서는 홈 버튼 표시
     ...(isSettingsPage ? [{ id: 'home', icon: Home, label: '홈', onClick: () => router.push('/') }] : []),
-    // 홈에서는 프로젝트 설정 표시
+    // 홈에서는 프로젝트 설정 표시 (설정 페이지가 아니고 onProjectSettings가 있을 때)
     ...(!isSettingsPage && onProjectSettings ? [{ id: 'settings', icon: Settings, label: '프로젝트 설정', onClick: onProjectSettings }] : []),
-    // 모든 페이지에서 조직 관리, API Keys, API Reference 표시
+    // 매뉴얼 (항상 표시)
+    { id: 'manual', icon: BookOpen, label: '매뉴얼', onClick: () => onViewModeChange?.('manual') },
+  ];
+
+  const managementItems = [
+    // 조직 관리 (항상 표시)
     { id: 'organizations', icon: Building2, label: '조직 관리', onClick: () => router.push('/settings/organizations') },
+    // API Keys (항상 표시)
     { id: 'api-keys', icon: Key, label: 'API Keys', onClick: () => router.push('/settings/api-keys') },
+    // API Docs (항상 표시)
     { id: 'api-docs', icon: FileText, label: 'API Docs', onClick: () => router.push('/api-docs') },
   ];
 
@@ -93,8 +108,8 @@ const Sidebar: React.FC<SidebarProps> = ({
 
         {/* 네비게이션 */}
         <nav className="flex-1 overflow-y-auto py-4">
-          {/* View Mode 섹션 - viewMode가 있을 때만 표시 */}
-          {onViewModeChange && (
+          {/* View Mode 섹션 - viewMode가 있거나 projectId가 있을 때 표시 */}
+          {(onViewModeChange || projectId) && (
             <>
               <div className="mb-6">
                 {isOpen && (
@@ -105,11 +120,33 @@ const Sidebar: React.FC<SidebarProps> = ({
                 <div className="space-y-1 px-2">
                   {navItems.map((item) => {
                     const Icon = item.icon;
-                    const isActive = viewMode === item.id;
+                    // 대시보드 페이지일 때도 활성화 상태 표시
+                    const isActive =
+                      (viewMode === item.id) ||
+                      (item.id === 'dashboard' && router.pathname.includes('/dashboard'));
+
+                    const handleClick = () => {
+                      if (item.id === 'dashboard') {
+                        // 대시보드로 이동
+                        if (projectId) {
+                          router.push(`/projects/${projectId}/dashboard`);
+                        }
+                      } else {
+                        // 다른 뷰 모드로 이동
+                        if (onViewModeChange) {
+                          onViewModeChange(item.id as ViewMode);
+                        } else {
+                          // 대시보드 페이지 등에서 메인 페이지로 이동
+                          // 쿼리 파라미터로 view 모드 전달
+                          router.push(`/?view=${item.id}`);
+                        }
+                      }
+                    };
+
                     return (
                       <button
                         key={item.id}
-                        onClick={item.onClick}
+                        onClick={handleClick}
                         className={`
                           w-full flex items-center px-3 py-2.5 rounded-lg transition-colors
                           ${isActive
@@ -133,36 +170,96 @@ const Sidebar: React.FC<SidebarProps> = ({
             </>
           )}
 
-          {/* 액션 섹션 */}
-          {actionItems.length > 0 && (
-            <div>
-              {isOpen && (
-                <div className="px-4 mb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                  도구
-                </div>
-              )}
-              <div className="space-y-1 px-2">
-                {actionItems.map((item) => {
-                  const Icon = item.icon;
-                  return (
-                    <button
-                      key={item.id}
-                      onClick={item.onClick}
-                      className={`
-                        w-full flex items-center px-3 py-2.5 rounded-lg transition-colors
-                        text-muted-foreground hover:text-foreground hover:bg-accent
-                        ${!isOpen && 'justify-center'}
-                      `}
-                      title={!isOpen ? item.label : undefined}
-                    >
-                      <Icon className={`w-5 h-5 flex-shrink-0 ${isOpen && 'mr-3'}`} />
-                      {isOpen && <span className="text-sm font-medium">{item.label}</span>}
-                    </button>
-                  );
-                })}
+          {/* 도구 섹션 */}
+          <div className="mb-6">
+            {isOpen && (
+              <div className="px-4 mb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                도구
               </div>
+            )}
+            <div className="space-y-1 px-2">
+              {actionItems.map((item) => {
+                const Icon = item.icon;
+
+                // 활성화 상태 로직
+                let isActive = false;
+                if (item.id === 'manual') isActive = viewMode === 'manual';
+                if (item.id === 'home') isActive = router.pathname === '/';
+
+                // 클릭 핸들러
+                const handleClick = () => {
+                  if (item.onClick) {
+                    if (item.id === 'manual' && !onViewModeChange) {
+                      router.push('/?view=manual');
+                    } else {
+                      item.onClick();
+                    }
+                  }
+                };
+
+                return (
+                  <button
+                    key={item.id}
+                    onClick={handleClick}
+                    className={`
+                      w-full flex items-center px-3 py-2.5 rounded-lg transition-colors
+                      ${isActive
+                        ? 'bg-primary text-primary-foreground'
+                        : 'text-muted-foreground hover:text-foreground hover:bg-accent'
+                      }
+                      ${!isOpen && 'justify-center'}
+                    `}
+                    title={!isOpen ? item.label : undefined}
+                  >
+                    <Icon className={`w-5 h-5 flex-shrink-0 ${isOpen && 'mr-3'}`} />
+                    {isOpen && <span className="text-sm font-medium">{item.label}</span>}
+                  </button>
+                );
+              })}
             </div>
-          )}
+          </div>
+
+          {/* 구분선 */}
+          <div className="mx-4 mb-4 border-t border-border" />
+
+          {/* 관리 섹션 */}
+          <div>
+            {isOpen && (
+              <div className="px-4 mb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                관리
+              </div>
+            )}
+            <div className="space-y-1 px-2">
+              {managementItems.map((item) => {
+                const Icon = item.icon;
+
+                // 활성화 상태 로직
+                let isActive = false;
+                if (item.id === 'api-keys') isActive = router.pathname === '/settings/api-keys';
+                if (item.id === 'organizations') isActive = router.pathname.startsWith('/settings/organizations');
+                if (item.id === 'api-docs') isActive = router.pathname === '/api-docs';
+
+                return (
+                  <button
+                    key={item.id}
+                    onClick={item.onClick}
+                    className={`
+                      w-full flex items-center px-3 py-2.5 rounded-lg transition-colors
+                      ${isActive
+                        ? 'bg-primary text-primary-foreground'
+                        : 'text-muted-foreground hover:text-foreground hover:bg-accent'
+                      }
+                      ${!isOpen && 'justify-center'}
+                    `}
+                    title={!isOpen ? item.label : undefined}
+                  >
+                    <Icon className={`w-5 h-5 flex-shrink-0 ${isOpen && 'mr-3'}`} />
+                    {isOpen && <span className="text-sm font-medium">{item.label}</span>}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
         </nav>
 
         {/* 하단: 사용자 정보 */}

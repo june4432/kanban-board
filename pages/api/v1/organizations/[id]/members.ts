@@ -55,7 +55,7 @@ async function handleGet(req: ApiRequest, res: NextApiResponse, orgId: string) {
   const { organizations } = getRepositories();
 
   // Check membership
-  const isMember = organizations.isMember(orgId, req.user.id);
+  const isMember = await organizations.isMember(orgId, req.user.id);
   if (!isMember) {
     return sendForbidden(
       res,
@@ -64,7 +64,7 @@ async function handleGet(req: ApiRequest, res: NextApiResponse, orgId: string) {
     );
   }
 
-  const members = organizations.getMembers(orgId);
+  const members = await organizations.getMembers(orgId);
   sendSuccess(res, members, 200, req.requestId);
 }
 
@@ -80,7 +80,7 @@ async function handlePost(req: ApiRequest, res: NextApiResponse, orgId: string) 
   const { organizations, users } = getRepositories();
 
   // Check if user is admin or owner
-  const userRole = organizations.getUserRole(orgId, req.user.id);
+  const userRole = await organizations.getUserRole(orgId, req.user.id);
   if (!['owner', 'admin'].includes(userRole || '')) {
     return sendForbidden(
       res,
@@ -96,7 +96,7 @@ async function handlePost(req: ApiRequest, res: NextApiResponse, orgId: string) 
   let targetUserId: string;
 
   if (data.userId) {
-    targetUser = users.findById(data.userId);
+    targetUser = await users.findById(data.userId);
     if (!targetUser) {
       return sendValidationError(
         res,
@@ -107,7 +107,7 @@ async function handlePost(req: ApiRequest, res: NextApiResponse, orgId: string) 
     }
     targetUserId = data.userId;
   } else if (data.userEmail) {
-    targetUser = users.findByEmail(data.userEmail);
+    targetUser = await users.findByEmail(data.userEmail);
     if (!targetUser) {
       return sendValidationError(
         res,
@@ -127,7 +127,7 @@ async function handlePost(req: ApiRequest, res: NextApiResponse, orgId: string) 
   }
 
   // Check if already a member
-  const isAlreadyMember = organizations.isMember(orgId, targetUserId);
+  const isAlreadyMember = await organizations.isMember(orgId, targetUserId);
   if (isAlreadyMember) {
     return sendValidationError(
       res,
@@ -138,10 +138,10 @@ async function handlePost(req: ApiRequest, res: NextApiResponse, orgId: string) 
   }
 
   // Add member
-  organizations.addMember(orgId, targetUserId, data.role);
+  await organizations.addMember(orgId, targetUserId, data.role);
 
   // Return updated member list
-  const members = organizations.getMembers(orgId);
+  const members = await organizations.getMembers(orgId);
   const newMember = members.find((m) => m.userId === targetUserId);
 
   sendCreated(res, newMember, req.requestId);

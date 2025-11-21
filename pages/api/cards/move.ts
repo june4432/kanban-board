@@ -42,7 +42,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponseW
     const { cards, projects, boards } = getRepositories();
 
     // 카드 이동
-    const success = cards.moveCard(cardId, destinationColumnId, destinationIndex);
+    const success = await cards.moveCard(cardId, destinationColumnId, destinationIndex);
 
     if (!success) {
       return res.status(400).json({ error: 'Failed to move card. WIP limit may have been reached.' });
@@ -58,10 +58,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponseW
 
     if (socketRes.socket?.server?.io) {
       // 프로젝트 정보 가져오기
-      const project = projects.findById(projectId);
+      const project = await projects.findById(projectId);
       if (project) {
         // 업데이트된 카드 가져오기
-        const updatedCard = cards.findById(cardId);
+        const updatedCard = await cards.findById(cardId);
 
         const eventData = {
           card: updatedCard,
@@ -93,7 +93,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponseW
 
         // Slack 알림 전송 (비동기, 실패해도 카드 이동은 성공)
         if (project.slackEnabled && project.slackWebhookUrl) {
-          const board = boards.findByProjectId(projectId);
+          const board = await boards.findByProjectId(projectId);
           const fromColumn = board?.columns.find(col => col.id === sourceColumnId);
           const toColumn = board?.columns.find(col => col.id === destinationColumnId);
 

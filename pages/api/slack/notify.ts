@@ -41,7 +41,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // 프로젝트 정보 가져오기
     const { projects } = getRepositories();
-    const project = projects.findById(projectId);
+    const project = await projects.findById(projectId);
 
     if (!project) {
       return res.status(404).json({ error: 'Project not found' });

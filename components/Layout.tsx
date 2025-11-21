@@ -89,9 +89,9 @@ const Layout: React.FC<LayoutProps> = ({
           >
             로그인 / 회원가입
           </button>
-          <AuthModal 
-            isOpen={showAuthModal} 
-            onClose={() => setShowAuthModal(false)} 
+          <AuthModal
+            isOpen={showAuthModal}
+            onClose={() => setShowAuthModal(false)}
           />
         </div>
       </div>
@@ -109,6 +109,7 @@ const Layout: React.FC<LayoutProps> = ({
         isOpen={sidebarOpen}
         onToggle={() => setSidebarOpen(!sidebarOpen)}
         isMobile={isMobile}
+        currentProject={currentProject}
       />
 
       {/* Main Content Area */}
@@ -133,92 +134,91 @@ const Layout: React.FC<LayoutProps> = ({
                 <div className="hidden sm:block flex-shrink-0">
                   <OrganizationSwitcher />
                 </div>
-              {currentProject && (
-                <div className="relative flex-shrink min-w-0" ref={dropdownRef}>
-                  <button
-                    onClick={() => setShowProjectDropdown(!showProjectDropdown)}
-                    className="flex items-center space-x-2 px-2 sm:px-3 py-1 bg-muted rounded-lg hover:bg-muted/80 transition-colors cursor-pointer min-w-0"
-                    title="프로젝트 선택"
-                  >
-                    <div
-                      className="w-5 h-5 sm:w-6 sm:h-6 rounded flex items-center justify-center flex-shrink-0"
-                      style={{ backgroundColor: `${currentProject.color}20` }}
+                {currentProject && (
+                  <div className="relative flex-shrink min-w-0" ref={dropdownRef}>
+                    <button
+                      onClick={() => setShowProjectDropdown(!showProjectDropdown)}
+                      className="flex items-center space-x-2 px-2 sm:px-3 py-1 bg-muted rounded-lg hover:bg-muted/80 transition-colors cursor-pointer min-w-0"
+                      title="프로젝트 선택"
                     >
-                      <FolderOpen
-                        className="w-3 h-3 sm:w-4 sm:h-4"
-                        style={{ color: currentProject.color }}
-                      />
-                    </div>
-                    <span className="text-xs sm:text-sm font-medium text-card-foreground truncate max-w-[100px] sm:max-w-[150px]">
-                      {currentProject.name}
-                    </span>
-                    {showProjectDropdown ? (
-                      <ChevronUp className="w-3 h-3 sm:w-4 sm:h-4 text-muted-foreground flex-shrink-0" />
-                    ) : (
-                      <ChevronDown className="w-3 h-3 sm:w-4 sm:h-4 text-muted-foreground flex-shrink-0" />
-                    )}
-                  </button>
-
-                  {/* 프로젝트 드롭다운 메뉴 */}
-                  {showProjectDropdown && (
-                    <div className="absolute top-full left-0 mt-1 w-64 bg-popover border border-border rounded-lg shadow-lg py-2 z-50">
-                      <div className="px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                        내 프로젝트
+                      <div
+                        className="w-5 h-5 sm:w-6 sm:h-6 rounded flex items-center justify-center flex-shrink-0"
+                        style={{ backgroundColor: `${currentProject.color}20` }}
+                      >
+                        <FolderOpen
+                          className="w-3 h-3 sm:w-4 sm:h-4"
+                          style={{ color: currentProject.color }}
+                        />
                       </div>
-                      <div className="max-h-64 overflow-y-auto">
-                        {allProjects.map((project) => (
+                      <span className="text-xs sm:text-sm font-medium text-card-foreground truncate max-w-[100px] sm:max-w-[150px]">
+                        {currentProject.name}
+                      </span>
+                      {showProjectDropdown ? (
+                        <ChevronUp className="w-3 h-3 sm:w-4 sm:h-4 text-muted-foreground flex-shrink-0" />
+                      ) : (
+                        <ChevronDown className="w-3 h-3 sm:w-4 sm:h-4 text-muted-foreground flex-shrink-0" />
+                      )}
+                    </button>
+
+                    {/* 프로젝트 드롭다운 메뉴 */}
+                    {showProjectDropdown && (
+                      <div className="absolute top-full left-0 mt-1 w-64 bg-popover border border-border rounded-lg shadow-lg py-2 z-50">
+                        <div className="px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                          내 프로젝트
+                        </div>
+                        <div className="max-h-64 overflow-y-auto">
+                          {allProjects.map((project) => (
+                            <button
+                              key={project.projectId}
+                              onClick={() => {
+                                if (onProjectSelect) {
+                                  onProjectSelect(project);
+                                }
+                                setShowProjectDropdown(false);
+                              }}
+                              className={`w-full flex items-center space-x-3 px-3 py-2 text-left hover:bg-accent hover:text-accent-foreground transition-colors ${project.projectId === currentProject.projectId ? 'bg-accent text-accent-foreground' : 'text-popover-foreground'
+                                }`}
+                            >
+                              <div
+                                className="w-6 h-6 rounded flex items-center justify-center flex-shrink-0"
+                                style={{ backgroundColor: `${project.color}20` }}
+                              >
+                                <FolderOpen
+                                  className="w-4 h-4"
+                                  style={{ color: project.color }}
+                                />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="text-sm font-medium truncate">{project.name}</div>
+                                {project.description && (
+                                  <div className="text-xs text-muted-foreground truncate">{project.description}</div>
+                                )}
+                              </div>
+                              {project.projectId === currentProject.projectId && (
+                                <div className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0"></div>
+                              )}
+                            </button>
+                          ))}
+                        </div>
+                        <div className="border-t mt-2 pt-2">
                           <button
-                            key={project.projectId}
                             onClick={() => {
-                              if (onProjectSelect) {
-                                onProjectSelect(project);
+                              if (onProjectChange) {
+                                onProjectChange();
                               }
                               setShowProjectDropdown(false);
                             }}
-                            className={`w-full flex items-center space-x-3 px-3 py-2 text-left hover:bg-accent hover:text-accent-foreground transition-colors ${
-                              project.projectId === currentProject.projectId ? 'bg-accent text-accent-foreground' : 'text-popover-foreground'
-                            }`}
+                            className="w-full flex items-center space-x-3 px-3 py-2 text-left hover:bg-accent hover:text-accent-foreground transition-colors"
                           >
-                            <div
-                              className="w-6 h-6 rounded flex items-center justify-center flex-shrink-0"
-                              style={{ backgroundColor: `${project.color}20` }}
-                            >
-                              <FolderOpen
-                                className="w-4 h-4"
-                                style={{ color: project.color }}
-                              />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="text-sm font-medium truncate">{project.name}</div>
-                              {project.description && (
-                                <div className="text-xs text-muted-foreground truncate">{project.description}</div>
-                              )}
-                            </div>
-                            {project.projectId === currentProject.projectId && (
-                              <div className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0"></div>
-                            )}
+                            <Settings className="w-4 h-4 text-muted-foreground" />
+                            <span className="text-sm text-popover-foreground">프로젝트 관리</span>
                           </button>
-                        ))}
+                        </div>
                       </div>
-                      <div className="border-t mt-2 pt-2">
-                        <button
-                          onClick={() => {
-                            if (onProjectChange) {
-                              onProjectChange();
-                            }
-                            setShowProjectDropdown(false);
-                          }}
-                          className="w-full flex items-center space-x-3 px-3 py-2 text-left hover:bg-accent hover:text-accent-foreground transition-colors"
-                        >
-                          <Settings className="w-4 h-4 text-muted-foreground" />
-                          <span className="text-sm text-popover-foreground">프로젝트 관리</span>
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
+                    )}
+                  </div>
+                )}
+              </div>
 
               {/* 오른쪽: 필터 버튼 */}
               {onFilterToggle && (

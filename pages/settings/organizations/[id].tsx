@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/router';
 import Layout from '@/components/Layout';
-import { Building2, Users, Mail, Shield, Trash2, Settings, ArrowLeft, UserPlus, Crown, Edit2 } from 'lucide-react';
+import { Building2, Users, Mail, Trash2, ArrowLeft, UserPlus, Crown, Edit2 } from 'lucide-react';
 
 interface Organization {
   id: string;

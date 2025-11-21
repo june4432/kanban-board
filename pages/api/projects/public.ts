@@ -11,7 +11,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const { projects } = getRepositories();
 
     // 공개 프로젝트만 조회
-    const publicProjects = projects.findPublicProjects();
+    const publicProjects = await projects.findPublicProjects();
 
     res.status(200).json({ projects: publicProjects });
   } catch (error) {

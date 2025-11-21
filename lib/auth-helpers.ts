@@ -48,16 +48,15 @@ export async function requireProjectMember(
   const session = await requireAuth(req, res);
   if (!session) return null;
 
-  const db = getDatabase();
-  const projectRepo = new ProjectRepository(db);
+  const projectRepo = new ProjectRepository();
 
-  const project = projectRepo.findById(projectId);
+  const project = await projectRepo.findById(projectId);
   if (!project) {
     res.status(404).json({ error: 'Project not found' });
     return null;
   }
 
-  const isMember = projectRepo.isMember(projectId, session.user.id);
+  const isMember = await projectRepo.isMember(projectId, session.user.id);
   if (!isMember) {
     res.status(403).json({ error: 'Access denied. You are not a member of this project.' });
     return null;
@@ -119,7 +118,7 @@ export async function requireCardAccess(
   }
 
   const projectId = result.project_id;
-  const projectRepo = new ProjectRepository(db);
+  const projectRepo = new ProjectRepository();
 
   const isMember = projectRepo.isMember(projectId, session.user.id);
   if (!isMember) {

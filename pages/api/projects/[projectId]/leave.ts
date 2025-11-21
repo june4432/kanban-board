@@ -30,14 +30,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // 멤버에서 제거
     const { projects } = getRepositories();
-    const removed = projects.removeMember(projectId, session.user.id);
+    const removed = await projects.removeMember(projectId, session.user.id);
 
     if (!removed) {
       return res.status(500).json({ error: 'Failed to leave project' });
     }
 
     // 업데이트된 프로젝트 반환
-    const updatedProject = projects.findById(projectId);
+    const updatedProject = await projects.findById(projectId);
 
     res.status(200).json({
       success: true,

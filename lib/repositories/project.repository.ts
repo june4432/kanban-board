@@ -1,63 +1,64 @@
-import Database from 'better-sqlite3';
 import { v4 as uuidv4 } from 'uuid';
-import { Project, ProjectJoinRequest } from '@/types';
+import { Project } from '@/types';
+import { query, queryOne, queryAll, withTransaction } from '@/lib/postgres';
+
+// Default IDs for backward compatibility
+const DEFAULT_COMPANY_ID = 'company-default';
+const DEFAULT_ORG_ID = 'org-default';
 
 export class ProjectRepository {
-  constructor(private db: Database.Database) {}
+  constructor() { }
 
   /**
    * Create a new project with initial board setup
    */
-  create(data: {
-    projectId?: string;  // Optional: for migration purposes
+  async create(data: {
+    id?: string;
     name: string;
     description?: string;
     ownerId: string;
     color?: string;
     isPublic?: boolean;
+    companyId?: string;
+    organizationId?: string;
     columns?: Array<{ title: string; wipLimit: number }>;
-  }): Project {
-    const projectId = data.projectId || `project-${Date.now()}`;
-    const boardId = `board-${projectId}`;
+  }): Promise<Project> {
+    const projectId = data.id || uuidv4();
+    const boardId = uuidv4();
+    const companyId = data.companyId || DEFAULT_COMPANY_ID;
+    const organizationId = data.organizationId || DEFAULT_ORG_ID;
+    const slug = data.name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
 
-    const transaction = this.db.transaction(() => {
+    await withTransaction(async (client) => {
       // Create project
-      const projectStmt = this.db.prepare(`
-        INSERT INTO projects (project_id, name, description, owner_id, color, is_public)
-        VALUES (?, ?, ?, ?, ?, ?)
-      `);
-
-      projectStmt.run(
+      await client.query(`
+        INSERT INTO projects (id, company_id, organization_id, name, slug, description, owner_id, color, visibility, status)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'active')
+      `, [
         projectId,
+        companyId,
+        organizationId,
         data.name,
+        `${slug}-${Date.now()}`,
         data.description || null,
         data.ownerId,
         data.color || '#3b82f6',
-        data.isPublic ? 1 : 0
-      );
+        data.isPublic ? 'public' : 'private'
+      ]);
 
       // Add owner as member
-      const memberStmt = this.db.prepare(`
+      await client.query(`
         INSERT INTO project_members (project_id, user_id, role)
-        VALUES (?, ?, 'owner')
-      `);
-
-      memberStmt.run(projectId, data.ownerId);
+        VALUES ($1, $2, 'owner')
+      `, [projectId, data.ownerId]);
 
       // Create board
-      const boardStmt = this.db.prepare(`
-        INSERT INTO boards (board_id, project_id)
-        VALUES (?, ?)
-      `);
+      await client.query(`
+        INSERT INTO boards (id, project_id, name, type)
+        VALUES ($1, $2, 'Main Board', 'kanban')
+      `, [boardId, projectId]);
 
-      boardStmt.run(boardId, projectId);
-
-      // Create columns (use custom columns if provided, otherwise use defaults)
-      const columnStmt = this.db.prepare(`
-        INSERT INTO columns (id, board_id, title, wip_limit, position)
-        VALUES (?, ?, ?, ?, ?)
-      `);
-
+      // Create columns
       const columns = data.columns || [
         { title: 'Backlog', wipLimit: 10 },
         { title: 'To Do', wipLimit: 5 },
@@ -65,352 +66,350 @@ export class ProjectRepository {
         { title: 'Done', wipLimit: 0 },
       ];
 
-      columns.forEach((col, index) => {
-        const columnId = `${boardId}-${col.title.toLowerCase().replace(/\s+/g, '-')}`;
-        columnStmt.run(
-          columnId,
-          boardId,
-          col.title,
-          col.wipLimit,
-          index
-        );
-      });
+      for (let index = 0; index < columns.length; index++) {
+        const col = columns[index];
+        if (!col) continue;
+        const columnId = uuidv4();
+        await client.query(`
+          INSERT INTO columns (id, board_id, title, wip_limit, position)
+          VALUES ($1, $2, $3, $4, $5)
+        `, [columnId, boardId, col.title, col.wipLimit, index]);
+      }
     });
 
-    transaction();
-
-    return this.findById(projectId)!;
+    return (await this.findById(projectId))!;
   }
 
   /**
-   * Find project by ID with members and join requests
+   * Find project by ID with members
    */
-  findById(projectId: string): Project | null {
-    const projectStmt = this.db.prepare(`
-      SELECT * FROM projects WHERE project_id = ?
-    `);
+  async findById(projectId: string): Promise<Project | null> {
+    // Support both new 'id' and legacy 'project_id' columns
+    const project = await queryOne(`
+      SELECT * FROM projects WHERE id = $1
+    `, [projectId]);
 
-    const project = projectStmt.get(projectId) as any;
     if (!project) return null;
 
     // Get members
-    const membersStmt = this.db.prepare(`
-      SELECT u.*, pm.role, pm.joined_at
+    const members = await queryAll(`
+      SELECT u.id, u.name, u.email, u.avatar_url as avatar, pm.role, pm.joined_at
       FROM users u
       INNER JOIN project_members pm ON u.id = pm.user_id
-      WHERE pm.project_id = ?
+      WHERE pm.project_id = $1
       ORDER BY u.name
-    `);
+    `, [projectId]);
 
-    const members = membersStmt.all(projectId) as any[];
-
-    // Get pending join requests
-    const requestsStmt = this.db.prepare(`
-      SELECT jr.*, u.id as user_id, u.name, u.email, u.avatar
-      FROM project_join_requests jr
-      INNER JOIN users u ON jr.user_id = u.id
-      WHERE jr.project_id = ? AND jr.status = 'pending'
-      ORDER BY jr.created_at DESC
-    `);
-
-    const requests = requestsStmt.all(projectId) as any[];
+    // Get pending join requests (from invitations table)
+    const requests = await queryAll(`
+      SELECT i.*, u.id as user_id, u.name, u.email, u.avatar_url as avatar
+      FROM invitations i
+      LEFT JOIN users u ON i.email = u.email
+      WHERE i.project_id = $1 AND i.status = 'pending'
+      ORDER BY i.created_at DESC
+    `, [projectId]);
 
     return {
-      projectId: project.project_id,
+      projectId: project.id,
       name: project.name,
       description: project.description,
       ownerId: project.owner_id,
       color: project.color,
-      isPublic: Boolean(project.is_public),
+      isPublic: project.visibility === 'public',
+      companyId: project.company_id,
+      organizationId: project.organization_id,
       createdAt: new Date(project.created_at),
       updatedAt: new Date(project.updated_at),
-      members: members.map((m) => ({
+      members: members.map((m: any) => ({
         id: m.id,
         name: m.name,
         email: m.email,
         avatar: m.avatar,
         role: m.role,
       })),
-      pendingRequests: requests.map((r) => ({
-        id: r.id,
-        userId: r.user_id,
-        projectId: r.project_id,
-        message: r.message,
-        status: r.status,
-        createdAt: new Date(r.created_at),
-        user: {
-          id: r.user_id,
-          name: r.name,
-          email: r.email,
-          avatar: r.avatar,
-        },
-      })),
+      pendingRequests: requests
+        .filter((r: any) => r.user_id) // Only include requests with valid users
+        .map((r: any) => ({
+          id: r.id,
+          userId: r.user_id,
+          projectId: r.project_id,
+          message: r.message || '',
+          status: r.status,
+          createdAt: new Date(r.created_at),
+          user: {
+            id: r.user_id,
+            name: r.name || 'Unknown',
+            email: r.email,
+            avatar: r.avatar || '',
+          },
+        })),
     };
   }
 
   /**
    * Get all projects
    */
-  findAll(): Project[] {
-    const stmt = this.db.prepare(`
-      SELECT project_id FROM projects ORDER BY created_at DESC
+  async findAll(): Promise<Project[]> {
+    const projectIds = await queryAll(`
+      SELECT id FROM projects WHERE status = 'active' ORDER BY created_at DESC
     `);
 
-    const projectIds = stmt.all() as any[];
+    const projects = await Promise.all(
+      projectIds.map((row: any) => this.findById(row.id))
+    );
 
-    return projectIds
-      .map((row) => this.findById(row.project_id))
-      .filter((p) => p !== null) as Project[];
+    return projects.filter((p): p is Project => p !== null);
   }
 
   /**
    * Get projects by user ID (as owner or member)
    */
-  findByUserId(userId: string): Project[] {
-    const stmt = this.db.prepare(`
-      SELECT DISTINCT p.project_id
+  async findByUserId(userId: string): Promise<Project[]> {
+    const projectIds = await queryAll(`
+      SELECT DISTINCT p.id, p.created_at
       FROM projects p
-      LEFT JOIN project_members pm ON p.project_id = pm.project_id
-      WHERE p.owner_id = ? OR pm.user_id = ?
+      LEFT JOIN project_members pm ON p.id = pm.project_id
+      WHERE (p.owner_id = $1 OR pm.user_id = $2) AND p.status = 'active'
       ORDER BY p.created_at DESC
-    `);
+    `, [userId, userId]);
 
-    const projectIds = stmt.all(userId, userId) as any[];
+    const projects = await Promise.all(
+      projectIds.map((row: any) => this.findById(row.id))
+    );
 
-    return projectIds
-      .map((row) => this.findById(row.project_id))
-      .filter((p) => p !== null) as Project[];
+    return projects.filter((p): p is Project => p !== null);
+  }
+
+  /**
+   * Get projects by company
+   */
+  async findByCompany(companyId: string): Promise<Project[]> {
+    const projectIds = await queryAll(`
+      SELECT id FROM projects WHERE company_id = $1 AND status = 'active' ORDER BY created_at DESC
+    `, [companyId]);
+
+    const projects = await Promise.all(
+      projectIds.map((row: any) => this.findById(row.id))
+    );
+
+    return projects.filter((p): p is Project => p !== null);
+  }
+
+  /**
+   * Get projects by organization
+   */
+  async findByOrganization(organizationId: string): Promise<Project[]> {
+    const projectIds = await queryAll(`
+      SELECT id FROM projects WHERE organization_id = $1 AND status = 'active' ORDER BY created_at DESC
+    `, [organizationId]);
+
+    const projects = await Promise.all(
+      projectIds.map((row: any) => this.findById(row.id))
+    );
+
+    return projects.filter((p): p is Project => p !== null);
   }
 
   /**
    * Get public projects
    */
-  findPublicProjects(): Project[] {
-    const stmt = this.db.prepare(`
-      SELECT project_id FROM projects WHERE is_public = 1 ORDER BY created_at DESC
+  async findPublicProjects(): Promise<Project[]> {
+    const projectIds = await queryAll(`
+      SELECT id FROM projects WHERE visibility = 'public' AND status = 'active' ORDER BY created_at DESC
     `);
 
-    const projectIds = stmt.all() as any[];
+    const projects = await Promise.all(
+      projectIds.map((row: any) => this.findById(row.id))
+    );
 
-    return projectIds
-      .map((row) => this.findById(row.project_id))
-      .filter((p) => p !== null) as Project[];
+    return projects.filter((p): p is Project => p !== null);
   }
 
   /**
    * Update project
    */
-  update(
-    projectId: string,
-    data: Partial<{
-      name: string;
-      description: string;
-      color: string;
-      isPublic: boolean;
-    }>
-  ): Project | null {
-    const fields: string[] = ['updated_at = CURRENT_TIMESTAMP'];
+  async update(projectId: string, data: Partial<{
+    name: string;
+    description: string;
+    color: string;
+    isPublic: boolean;
+    status: string;
+  }>): Promise<Project | null> {
+    const fields: string[] = [];
     const values: any[] = [];
+    let idx = 1;
 
     if (data.name !== undefined) {
-      fields.push('name = ?');
+      fields.push(`name = $${idx++}`);
       values.push(data.name);
     }
     if (data.description !== undefined) {
-      fields.push('description = ?');
+      fields.push(`description = $${idx++}`);
       values.push(data.description);
     }
     if (data.color !== undefined) {
-      fields.push('color = ?');
+      fields.push(`color = $${idx++}`);
       values.push(data.color);
     }
     if (data.isPublic !== undefined) {
-      fields.push('is_public = ?');
-      values.push(data.isPublic ? 1 : 0);
+      fields.push(`visibility = $${idx++}`);
+      values.push(data.isPublic ? 'public' : 'private');
+    }
+    if (data.status !== undefined) {
+      fields.push(`status = $${idx++}`);
+      values.push(data.status);
     }
 
+    if (fields.length === 0) {
+      return this.findById(projectId);
+    }
+
+    fields.push(`updated_at = CURRENT_TIMESTAMP`);
     values.push(projectId);
 
-    const stmt = this.db.prepare(`
+    await query(`
       UPDATE projects
       SET ${fields.join(', ')}
-      WHERE project_id = ?
-    `);
-
-    stmt.run(...values);
+      WHERE id = $${idx}
+    `, values);
 
     return this.findById(projectId);
   }
 
   /**
-   * Delete project (cascades to board, columns, cards)
+   * Delete project (soft delete)
    */
-  delete(projectId: string): boolean {
-    const stmt = this.db.prepare('DELETE FROM projects WHERE project_id = ?');
-    const result = stmt.run(projectId);
-
-    return result.changes > 0;
+  async delete(projectId: string): Promise<boolean> {
+    const result = await query(`
+      UPDATE projects SET status = 'deleted', updated_at = CURRENT_TIMESTAMP WHERE id = $1
+    `, [projectId]);
+    return (result as any).rowCount > 0;
   }
 
   /**
    * Add member to project
    */
-  addMember(projectId: string, userId: string, role: 'owner' | 'member' = 'member'): boolean {
-    try {
-      const stmt = this.db.prepare(`
-        INSERT INTO project_members (project_id, user_id, role)
-        VALUES (?, ?, ?)
-      `);
-
-      stmt.run(projectId, userId, role);
-      return true;
-    } catch (error) {
-      // Unique constraint violation (already a member)
-      return false;
-    }
+  async addMember(projectId: string, userId: string, role: string = 'member', invitedBy?: string): Promise<void> {
+    await query(`
+      INSERT INTO project_members (project_id, user_id, role, invited_by)
+      VALUES ($1, $2, $3, $4)
+      ON CONFLICT (project_id, user_id) DO UPDATE SET role = $3
+    `, [projectId, userId, role, invitedBy]);
   }
 
   /**
    * Remove member from project
    */
-  removeMember(projectId: string, userId: string): boolean {
-    const stmt = this.db.prepare(`
-      DELETE FROM project_members
-      WHERE project_id = ? AND user_id = ?
-    `);
+  async removeMember(projectId: string, userId: string): Promise<boolean> {
+    const result = await query(`
+      DELETE FROM project_members WHERE project_id = $1 AND user_id = $2
+    `, [projectId, userId]);
+    return (result as any).rowCount > 0;
+  }
 
-    const result = stmt.run(projectId, userId);
-    return result.changes > 0;
+  /**
+   * Update member role
+   */
+  async updateMemberRole(projectId: string, userId: string, role: string): Promise<boolean> {
+    const result = await query(`
+      UPDATE project_members SET role = $3 WHERE project_id = $1 AND user_id = $2
+    `, [projectId, userId, role]);
+    return (result as any).rowCount > 0;
   }
 
   /**
    * Check if user is member of project
    */
-  isMember(projectId: string, userId: string): boolean {
-    const stmt = this.db.prepare(`
-      SELECT 1 FROM project_members
-      WHERE project_id = ? AND user_id = ?
-    `);
-
-    return stmt.get(projectId, userId) !== undefined;
+  async isMember(projectId: string, userId: string): Promise<boolean> {
+    const result = await queryOne(`
+      SELECT 1 FROM project_members WHERE project_id = $1 AND user_id = $2
+    `, [projectId, userId]);
+    return !!result;
   }
 
   /**
-   * Create join request
+   * Get user's role in project
    */
-  createJoinRequest(data: {
+  async getUserRole(projectId: string, userId: string): Promise<string | null> {
+    const result = await queryOne(`
+      SELECT role FROM project_members WHERE project_id = $1 AND user_id = $2
+    `, [projectId, userId]);
+    return result?.role || null;
+  }
+
+  /**
+   * Create join request (invitation)
+   */
+  async createJoinRequest(data: {
     projectId: string;
-    userId: string;
+    email: string;
+    invitedBy: string;
     message?: string;
-  }): ProjectJoinRequest {
-    const id = uuidv4();
+    role?: string;
+  }): Promise<void> {
+    const project = await this.findById(data.projectId);
+    if (!project) throw new Error('Project not found');
 
-    const stmt = this.db.prepare(`
-      INSERT INTO project_join_requests (id, project_id, user_id, message, status)
-      VALUES (?, ?, ?, ?, 'pending')
-    `);
-
-    stmt.run(id, data.projectId, data.userId, data.message || null);
-
-    // Get the created request with user info
-    const getStmt = this.db.prepare(`
-      SELECT jr.*, u.id as user_id, u.name, u.email, u.avatar
-      FROM project_join_requests jr
-      INNER JOIN users u ON jr.user_id = u.id
-      WHERE jr.id = ?
-    `);
-
-    const row = getStmt.get(id) as any;
-
-    return {
-      id: row.id,
-      userId: row.user_id,
-      projectId: row.project_id,
-      message: row.message,
-      status: row.status,
-      createdAt: new Date(row.created_at),
-      user: {
-        id: row.user_id,
-        name: row.name,
-        email: row.email,
-        avatar: row.avatar,
-      },
-    };
+    const token = uuidv4();
+    await query(`
+      INSERT INTO invitations (id, company_id, email, project_id, role, token, invited_by, status)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending')
+    `, [
+      uuidv4(),
+      project.companyId || DEFAULT_COMPANY_ID,
+      data.email,
+      data.projectId,
+      data.role || 'member',
+      token,
+      data.invitedBy
+    ]);
   }
 
   /**
-   * Approve join request
+   * Get pending join requests for project
    */
-  approveJoinRequest(requestId: string): boolean {
-    const transaction = this.db.transaction(() => {
-      // Get request details
-      const getStmt = this.db.prepare(`
-        SELECT project_id, user_id FROM project_join_requests
-        WHERE id = ? AND status = 'pending'
-      `);
+  async getJoinRequests(projectId: string): Promise<any[]> {
+    return queryAll(`
+      SELECT i.*, u.id as user_id, u.name, u.avatar_url as avatar
+      FROM invitations i
+      LEFT JOIN users u ON i.email = u.email
+      WHERE i.project_id = $1 AND i.status = 'pending'
+      ORDER BY i.created_at DESC
+    `, [projectId]);
+  }
 
-      const request = getStmt.get(requestId) as any;
-      if (!request) return false;
+  /**
+   * Accept join request
+   */
+  async acceptJoinRequest(requestId: string): Promise<void> {
+    const request = await queryOne(`
+      SELECT * FROM invitations WHERE id = $1
+    `, [requestId]);
 
-      // Update request status
-      const updateStmt = this.db.prepare(`
-        UPDATE project_join_requests
-        SET status = 'approved'
-        WHERE id = ?
-      `);
+    if (!request) throw new Error('Request not found');
 
-      updateStmt.run(requestId);
+    // Find user by email
+    const user = await queryOne(`
+      SELECT id FROM users WHERE email = $1
+    `, [request.email]);
 
+    if (user) {
       // Add user as member
-      this.addMember(request.project_id, request.user_id, 'member');
+      await this.addMember(request.project_id, user.id, request.role, request.invited_by);
+    }
 
-      return true;
-    });
-
-    return transaction();
+    // Update invitation status
+    await query(`
+      UPDATE invitations SET status = 'accepted' WHERE id = $1
+    `, [requestId]);
   }
 
   /**
    * Reject join request
    */
-  rejectJoinRequest(requestId: string): boolean {
-    const stmt = this.db.prepare(`
-      UPDATE project_join_requests
-      SET status = 'rejected'
-      WHERE id = ? AND status = 'pending'
-    `);
-
-    const result = stmt.run(requestId);
-    return result.changes > 0;
-  }
-
-  /**
-   * Get join requests for a project
-   */
-  getJoinRequests(projectId: string): ProjectJoinRequest[] {
-    const stmt = this.db.prepare(`
-      SELECT jr.*, u.id as user_id, u.name, u.email, u.avatar
-      FROM project_join_requests jr
-      INNER JOIN users u ON jr.user_id = u.id
-      WHERE jr.project_id = ? AND jr.status = 'pending'
-      ORDER BY jr.created_at DESC
-    `);
-
-    const rows = stmt.all(projectId) as any[];
-
-    return rows.map((r) => ({
-      id: r.id,
-      userId: r.user_id,
-      projectId: r.project_id,
-      message: r.message,
-      status: r.status,
-      createdAt: new Date(r.created_at),
-      user: {
-        id: r.user_id,
-        name: r.name,
-        email: r.email,
-        avatar: r.avatar,
-      },
-    }));
+  async rejectJoinRequest(requestId: string): Promise<void> {
+    await query(`
+      UPDATE invitations SET status = 'rejected' WHERE id = $1
+    `, [requestId]);
   }
 }

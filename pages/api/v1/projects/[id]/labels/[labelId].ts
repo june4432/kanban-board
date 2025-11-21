@@ -52,7 +52,7 @@ async function handlePatch(req: ApiRequest, res: NextApiResponse, projectId: str
   const { boards } = getRepositories();
 
   // Get current board
-  const board = boards.findByProjectId(projectId);
+  const board = await boards.findByProjectId(projectId);
 
   if (!board) {
     return sendError(
@@ -80,7 +80,7 @@ async function handlePatch(req: ApiRequest, res: NextApiResponse, projectId: str
   }
 
   // Update label
-  const updatedLabel = boards.updateLabel(labelId, {
+  const updatedLabel = await boards.updateLabel(labelId, {
     name: body.name,
     color: body.color,
   });
@@ -119,7 +119,7 @@ async function handleDelete(req: ApiRequest, res: NextApiResponse, projectId: st
   const { boards } = getRepositories();
 
   // Get current board
-  const board = boards.findByProjectId(projectId);
+  const board = await boards.findByProjectId(projectId);
 
   if (!board) {
     return sendError(
@@ -147,7 +147,7 @@ async function handleDelete(req: ApiRequest, res: NextApiResponse, projectId: st
   }
 
   // Delete label
-  const deleted = boards.deleteLabel(labelId);
+  const deleted = await boards.deleteLabel(labelId);
 
   if (!deleted) {
     return sendError(

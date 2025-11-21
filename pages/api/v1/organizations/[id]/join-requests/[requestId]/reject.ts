@@ -34,7 +34,7 @@ async function handler(req: ApiRequest, res: NextApiResponse) {
   const { organizations } = getRepositories();
 
   // Check if user is admin or owner
-  const userRole = organizations.getUserRole(orgId, req.user.id);
+  const userRole = await organizations.getUserRole(orgId, req.user.id);
   if (!['owner', 'admin'].includes(userRole || '')) {
     return sendForbidden(
       res,
@@ -44,13 +44,13 @@ async function handler(req: ApiRequest, res: NextApiResponse) {
   }
 
   // Reject the request
-  const rejected = organizations.rejectJoinRequest(requestId);
+  const rejected = await organizations.rejectJoinRequest(requestId);
 
   if (!rejected) {
     return sendNotFound(res, 'Join request', req.requestId);
   }
 
-  const request = organizations.getJoinRequest(requestId);
+  const request = await organizations.getJoinRequest(requestId);
   sendSuccess(res, request, 200, req.requestId);
 }
 

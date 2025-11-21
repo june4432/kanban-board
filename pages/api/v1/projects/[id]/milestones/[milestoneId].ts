@@ -56,7 +56,7 @@ async function handlePatch(req: ApiRequest, res: NextApiResponse, projectId: str
   const { boards } = getRepositories();
 
   // Get current board
-  const board = boards.findByProjectId(projectId);
+  const board = await boards.findByProjectId(projectId);
 
   if (!board) {
     return sendError(
@@ -84,7 +84,7 @@ async function handlePatch(req: ApiRequest, res: NextApiResponse, projectId: str
   }
 
   // Update milestone
-  const updatedMilestone = boards.updateMilestone(milestoneId, {
+  const updatedMilestone = await boards.updateMilestone(milestoneId, {
     name: body.name,
     dueDate: body.dueDate ? new Date(body.dueDate) : undefined,
     description: body.description,
@@ -124,7 +124,7 @@ async function handleDelete(req: ApiRequest, res: NextApiResponse, projectId: st
   const { boards } = getRepositories();
 
   // Get current board
-  const board = boards.findByProjectId(projectId);
+  const board = await boards.findByProjectId(projectId);
 
   if (!board) {
     return sendError(
@@ -152,7 +152,7 @@ async function handleDelete(req: ApiRequest, res: NextApiResponse, projectId: st
   }
 
   // Delete milestone
-  const deleted = boards.deleteMilestone(milestoneId);
+  const deleted = await boards.deleteMilestone(milestoneId);
 
   if (!deleted) {
     return sendError(

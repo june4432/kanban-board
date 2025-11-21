@@ -7,7 +7,6 @@ import { NextApiRequest, NextApiResponse } from 'next';
 import { withErrorHandler } from '@/lib/error-handler';
 import { requireProjectMember } from '@/lib/auth-helpers';
 import { AuditLogService } from '@/lib/services/audit-log.service';
-import { getDatabase } from '@/lib/database';
 import { ValidationError } from '@/lib/errors';
 
 export default withErrorHandler(async (req: NextApiRequest, res: NextApiResponse) => {
@@ -26,10 +25,9 @@ export default withErrorHandler(async (req: NextApiRequest, res: NextApiResponse
   const auth = await requireProjectMember(req, res, projectId);
   if (!auth) return;
 
-  const db = getDatabase();
-  const auditLogService = new AuditLogService(db);
+  const auditLogService = new AuditLogService();
 
-  const logs = auditLogService.getProjectLogs(
+  const logs = await auditLogService.getProjectLogs(
     projectId,
     limit ? parseInt(limit as string) : 50,
     offset ? parseInt(offset as string) : 0

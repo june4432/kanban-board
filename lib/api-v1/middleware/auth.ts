@@ -106,16 +106,15 @@ export async function requireProjectMember(
     return null;
   }
 
-  const db = getDatabase();
-  const projectRepo = new ProjectRepository(db);
+  const projectRepo = new ProjectRepository();
 
-  const project = projectRepo.findById(projectId);
+  const project = await projectRepo.findById(projectId);
   if (!project) {
     sendNotFound(res, 'Project', req.requestId);
     return null;
   }
 
-  const isMember = projectRepo.isMember(projectId, req.user.id);
+  const isMember = await projectRepo.isMember(projectId, req.user.id);
   if (!isMember) {
     sendForbidden(
       res,
@@ -185,7 +184,7 @@ export async function requireCardAccess(
   }
 
   const projectId = result.project_id;
-  const projectRepo = new ProjectRepository(db);
+  const projectRepo = new ProjectRepository();
 
   const isMember = projectRepo.isMember(projectId, req.user.id);
   if (!isMember) {

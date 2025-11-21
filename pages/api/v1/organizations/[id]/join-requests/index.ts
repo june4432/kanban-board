@@ -51,7 +51,7 @@ async function handleGet(req: ApiRequest, res: NextApiResponse, orgId: string) {
   const { organizations } = getRepositories();
 
   // Check if user is admin or owner
-  const userRole = organizations.getUserRole(orgId, req.user.id);
+  const userRole = await organizations.getUserRole(orgId, req.user.id);
   if (!['owner', 'admin'].includes(userRole || '')) {
     return sendForbidden(
       res,
@@ -61,7 +61,7 @@ async function handleGet(req: ApiRequest, res: NextApiResponse, orgId: string) {
   }
 
   const status = req.query.status as string | undefined;
-  const requests = organizations.getJoinRequests(orgId, status);
+  const requests = await organizations.getJoinRequests(orgId, status);
 
   sendSuccess(res, requests, 200, req.requestId);
 }
@@ -78,7 +78,7 @@ async function handlePost(req: ApiRequest, res: NextApiResponse, orgId: string) 
   const { organizations } = getRepositories();
 
   // Check if organization exists
-  const org = organizations.findById(orgId);
+  const org = await organizations.findById(orgId);
   if (!org) {
     return sendValidationError(
       res,
@@ -89,7 +89,7 @@ async function handlePost(req: ApiRequest, res: NextApiResponse, orgId: string) 
   }
 
   // Check if already a member
-  if (organizations.isMember(orgId, req.user.id)) {
+  if (await organizations.isMember(orgId, req.user.id)) {
     return sendValidationError(
       res,
       'Already a member of this organization',
@@ -99,7 +99,7 @@ async function handlePost(req: ApiRequest, res: NextApiResponse, orgId: string) 
   }
 
   // Check if already has pending request
-  if (organizations.hasPendingRequest(orgId, req.user.id)) {
+  if (await organizations.hasPendingRequest(orgId, req.user.id)) {
     return sendValidationError(
       res,
       'Join request already pending',
@@ -110,7 +110,7 @@ async function handlePost(req: ApiRequest, res: NextApiResponse, orgId: string) 
 
   const data = validateBody(req, createJoinRequestSchema);
 
-  const joinRequest = organizations.createJoinRequest(
+  const joinRequest = await organizations.createJoinRequest(
     orgId,
     req.user.id,
     data.message

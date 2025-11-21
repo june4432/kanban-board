@@ -8,7 +8,7 @@ import { withErrorHandler } from '@/lib/error-handler';
 import { requireProjectMember } from '@/lib/auth-helpers';
 import { ValidationError } from '@/lib/errors';
 import { DashboardService } from '@/lib/services/dashboard.service';
-import { getDatabase } from '@/lib/database';
+import { getDatabaseAdapter } from '@/lib/database-adapter';
 
 export default withErrorHandler(async (req: NextApiRequest, res: NextApiResponse) => {
   if (req.method !== 'GET') {
@@ -26,11 +26,11 @@ export default withErrorHandler(async (req: NextApiRequest, res: NextApiResponse
   const auth = await requireProjectMember(req, res, projectId);
   if (!auth) return;
 
-  const db = getDatabase();
+  const db = await getDatabaseAdapter();
   const dashboardService = new DashboardService(db);
 
   // 대시보드 통계 조회
-  const stats = dashboardService.getProjectDashboard(projectId);
+  const stats = await dashboardService.getProjectDashboard(projectId);
 
   return res.status(200).json({ dashboard: stats });
 });

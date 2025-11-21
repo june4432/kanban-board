@@ -32,7 +32,7 @@ const ProjectSelector: React.FC<ProjectSelectorProps> = ({
   const [activeTab, setActiveTab] = useState<'my' | 'public'>('my');
   const [selectedOrgFilter, setSelectedOrgFilter] = useState<string>('all');
   const [settingsProject, setSettingsProject] = useState<Project | null>(null);
-  const [projectSettingsTab, setProjectSettingsTab] = useState<'general' | 'members' | 'requests' | 'columns' | 'invites' | 'integrations'>('general');
+  const [projectSettingsTab, setProjectSettingsTab] = useState<'general' | 'members' | 'requests' | 'columns' | 'labels' | 'milestones' | 'invites' | 'integrations'>('general');
   const [formData, setFormData] = useState({
     name: '',
     description: '',

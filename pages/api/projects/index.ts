@@ -17,7 +17,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 async function handleGet(_req: NextApiRequest, res: NextApiResponse) {
   try {
     const { projects } = getRepositories();
-    const allProjects = projects.findAll();
+    const allProjects = await projects.findAll();
     res.status(200).json({ projects: allProjects });
   } catch (error) {
     console.error('Error fetching projects:', error);
@@ -37,12 +37,12 @@ async function handlePost(req: NextApiRequest, res: NextApiResponse) {
     const { projects, users } = getRepositories();
 
     // 프로젝트 생성자 확인
-    const owner = users.findById(ownerId);
+    const owner = await users.findById(ownerId);
     if (!owner) {
       return res.status(400).json({ error: 'Owner not found' });
     }
 
-    const newProject = projects.create({
+    const newProject = await projects.create({
       name,
       description,
       ownerId,

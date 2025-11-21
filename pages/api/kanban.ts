@@ -25,7 +25,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         const { boards } = getRepositories();
 
         // 보드 조회 (없으면 자동 생성됨)
-        const board = boards.findByProjectId(projectId);
+        const board = await boards.findByProjectId(projectId);
 
         if (!board) {
           console.log(`⚠️ No board found for projectId ${projectId}, creating new empty board`);

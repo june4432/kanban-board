@@ -12,6 +12,7 @@ import {
   sendCreated,
   sendMethodNotAllowed,
   sendPaginated,
+  sendUnauthorized,
 } from '@/lib/api-v1/utils/response';
 import {
   validateBody,
@@ -44,7 +45,7 @@ async function handleGet(req: ApiRequest, res: NextApiResponse) {
   const filters = validateQuery(req, projectFiltersSchema);
   const { projects } = getRepositories();
 
-  let allProjects = projects.findAll();
+  let allProjects = await projects.findAll();
 
   // Apply filters
   if (filters.ownerId) {
@@ -130,15 +131,10 @@ async function handlePost(req: ApiRequest, res: NextApiResponse) {
 
   // User must be authenticated to create projects
   if (!req.user) {
-    return res.status(401).json({
-      error: {
-        code: 'UNAUTHORIZED',
-        message: 'Authentication required to create projects',
-      },
-    });
+    return sendUnauthorized(res, 'Authentication required to create projects', req.requestId);
   }
 
-  const newProject = projects.create({
+  const newProject = await projects.create({
     name: data.name,
     description: data.description,
     ownerId: req.user.id,

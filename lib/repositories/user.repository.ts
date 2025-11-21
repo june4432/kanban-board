@@ -1,44 +1,47 @@
-import Database from 'better-sqlite3';
 import bcrypt from 'bcryptjs';
 import { v4 as uuidv4 } from 'uuid';
 import { User } from '@/types';
+import { query, queryOne, queryAll } from '@/lib/postgres';
+
+// Default company ID for new users (set during migration)
+const DEFAULT_COMPANY_ID = 'company-default';
 
 export class UserRepository {
-  constructor(private db: Database.Database) {}
+  constructor() { }
 
   /**
    * Create a new user with hashed password
    */
   async create(data: {
-    id?: string;  // Optional: for migration purposes
+    id?: string;
     name: string;
     email: string;
     password: string;
     role?: 'admin' | 'user';
+    companyId?: string;
+    companyRole?: 'owner' | 'admin' | 'member';
   }): Promise<User> {
     const hashedPassword = await bcrypt.hash(data.password, 10);
     const id = data.id || uuidv4();
-
-    const stmt = this.db.prepare(`
-      INSERT INTO users (id, name, email, password, avatar, role)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `);
+    const companyId = data.companyId || DEFAULT_COMPANY_ID;
 
     const avatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(
       data.name
     )}&background=3b82f6&color=fff`;
 
-    stmt.run(id, data.name, data.email, hashedPassword, avatar, data.role || 'user');
+    await query(`
+      INSERT INTO users (id, company_id, name, email, password_hash, avatar_url, company_role, status)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, 'active')
+    `, [id, companyId, data.name, data.email, hashedPassword, avatar, data.companyRole || 'member']);
 
-    return this.findById(id)!;
+    return (await this.findById(id))!;
   }
 
   /**
    * Find user by ID
    */
-  findById(id: string): User | null {
-    const stmt = this.db.prepare('SELECT * FROM users WHERE id = ?');
-    const row = stmt.get(id) as any;
+  async findById(id: string): Promise<User | null> {
+    const row = await queryOne('SELECT * FROM users WHERE id = $1', [id]);
 
     if (!row) return null;
 
@@ -48,9 +51,22 @@ export class UserRepository {
   /**
    * Find user by email
    */
-  findByEmail(email: string): User | null {
-    const stmt = this.db.prepare('SELECT * FROM users WHERE email = ?');
-    const row = stmt.get(email) as any;
+  async findByEmail(email: string): Promise<User | null> {
+    const row = await queryOne('SELECT * FROM users WHERE email = $1', [email]);
+
+    if (!row) return null;
+
+    return this.mapToUser(row);
+  }
+
+  /**
+   * Find user by email within a company
+   */
+  async findByEmailAndCompany(email: string, companyId: string): Promise<User | null> {
+    const row = await queryOne(
+      'SELECT * FROM users WHERE email = $1 AND company_id = $2',
+      [email, companyId]
+    );
 
     if (!row) return null;
 
@@ -60,50 +76,65 @@ export class UserRepository {
   /**
    * Get all users (without passwords)
    */
-  findAll(): User[] {
-    const stmt = this.db.prepare('SELECT * FROM users ORDER BY name');
-    const rows = stmt.all() as any[];
+  async findAll(): Promise<User[]> {
+    const rows = await queryAll('SELECT * FROM users ORDER BY name');
 
-    return rows.map((row) => this.mapToUser(row, false));
+    return rows.map((row: any) => this.mapToUser(row, false));
+  }
+
+  /**
+   * Get all users in a company
+   */
+  async findByCompany(companyId: string): Promise<User[]> {
+    const rows = await queryAll(
+      'SELECT * FROM users WHERE company_id = $1 ORDER BY name',
+      [companyId]
+    );
+
+    return rows.map((row: any) => this.mapToUser(row, false));
   }
 
   /**
    * Update user
    */
-  update(id: string, data: Partial<User>): User | null {
+  async update(id: string, data: Partial<User & { companyRole?: string; status?: string }>): Promise<User | null> {
     const fields: string[] = [];
     const values: any[] = [];
+    let idx = 1;
 
     if (data.name !== undefined) {
-      fields.push('name = ?');
+      fields.push(`name = $${idx++}`);
       values.push(data.name);
     }
     if (data.email !== undefined) {
-      fields.push('email = ?');
+      fields.push(`email = $${idx++}`);
       values.push(data.email);
     }
     if (data.avatar !== undefined) {
-      fields.push('avatar = ?');
+      fields.push(`avatar_url = $${idx++}`);
       values.push(data.avatar);
     }
-    if (data.role !== undefined) {
-      fields.push('role = ?');
-      values.push(data.role);
+    if (data.companyRole !== undefined) {
+      fields.push(`company_role = $${idx++}`);
+      values.push(data.companyRole);
+    }
+    if (data.status !== undefined) {
+      fields.push(`status = $${idx++}`);
+      values.push(data.status);
     }
 
     if (fields.length === 0) {
       return this.findById(id);
     }
 
+    fields.push(`updated_at = CURRENT_TIMESTAMP`);
     values.push(id);
 
-    const stmt = this.db.prepare(`
+    await query(`
       UPDATE users
       SET ${fields.join(', ')}
-      WHERE id = ?
-    `);
-
-    stmt.run(...values);
+      WHERE id = $${idx}
+    `, values);
 
     return this.findById(id);
   }
@@ -111,28 +142,23 @@ export class UserRepository {
   /**
    * Delete user
    */
-  delete(id: string): boolean {
-    const stmt = this.db.prepare('DELETE FROM users WHERE id = ?');
-    const result = stmt.run(id);
-
-    return result.changes > 0;
+  async delete(id: string): Promise<boolean> {
+    const result = await query('DELETE FROM users WHERE id = $1', [id]);
+    return (result as any).rowCount > 0;
   }
 
   /**
    * Verify user password
    */
   async verifyPassword(email: string, password: string): Promise<User | null> {
-    // Need to get user with password for verification
-    const stmt = this.db.prepare('SELECT * FROM users WHERE email = ?');
-    const row = stmt.get(email) as any;
+    const row = await queryOne('SELECT * FROM users WHERE email = $1', [email]);
 
-    if (!row || !row.password) return null;
+    if (!row || !row.password_hash) return null;
 
-    const isValid = await bcrypt.compare(password, row.password);
+    const isValid = await bcrypt.compare(password, row.password_hash);
 
     if (!isValid) return null;
 
-    // Return user without password
     return this.mapToUser(row, false);
   }
 
@@ -142,10 +168,12 @@ export class UserRepository {
   async changePassword(id: string, newPassword: string): Promise<boolean> {
     const hashedPassword = await bcrypt.hash(newPassword, 10);
 
-    const stmt = this.db.prepare('UPDATE users SET password = ? WHERE id = ?');
-    const result = stmt.run(hashedPassword, id);
+    const result = await query(
+      'UPDATE users SET password_hash = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
+      [hashedPassword, id]
+    );
 
-    return result.changes > 0;
+    return (result as any).rowCount > 0;
   }
 
   /**
@@ -156,9 +184,12 @@ export class UserRepository {
       id: row.id,
       name: row.name,
       email: row.email,
-      avatar: row.avatar,
-      password: includePassword ? row.password : undefined,
-      role: row.role,
+      avatar: row.avatar_url || row.avatar,
+      password: includePassword ? row.password_hash : undefined,
+      role: row.company_role === 'owner' || row.company_role === 'admin' ? 'admin' : 'user',
+      companyId: row.company_id,
+      companyRole: row.company_role,
+      status: row.status,
       createdAt: row.created_at ? new Date(row.created_at) : undefined,
     };
   }

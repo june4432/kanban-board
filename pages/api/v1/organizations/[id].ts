@@ -48,12 +48,12 @@ async function handler(req: ApiRequest, res: NextApiResponse) {
 /**
  * Check if user has permission to perform action on organization
  */
-function checkOrganizationAccess(
+async function checkOrganizationAccess(
   req: ApiRequest,
   res: NextApiResponse,
   orgId: string,
   requiredRole?: 'owner' | 'admin'
-): boolean {
+): Promise<boolean> {
   if (!req.user) {
     sendForbidden(res, 'User not authenticated', req.requestId);
     return false;
@@ -61,7 +61,7 @@ function checkOrganizationAccess(
 
   const { organizations } = getRepositories();
 
-  const isMember = organizations.isMember(orgId, req.user.id);
+  const isMember = await organizations.isMember(orgId, req.user.id);
   if (!isMember) {
     sendForbidden(
       res,
@@ -72,7 +72,7 @@ function checkOrganizationAccess(
   }
 
   if (requiredRole) {
-    const userRole = organizations.getUserRole(orgId, req.user.id);
+    const userRole = await organizations.getUserRole(orgId, req.user.id);
     if (requiredRole === 'owner' && userRole !== 'owner') {
       sendForbidden(
         res,
@@ -100,20 +100,20 @@ function checkOrganizationAccess(
  * Get organization details
  */
 async function handleGet(req: ApiRequest, res: NextApiResponse, orgId: string) {
-  if (!checkOrganizationAccess(req, res, orgId)) return;
+  if (!(await checkOrganizationAccess(req, res, orgId))) return;
 
   const { organizations } = getRepositories();
-  const org = organizations.findById(orgId);
+  const org = await organizations.findById(orgId);
 
   if (!org) {
     return sendNotFound(res, 'Organization', req.requestId);
   }
 
   // Get members
-  const members = organizations.getMembers(orgId);
+  const members = await organizations.getMembers(orgId);
 
   // Get stats
-  const stats = organizations.getStats(orgId);
+  const stats = await organizations.getStats(orgId);
 
   sendSuccess(res, { ...org, members, stats }, 200, req.requestId);
 }
@@ -123,12 +123,12 @@ async function handleGet(req: ApiRequest, res: NextApiResponse, orgId: string) {
  * Update organization (requires admin or owner)
  */
 async function handlePatch(req: ApiRequest, res: NextApiResponse, orgId: string) {
-  if (!checkOrganizationAccess(req, res, orgId, 'admin')) return;
+  if (!(await checkOrganizationAccess(req, res, orgId, 'admin'))) return;
 
   const updates = validateBody(req, updateOrganizationSchema);
   const { organizations } = getRepositories();
 
-  const updatedOrg = organizations.update(orgId, updates);
+  const updatedOrg = await organizations.update(orgId, updates);
 
   if (!updatedOrg) {
     return sendNotFound(res, 'Organization', req.requestId);
@@ -142,10 +142,10 @@ async function handlePatch(req: ApiRequest, res: NextApiResponse, orgId: string)
  * Delete organization (requires owner)
  */
 async function handleDelete(req: ApiRequest, res: NextApiResponse, orgId: string) {
-  if (!checkOrganizationAccess(req, res, orgId, 'owner')) return;
+  if (!(await checkOrganizationAccess(req, res, orgId, 'owner'))) return;
 
   const { organizations } = getRepositories();
-  const deleted = organizations.delete(orgId);
+  const deleted = await organizations.delete(orgId);
 
   if (!deleted) {
     return sendNotFound(res, 'Organization', req.requestId);

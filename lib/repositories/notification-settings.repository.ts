@@ -3,7 +3,7 @@
  * 사용자 알림 설정 관리
  */
 
-import { Database } from 'better-sqlite3';
+import { query, queryOne, queryAll } from '@/lib/postgres';
 
 export interface NotificationSettings {
   id: number;
@@ -44,18 +44,16 @@ export interface NotificationSettingsInput {
 }
 
 export class NotificationSettingsRepository {
-  constructor(private db: Database) {}
+  constructor() { }
 
   /**
    * 사용자의 전역 알림 설정 조회 (기본값 반환)
    */
-  getGlobalSettings(userId: string): NotificationSettings {
-    const stmt = this.db.prepare(`
+  async getGlobalSettings(userId: string): Promise<NotificationSettings> {
+    const row = await queryOne(`
       SELECT * FROM user_notification_settings
-      WHERE user_id = ? AND project_id IS NULL
-    `);
-
-    const row = stmt.get(userId) as any;
+      WHERE user_id = $1 AND project_id IS NULL
+    `, [userId]);
 
     if (row) {
       return this.mapRowToSettings(row);
@@ -68,13 +66,11 @@ export class NotificationSettingsRepository {
   /**
    * 프로젝트별 알림 설정 조회 (전역 설정 상속)
    */
-  getProjectSettings(userId: string, projectId: string): NotificationSettings {
-    const stmt = this.db.prepare(`
+  async getProjectSettings(userId: string, projectId: string): Promise<NotificationSettings> {
+    const row = await queryOne(`
       SELECT * FROM user_notification_settings
-      WHERE user_id = ? AND project_id = ?
-    `);
-
-    const row = stmt.get(userId, projectId) as any;
+      WHERE user_id = $1 AND project_id = $2
+    `, [userId, projectId]);
 
     if (row) {
       return this.mapRowToSettings(row);
@@ -87,25 +83,24 @@ export class NotificationSettingsRepository {
   /**
    * 사용자의 모든 프로젝트 알림 설정 조회
    */
-  getAllProjectSettings(userId: string): NotificationSettings[] {
-    const stmt = this.db.prepare(`
+  async getAllProjectSettings(userId: string): Promise<NotificationSettings[]> {
+    const rows = await queryAll(`
       SELECT * FROM user_notification_settings
-      WHERE user_id = ? AND project_id IS NOT NULL
+      WHERE user_id = $1 AND project_id IS NOT NULL
       ORDER BY created_at DESC
-    `);
+    `, [userId]);
 
-    const rows = stmt.all(userId) as any[];
-    return rows.map(row => this.mapRowToSettings(row));
+    return rows.map((row: any) => this.mapRowToSettings(row));
   }
 
   /**
    * 전역 알림 설정 업데이트
    */
-  updateGlobalSettings(userId: string, input: NotificationSettingsInput): NotificationSettings {
-    const existing = this.db.prepare(`
+  async updateGlobalSettings(userId: string, input: NotificationSettingsInput): Promise<NotificationSettings> {
+    const existing = await queryOne(`
       SELECT id FROM user_notification_settings
-      WHERE user_id = ? AND project_id IS NULL
-    `).get(userId) as any;
+      WHERE user_id = $1 AND project_id IS NULL
+    `, [userId]);
 
     if (existing) {
       return this.updateSettings(existing.id, input);
@@ -117,15 +112,15 @@ export class NotificationSettingsRepository {
   /**
    * 프로젝트별 알림 설정 업데이트
    */
-  updateProjectSettings(
+  async updateProjectSettings(
     userId: string,
     projectId: string,
     input: NotificationSettingsInput
-  ): NotificationSettings {
-    const existing = this.db.prepare(`
+  ): Promise<NotificationSettings> {
+    const existing = await queryOne(`
       SELECT id FROM user_notification_settings
-      WHERE user_id = ? AND project_id = ?
-    `).get(userId, projectId) as any;
+      WHERE user_id = $1 AND project_id = $2
+    `, [userId, projectId]);
 
     if (existing) {
       return this.updateSettings(existing.id, input);
@@ -137,35 +132,34 @@ export class NotificationSettingsRepository {
   /**
    * 프로젝트 음소거/음소거 해제
    */
-  toggleProjectMute(userId: string, projectId: string): NotificationSettings {
-    const settings = this.getProjectSettings(userId, projectId);
+  async toggleProjectMute(userId: string, projectId: string): Promise<NotificationSettings> {
+    const settings = await this.getProjectSettings(userId, projectId);
     return this.updateProjectSettings(userId, projectId, { muted: !settings.muted });
   }
 
   /**
    * 알림 설정 삭제 (프로젝트별만 가능, 전역은 기본값으로 리셋)
    */
-  deleteProjectSettings(userId: string, projectId: string): boolean {
-    const stmt = this.db.prepare(`
+  async deleteProjectSettings(userId: string, projectId: string): Promise<boolean> {
+    const result = await query(`
       DELETE FROM user_notification_settings
-      WHERE user_id = ? AND project_id = ?
-    `);
+      WHERE user_id = $1 AND project_id = $2
+    `, [userId, projectId]);
 
-    const result = stmt.run(userId, projectId);
-    return result.changes > 0;
+    return (result as any).rowCount > 0;
   }
 
   /**
    * 특정 이벤트에 대한 알림 활성화 여부 확인
    */
-  shouldNotify(
+  async shouldNotify(
     userId: string,
     projectId: string | null,
     eventType: keyof NotificationSettingsInput
-  ): boolean {
+  ): Promise<boolean> {
     const settings = projectId
-      ? this.getProjectSettings(userId, projectId)
-      : this.getGlobalSettings(userId);
+      ? await this.getProjectSettings(userId, projectId)
+      : await this.getGlobalSettings(userId);
 
     if (settings.muted) {
       return false;
@@ -177,21 +171,21 @@ export class NotificationSettingsRepository {
   /**
    * 기본 알림 설정 생성
    */
-  private createDefaultSettings(userId: string): NotificationSettings {
+  private async createDefaultSettings(userId: string): Promise<NotificationSettings> {
     return this.createSettings(userId, null, {});
   }
 
   /**
    * 알림 설정 생성
    */
-  private createSettings(
+  private async createSettings(
     userId: string,
     projectId: string | null,
     input: NotificationSettingsInput
-  ): NotificationSettings {
+  ): Promise<NotificationSettings> {
     const now = new Date().toISOString();
 
-    const stmt = this.db.prepare(`
+    await query(`
       INSERT INTO user_notification_settings (
         user_id, project_id,
         card_created, card_updated, card_deleted, card_assigned, card_due_soon,
@@ -200,10 +194,8 @@ export class NotificationSettingsRepository {
         muted, email_enabled, in_app_enabled,
         created_at, updated_at
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `);
-
-    stmt.run(
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+    `, [
       userId,
       projectId,
       input.cardCreated ?? 1,
@@ -220,7 +212,7 @@ export class NotificationSettingsRepository {
       input.inAppEnabled ?? 1,
       now,
       now
-    );
+    ]);
 
     return projectId
       ? this.getProjectSettings(userId, projectId)
@@ -230,40 +222,38 @@ export class NotificationSettingsRepository {
   /**
    * 알림 설정 업데이트
    */
-  private updateSettings(id: number, input: NotificationSettingsInput): NotificationSettings {
+  private async updateSettings(id: number, input: NotificationSettingsInput): Promise<NotificationSettings> {
     const now = new Date().toISOString();
     const updates: string[] = [];
     const values: any[] = [];
+    let idx = 1;
 
     Object.entries(input).forEach(([key, value]) => {
       if (value !== undefined) {
         // camelCase to snake_case
         const snakeKey = key.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
-        updates.push(`${snakeKey} = ?`);
+        updates.push(`${snakeKey} = $${idx++}`);
         values.push(value ? 1 : 0);
       }
     });
 
     if (updates.length === 0) {
       // 변경사항 없음
-      const stmt = this.db.prepare('SELECT * FROM user_notification_settings WHERE id = ?');
-      const row = stmt.get(id) as any;
+      const row = await queryOne('SELECT * FROM user_notification_settings WHERE id = $1', [id]);
       return this.mapRowToSettings(row);
     }
 
-    updates.push('updated_at = ?');
+    updates.push(`updated_at = $${idx++}`);
     values.push(now);
     values.push(id);
 
-    const stmt = this.db.prepare(`
+    await query(`
       UPDATE user_notification_settings
       SET ${updates.join(', ')}
-      WHERE id = ?
-    `);
+      WHERE id = $${idx}
+    `, values);
 
-    stmt.run(...values);
-
-    const updatedRow = this.db.prepare('SELECT * FROM user_notification_settings WHERE id = ?').get(id) as any;
+    const updatedRow = await queryOne('SELECT * FROM user_notification_settings WHERE id = $1', [id]);
     return this.mapRowToSettings(updatedRow);
   }
 

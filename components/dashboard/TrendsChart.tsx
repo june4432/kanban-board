@@ -19,32 +19,33 @@ export default function TrendsChart({ trends }: TrendsChartProps) {
   }));
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 border border-gray-200 dark:border-gray-700">
-      <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+    <div className="bg-card rounded-lg shadow-sm border border-border p-6">
+      <h3 className="text-lg font-semibold text-card-foreground mb-4">
         30-Day Trends
       </h3>
 
       <ResponsiveContainer width="100%" height={300}>
         <LineChart data={formattedData}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+          <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
           <XAxis
             dataKey="date"
-            stroke="#9ca3af"
+            stroke="hsl(var(--muted-foreground))"
             style={{ fontSize: '12px' }}
           />
           <YAxis
-            stroke="#9ca3af"
+            stroke="hsl(var(--muted-foreground))"
             style={{ fontSize: '12px' }}
           />
           <Tooltip
             contentStyle={{
-              backgroundColor: '#1f2937',
-              border: '1px solid #374151',
+              backgroundColor: 'hsl(var(--popover))',
+              border: '1px solid hsl(var(--border))',
               borderRadius: '8px',
-              color: '#fff'
+              color: 'hsl(var(--popover-foreground))'
             }}
+            itemStyle={{ color: 'hsl(var(--popover-foreground))' }}
           />
-          <Legend />
+          <Legend wrapperStyle={{ paddingTop: '20px' }} />
           <Line
             type="monotone"
             dataKey="cardsCreated"

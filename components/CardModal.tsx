@@ -71,7 +71,7 @@ const CardModal: React.FC<CardModalProps> = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     const cardData: Partial<Card> = {
       title: formData.title,
       description: formData.description,
@@ -127,13 +127,13 @@ const CardModal: React.FC<CardModalProps> = ({
   };
 
   // 검색된 사용자 목록 필터링
-  const filteredUsers = users.filter(user => 
-    user.name.toLowerCase().includes(assigneeSearch.toLowerCase()) ||
-    user.email.toLowerCase().includes(assigneeSearch.toLowerCase())
+  const filteredUsers = (users || []).filter(user =>
+    user?.name?.toLowerCase().includes(assigneeSearch.toLowerCase()) ||
+    user?.email?.toLowerCase().includes(assigneeSearch.toLowerCase())
   );
 
   // 선택된 사용자들
-  const selectedUsers = users.filter(user => formData.assigneeIds.includes(user.id));
+  const selectedUsers = (users || []).filter(user => formData.assigneeIds.includes(user?.id));
 
   if (!isOpen) return null;
 
@@ -192,7 +192,7 @@ const CardModal: React.FC<CardModalProps> = ({
                 <UserIcon className="w-4 h-4 inline mr-1" />
                 담당자 (여러 명 선택 가능)
               </label>
-              
+
               {/* 선택된 담당자들 표시 */}
               {selectedUsers.length > 0 && (
                 <div className="mb-2 flex flex-wrap gap-1">
@@ -223,7 +223,7 @@ const CardModal: React.FC<CardModalProps> = ({
               )}
 
               {/* 검색 입력 */}
-              <div 
+              <div
                 className="relative"
                 onClick={(e) => e.stopPropagation()}
               >
@@ -244,10 +244,10 @@ const CardModal: React.FC<CardModalProps> = ({
                   }}
                   className="w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent bg-input text-foreground"
                 />
-                
+
                 {/* 드롭다운 */}
                 {showAssigneeDropdown && (
-                  <div 
+                  <div
                     className="absolute z-10 w-full mt-1 bg-background border border-border rounded-md shadow-lg max-h-60 overflow-y-auto"
                   >
                     {filteredUsers.length > 0 ? (
@@ -268,9 +268,8 @@ const CardModal: React.FC<CardModalProps> = ({
                             }
                             // 드롭다운을 유지하고 검색 입력도 유지
                           }}
-                          className={`flex items-center space-x-3 px-3 py-2 hover:bg-accent cursor-pointer ${
-                            formData.assigneeIds.includes(user.id) ? 'bg-accent' : ''
-                          }`}
+                          className={`flex items-center space-x-3 px-3 py-2 hover:bg-accent cursor-pointer ${formData.assigneeIds.includes(user.id) ? 'bg-accent' : ''
+                            }`}
                         >
                           <img
                             src={user.avatar}
@@ -344,7 +343,7 @@ const CardModal: React.FC<CardModalProps> = ({
                   새 마일스톤
                 </button>
               </div>
-              
+
               {showNewMilestone ? (
                 <div className="space-y-2 p-3 border border-border rounded-md bg-muted/50">
                   <input
@@ -456,9 +455,8 @@ const CardModal: React.FC<CardModalProps> = ({
                       key={label.id}
                       type="button"
                       onClick={() => toggleLabel(label.id)}
-                      className={`px-3 py-1 text-sm rounded-full transition-opacity ${
-                        formData.labelIds.includes(label.id) ? 'opacity-100' : 'opacity-50'
-                      }`}
+                      className={`px-3 py-1 text-sm rounded-full transition-opacity ${formData.labelIds.includes(label.id) ? 'opacity-100' : 'opacity-50'
+                        }`}
                       style={{
                         backgroundColor: label.color,
                         color: 'white'

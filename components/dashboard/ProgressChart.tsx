@@ -8,20 +8,20 @@ interface ProgressChartProps {
 
 export default function ProgressChart({ totalCards, completedCards, percentage }: ProgressChartProps) {
   const data = [
-    { name: 'Completed', value: completedCards, color: '#22c55e' },
-    { name: 'In Progress', value: totalCards - completedCards, color: '#94a3b8' }
+    { name: 'Completed', value: completedCards, color: '#22c55e' }, // green-500
+    { name: 'In Progress', value: totalCards - completedCards, color: '#94a3b8' } // slate-400
   ];
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 border border-gray-200 dark:border-gray-700">
-      <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+    <div className="bg-card rounded-lg shadow-sm border border-border p-6">
+      <h3 className="text-lg font-semibold text-card-foreground mb-4">
         Project Progress
       </h3>
 
       <div className="flex items-center justify-between mb-6">
         <div>
-          <p className="text-4xl font-bold text-gray-900 dark:text-white">{percentage}%</p>
-          <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+          <p className="text-4xl font-bold text-card-foreground">{percentage}%</p>
+          <p className="text-sm text-muted-foreground mt-1">
             {completedCards} of {totalCards} cards completed
           </p>
         </div>
@@ -39,11 +39,19 @@ export default function ProgressChart({ totalCards, completedCards, percentage }
             dataKey="value"
           >
             {data.map((entry, index) => (
-              <Cell key={`cell-${index}`} fill={entry.color} />
+              <Cell key={`cell-${index}`} fill={entry.color} strokeWidth={0} />
             ))}
           </Pie>
-          <Tooltip />
-          <Legend />
+          <Tooltip
+            contentStyle={{
+              backgroundColor: 'hsl(var(--popover))',
+              borderColor: 'hsl(var(--border))',
+              borderRadius: '0.5rem',
+              color: 'hsl(var(--popover-foreground))'
+            }}
+            itemStyle={{ color: 'hsl(var(--popover-foreground))' }}
+          />
+          <Legend wrapperStyle={{ paddingTop: '20px' }} />
         </PieChart>
       </ResponsiveContainer>
     </div>

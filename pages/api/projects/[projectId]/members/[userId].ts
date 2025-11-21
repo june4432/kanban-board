@@ -20,7 +20,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (!session) return; // 이미 에러 응답 전송됨
 
     const { projects } = getRepositories();
-    const project = projects.findById(projectId);
+    const project = await projects.findById(projectId);
 
     if (!project) {
       return res.status(404).json({ error: 'Project not found' });
@@ -32,19 +32,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     // 멤버인지 확인
-    if (!projects.isMember(projectId, userId)) {
+    if (!(await projects.isMember(projectId, userId))) {
       return res.status(404).json({ error: 'Member not found' });
     }
 
     // 멤버에서 제거
-    const removed = projects.removeMember(projectId, userId);
+    const removed = await projects.removeMember(projectId, userId);
 
     if (!removed) {
       return res.status(500).json({ error: 'Failed to remove member' });
     }
 
     // 업데이트된 프로젝트 반환
-    const updatedProject = projects.findById(projectId);
+    const updatedProject = await projects.findById(projectId);
 
     res.status(200).json({ project: updatedProject });
   } catch (error) {

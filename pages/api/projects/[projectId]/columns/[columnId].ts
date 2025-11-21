@@ -2,7 +2,6 @@ import { NextApiRequest, NextApiResponse } from 'next';
 import { getRepositories } from '@/lib/repositories';
 import { requireAuth } from '@/lib/auth-helpers';
 import { ProjectRepository } from '@/lib/repositories/project.repository';
-import { getDatabase } from '@/lib/database';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const { projectId, columnId } = req.query;
@@ -35,8 +34,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     console.log('[DEBUG][COLUMN API] Auth success for user:', session.user.id);
 
     // 프로젝트 멤버십 확인
-    const db = getDatabase();
-    const projectRepo = new ProjectRepository(db);
+    const projectRepo = new ProjectRepository();
 
     const project = projectRepo.findById(projectId);
     if (!project) {
@@ -57,15 +55,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // DELETE: 컬럼 삭제
     if (req.method === 'DELETE') {
       console.log('[DEBUG][COLUMN API] Deleting column');
-      const result = boards.deleteColumn(columnId);
+      const deleted = await boards.deleteColumn(columnId);
 
-      if (!result.success) {
-        console.log('[DEBUG][COLUMN API] Delete failed:', result.error);
-        return res.status(400).json({ error: result.error || 'Failed to delete column' });
+      if (!deleted) {
+        console.log('[DEBUG][COLUMN API] Delete failed');
+        return res.status(400).json({ error: 'Failed to delete column' });
       }
 
       // 업데이트된 보드 반환
-      const board = boards.findByProjectId(projectId);
+      const board = await boards.findByProjectId(projectId);
       console.log('[DEBUG][COLUMN API] Column deleted successfully');
       console.log('[DEBUG][COLUMN API] ===== REQUEST END =====');
       return res.status(200).json({ success: true, board });
@@ -85,7 +83,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (title !== undefined) updateData.title = title;
 
     console.log('[DEBUG][COLUMN API] Calling boards.updateColumn with:', updateData);
-    const success = boards.updateColumn(columnId, updateData);
+    const success = await boards.updateColumn(columnId, updateData);
     console.log('[DEBUG][COLUMN API] Update result:', success);
 
     if (!success) {
@@ -94,7 +92,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     // 업데이트된 보드 반환
-    const board = boards.findByProjectId(projectId);
+    const board = await boards.findByProjectId(projectId);
     console.log('[DEBUG][COLUMN API] Returning updated board');
     console.log('[DEBUG][COLUMN API] ===== REQUEST END =====');
     res.status(200).json({ success: true, board });

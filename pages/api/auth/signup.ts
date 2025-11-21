@@ -29,7 +29,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const { users } = getRepositories();
 
     // 이메일 중복 검사
-    const existingUser = users.findByEmail(email);
+    const existingUser = await users.findByEmail(email);
     if (existingUser) {
       return res.status(409).json({ error: '이미 사용중인 이메일입니다.' });
     }

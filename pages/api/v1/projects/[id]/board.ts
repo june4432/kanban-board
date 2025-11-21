@@ -36,7 +36,7 @@ async function handleGet(req: ApiRequest, res: NextApiResponse, projectId: strin
   const { boards } = getRepositories();
 
   // Get board for project
-  const board = boards.findByProjectId(projectId);
+  const board = await boards.findByProjectId(projectId);
 
   if (!board) {
     // If no board exists, return empty board structure

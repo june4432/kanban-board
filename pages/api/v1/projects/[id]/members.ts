@@ -52,7 +52,7 @@ async function handlePost(req: ApiRequest, res: NextApiResponse, projectId: stri
   const { projects, users, organizations } = getRepositories();
 
   // Get project
-  const project = projects.findById(projectId);
+  const project = await projects.findById(projectId);
   if (!project) {
     return sendNotFound(res, 'Project not found', req.requestId);
   }
@@ -69,7 +69,7 @@ async function handlePost(req: ApiRequest, res: NextApiResponse, projectId: stri
   const data = validateBody(req, addMemberSchema);
 
   // Check if target user exists
-  const targetUser = users.findById(data.userId);
+  const targetUser = await users.findById(data.userId);
   if (!targetUser) {
     return sendValidationError(
       res,
@@ -104,10 +104,10 @@ async function handlePost(req: ApiRequest, res: NextApiResponse, projectId: stri
   }
 
   // Add member to project
-  projects.addMember(projectId, data.userId);
+  await projects.addMember(projectId, data.userId);
 
   // Get updated project
-  const updatedProject = projects.findById(projectId);
+  const updatedProject = await projects.findById(projectId);
   const newMember = updatedProject?.members?.find(m => m.id === data.userId);
 
   sendCreated(res, newMember, req.requestId);
@@ -125,7 +125,7 @@ async function handleDelete(req: ApiRequest, res: NextApiResponse, projectId: st
   const { projects } = getRepositories();
 
   // Get project
-  const project = projects.findById(projectId);
+  const project = await projects.findById(projectId);
   if (!project) {
     return sendNotFound(res, 'Project not found', req.requestId);
   }
@@ -158,7 +158,7 @@ async function handleDelete(req: ApiRequest, res: NextApiResponse, projectId: st
   }
 
   // Remove member
-  projects.removeMember(projectId, userIdToRemove);
+  await projects.removeMember(projectId, userIdToRemove);
 
   sendSuccess(res, { message: 'Member removed successfully' }, 200, req.requestId);
 }

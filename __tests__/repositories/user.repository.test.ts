@@ -1,28 +1,12 @@
-import Database from 'better-sqlite3';
 import { UserRepository } from '@/lib/repositories/user.repository';
-import fs from 'fs';
-import path from 'path';
 
+// Note: These tests require PostgreSQL connection
+// Skip tests if database is not available
 describe('UserRepository', () => {
-  let db: Database.Database;
   let userRepo: UserRepository;
-  let testDbPath: string;
 
   beforeEach(() => {
-    // Create in-memory database for each test
-    testDbPath = ':memory:';
-    db = new Database(testDbPath);
-
-    // Initialize schema
-    const schemaPath = path.join(process.cwd(), 'lib', 'schema.sql');
-    const schema = fs.readFileSync(schemaPath, 'utf-8');
-    db.exec(schema);
-
-    userRepo = new UserRepository(db);
-  });
-
-  afterEach(() => {
-    db.close();
+    userRepo = new UserRepository();
   });
 
   describe('create', () => {
@@ -62,15 +46,15 @@ describe('UserRepository', () => {
         password: 'password123',
       });
 
-      const found = userRepo.findById(created.id);
+      const found = await userRepo.findById(created.id);
 
       expect(found).toBeDefined();
       expect(found?.id).toBe(created.id);
       expect(found?.email).toBe('test@example.com');
     });
 
-    it('should return null for non-existent user', () => {
-      const found = userRepo.findById('non-existent');
+    it('should return null for non-existent user', async () => {
+      const found = await userRepo.findById('non-existent');
       expect(found).toBeNull();
     });
   });
@@ -83,14 +67,14 @@ describe('UserRepository', () => {
         password: 'password123',
       });
 
-      const found = userRepo.findByEmail('test@example.com');
+      const found = await userRepo.findByEmail('test@example.com');
 
       expect(found).toBeDefined();
       expect(found?.email).toBe('test@example.com');
     });
 
-    it('should return null for non-existent email', () => {
-      const found = userRepo.findByEmail('nonexistent@example.com');
+    it('should return null for non-existent email', async () => {
+      const found = await userRepo.findByEmail('nonexistent@example.com');
       expect(found).toBeNull();
     });
   });
@@ -141,15 +125,15 @@ describe('UserRepository', () => {
         password: 'password123',
       });
 
-      const users = userRepo.findAll();
+      const users = await userRepo.findAll();
 
       expect(users).toHaveLength(2);
       expect(users[0].password).toBeUndefined(); // Passwords should not be returned
       expect(users[1].password).toBeUndefined();
     });
 
-    it('should return empty array when no users', () => {
-      const users = userRepo.findAll();
+    it('should return empty array when no users', async () => {
+      const users = await userRepo.findAll();
       expect(users).toHaveLength(0);
     });
   });
@@ -162,7 +146,7 @@ describe('UserRepository', () => {
         password: 'password123',
       });
 
-      const updated = userRepo.update(user.id, {
+      const updated = await userRepo.update(user.id, {
         name: 'Updated User',
         email: 'updated@example.com',
       });
@@ -171,8 +155,8 @@ describe('UserRepository', () => {
       expect(updated?.email).toBe('updated@example.com');
     });
 
-    it('should return null for non-existent user', () => {
-      const updated = userRepo.update('non-existent', { name: 'Updated' });
+    it('should return null for non-existent user', async () => {
+      const updated = await userRepo.update('non-existent', { name: 'Updated' });
       expect(updated).toBeDefined(); // Should still return (update doesn't fail silently)
     });
   });
@@ -185,16 +169,16 @@ describe('UserRepository', () => {
         password: 'password123',
       });
 
-      const deleted = userRepo.delete(user.id);
+      const deleted = await userRepo.delete(user.id);
 
       expect(deleted).toBe(true);
 
-      const found = userRepo.findById(user.id);
+      const found = await userRepo.findById(user.id);
       expect(found).toBeNull();
     });
 
-    it('should return false for non-existent user', () => {
-      const deleted = userRepo.delete('non-existent');
+    it('should return false for non-existent user', async () => {
+      const deleted = await userRepo.delete('non-existent');
       expect(deleted).toBe(false);
     });
   });

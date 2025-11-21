@@ -12,7 +12,6 @@ import { parseFormData } from '@/lib/file-upload';
 import { ValidationError } from '@/lib/errors';
 import { logEvent } from '@/lib/logger';
 import { AuditLogService } from '@/lib/services/audit-log.service';
-import { getDatabase } from '@/lib/database';
 
 // Next.js body parser 비활성화 (formidable 사용)
 export const config = {
@@ -41,13 +40,12 @@ export default withErrorHandler(async (req: NextApiRequest, res: NextApiResponse
 
   const { session, projectId } = auth;
   const { attachments } = getRepositories();
-  const db = getDatabase();
-  const auditLogService = new AuditLogService(db);
+  const auditLogService = new AuditLogService();
 
   switch (req.method) {
     case 'GET': {
       // 카드의 모든 첨부파일 조회
-      const files = attachments.findByCardId(cardId);
+      const files = await attachments.findByCardId(cardId);
 
       return res.status(200).json({ attachments: files });
     }
@@ -61,8 +59,8 @@ export default withErrorHandler(async (req: NextApiRequest, res: NextApiResponse
       }
 
       // 파일 메타데이터 저장
-      const savedAttachments = uploadedFiles.map((file) => {
-        return attachments.create({
+      const savedAttachments = await Promise.all(uploadedFiles.map(async (file) => {
+        return await attachments.create({
           cardId,
           userId: session.user.id,
           filename: file.filename,
@@ -71,11 +69,12 @@ export default withErrorHandler(async (req: NextApiRequest, res: NextApiResponse
           size: file.size,
           storagePath: file.storagePath,
         });
-      });
+      }));
+
 
       // 감사 로그 기록
-      savedAttachments.forEach((attachment) => {
-        auditLogService.log({
+      await Promise.all(savedAttachments.map(async (attachment) => {
+        await auditLogService.log({
           userId: session.user.id,
           userName: session.user.name || 'Unknown',
           action: 'create',
@@ -92,7 +91,7 @@ export default withErrorHandler(async (req: NextApiRequest, res: NextApiResponse
           ipAddress: req.headers['x-forwarded-for'] as string || req.socket.remoteAddress,
           userAgent: req.headers['user-agent'],
         });
-      });
+      }));
 
       // 이벤트 로깅
       logEvent('attachments.uploaded', {

@@ -37,7 +37,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponseW
         // 새 카드 생성
 
         // 보드 조회
-        const board = boards.findByProjectId(projectId);
+        const board = await boards.findByProjectId(projectId);
         if (!board) {
           return res.status(404).json({ error: 'Board not found' });
         }
@@ -55,7 +55,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponseW
         }
 
         // 카드 생성
-        const newCard = cards.create({
+        const newCard = await cards.create({
           columnId,
           title: cardData.title || '',
           description: cardData.description || '',
@@ -69,7 +69,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponseW
         // 웹소켓 이벤트 전송 (프로젝트 멤버들에게만)
         const socketRes = res as NextApiResponseWithSocket;
         if (socketRes.socket?.server?.io && projectId) {
-          const project = projects.findById(projectId);
+          const project = await projects.findById(projectId);
           if (project) {
             const eventData = {
               card: newCard,

@@ -17,6 +17,7 @@ import { z } from 'zod';
 const CreateLabelSchema = z.object({
   name: z.string().min(1, 'Label name is required').max(50, 'Label name is too long'),
   color: z.string().regex(/^#[0-9A-Fa-f]{6}$/, 'Invalid color format (must be hex like #FF5733)'),
+  scope: z.enum(['organization', 'project', 'board']).optional().default('board'),
 });
 
 async function handler(req: ApiRequest, res: NextApiResponse) {
@@ -43,11 +44,36 @@ async function handlePost(req: ApiRequest, res: NextApiResponse, projectId: stri
   // Validate request body
   const body = validateBody(req, CreateLabelSchema);
 
-  const { boards } = getRepositories();
+  const { boards, projects } = getRepositories();
 
-  // Get current board
-  const board = boards.findByProjectId(projectId);
+  // Determine scope and scope_id based on the scope parameter
+  let scopeId: string;
+  // Map 'board' to 'project' for backward compatibility
+  const scope: 'company' | 'organization' | 'project' =
+    (body.scope === 'board' || !body.scope) ? 'project' :
+    (body.scope as 'company' | 'organization' | 'project');
 
+  if (scope === 'organization') {
+    // Get organization_id from project
+    const project = await projects.findById(projectId);
+    if (!project || !project.organizationId) {
+      return sendError(
+        res,
+        ApiErrorCode.NOT_FOUND,
+        'Organization not found for this project',
+        404,
+        undefined,
+        req.requestId
+      );
+    }
+    scopeId = project.organizationId;
+  } else {
+    // scope === 'project' or 'company' - use project ID
+    scopeId = projectId;
+  }
+
+  // Get current board for checking existing labels
+  const board = await boards.findByProjectId(projectId);
   if (!board) {
     return sendError(
       res,
@@ -59,7 +85,7 @@ async function handlePost(req: ApiRequest, res: NextApiResponse, projectId: stri
     );
   }
 
-  // Check if label with same name already exists
+  // Check if label with same name already exists in this scope
   const existingLabel = board.labels?.find(
     (l) => l.name.toLowerCase() === body.name.toLowerCase()
   );
@@ -76,10 +102,11 @@ async function handlePost(req: ApiRequest, res: NextApiResponse, projectId: stri
     );
   }
 
-  // Create new label
-  const newLabel = boards.createLabel(board.boardId, {
+  // Create new label with scope
+  const newLabel = await boards.createLabel(scopeId, {
     name: body.name,
     color: body.color,
+    scope: scope,
   });
 
   sendSuccess(

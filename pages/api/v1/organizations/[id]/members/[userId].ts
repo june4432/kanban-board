@@ -52,7 +52,7 @@ async function handlePatch(req: ApiRequest, res: NextApiResponse, orgId: string,
   const { organizations } = getRepositories();
 
   // Check if current user is admin or owner
-  const currentUserRole = organizations.getUserRole(orgId, req.user.id);
+  const currentUserRole = await organizations.getUserRole(orgId, req.user.id);
   if (!['owner', 'admin'].includes(currentUserRole || '')) {
     return sendForbidden(
       res,
@@ -64,7 +64,7 @@ async function handlePatch(req: ApiRequest, res: NextApiResponse, orgId: string,
   const data = validateBody(req, updateMemberSchema);
 
   // Cannot change owner role
-  const targetMemberRole = organizations.getUserRole(orgId, userId);
+  const targetMemberRole = await organizations.getUserRole(orgId, userId);
   if (targetMemberRole === 'owner') {
     return sendValidationError(
       res,
@@ -75,10 +75,10 @@ async function handlePatch(req: ApiRequest, res: NextApiResponse, orgId: string,
   }
 
   // Update member role
-  organizations.updateMemberRole(orgId, userId, data.role);
+  await organizations.updateMemberRole(orgId, userId, data.role);
 
   // Return updated member info
-  const members = organizations.getMembers(orgId);
+  const members = await organizations.getMembers(orgId);
   const updatedMember = members.find((m) => m.userId === userId);
 
   sendSuccess(res, updatedMember, 200, req.requestId);
@@ -96,7 +96,7 @@ async function handleDelete(req: ApiRequest, res: NextApiResponse, orgId: string
   const { organizations } = getRepositories();
 
   // Check if current user is admin or owner
-  const currentUserRole = organizations.getUserRole(orgId, req.user.id);
+  const currentUserRole = await organizations.getUserRole(orgId, req.user.id);
   if (!['owner', 'admin'].includes(currentUserRole || '')) {
     return sendForbidden(
       res,
@@ -106,7 +106,7 @@ async function handleDelete(req: ApiRequest, res: NextApiResponse, orgId: string
   }
 
   // Cannot remove owner
-  const targetMemberRole = organizations.getUserRole(orgId, userId);
+  const targetMemberRole = await organizations.getUserRole(orgId, userId);
   if (targetMemberRole === 'owner') {
     return sendValidationError(
       res,
@@ -127,7 +127,7 @@ async function handleDelete(req: ApiRequest, res: NextApiResponse, orgId: string
   }
 
   // Remove member
-  organizations.removeMember(orgId, userId);
+  await organizations.removeMember(orgId, userId);
 
   sendNoContent(res);
 }

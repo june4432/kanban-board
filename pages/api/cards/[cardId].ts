@@ -6,7 +6,6 @@ import { NotFoundError, ValidationError } from '@/lib/errors';
 import { cardUpdateSchema, validate } from '@/lib/validation';
 import { logEvent } from '@/lib/logger';
 import { AuditLogService, extractChanges } from '@/lib/services/audit-log.service';
-import { getDatabase } from '@/lib/database';
 import type { Card } from '@/types';
 
 // WebSocket server extension type
@@ -29,8 +28,7 @@ export default withErrorHandler(async (req: NextApiRequest, res: NextApiResponse
 
   const { session, projectId } = auth;
   const { cards, projects } = getRepositories();
-  const db = getDatabase();
-  const auditLogService = new AuditLogService(db);
+  const auditLogService = new AuditLogService();
 
   switch (req.method) {
     case 'PUT': {
@@ -55,10 +53,10 @@ export default withErrorHandler(async (req: NextApiRequest, res: NextApiResponse
       }
 
       // 기존 카드 정보 저장 (변경사항 추적용)
-      const oldCard = cards.findById(cardId);
+      const oldCard = await cards.findById(cardId);
 
       // 카드 업데이트
-      const updatedCard = cards.update(cardId, validatedUpdates as Partial<Card>);
+      const updatedCard = await cards.update(cardId, validatedUpdates as Partial<Card>);
 
       if (!updatedCard) {
         throw new NotFoundError('Card');
@@ -67,7 +65,7 @@ export default withErrorHandler(async (req: NextApiRequest, res: NextApiResponse
       // 감사 로그 기록
       const changes = extractChanges(oldCard, updatedCard, ['title', 'description', 'priority', 'dueDate']);
       if (changes.length > 0) {
-        auditLogService.log({
+        await auditLogService.log({
           userId: session.user.id,
           userName: session.user.name || 'Unknown',
           action: 'update',
@@ -101,7 +99,7 @@ export default withErrorHandler(async (req: NextApiRequest, res: NextApiResponse
       }
 
       // Slack 알림 전송 (비동기, 실패해도 카드 수정은 성공)
-      const project = projects.findById(projectId);
+      const project = await projects.findById(projectId);
       if (project?.slackEnabled && project?.slackWebhookUrl && changes.length > 0) {
         fetch(`${req.headers.origin || 'http://localhost:3000'}/api/slack/notify`, {
           method: 'POST',
@@ -124,18 +122,18 @@ export default withErrorHandler(async (req: NextApiRequest, res: NextApiResponse
 
     case 'DELETE': {
       // 삭제 전 카드 정보 저장 (Slack 알림용)
-      const cardToDelete = cards.findById(cardId);
+      const cardToDelete = await cards.findById(cardId);
       const cardTitle = cardToDelete?.title || '알 수 없는 카드';
 
       // 카드 삭제
-      const deleted = cards.delete(cardId);
+      const deleted = await cards.delete(cardId);
 
       if (!deleted) {
         throw new NotFoundError('Card');
       }
 
       // 감사 로그 기록
-      auditLogService.log({
+      await auditLogService.log({
         userId: session.user.id,
         userName: session.user.name || 'Unknown',
         action: 'delete',
@@ -164,7 +162,7 @@ export default withErrorHandler(async (req: NextApiRequest, res: NextApiResponse
       }
 
       // Slack 알림 전송 (비동기, 실패해도 카드 삭제는 성공)
-      const project = projects.findById(projectId);
+      const project = await projects.findById(projectId);
       if (project?.slackEnabled && project?.slackWebhookUrl) {
         fetch(`${req.headers.origin || 'http://localhost:3000'}/api/slack/notify`, {
           method: 'POST',

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Head from 'next/head';
 import { useAuth } from '@/contexts/AuthContext';
+import { useOrganization } from '@/contexts/OrganizationContext';
 import { useProject, ProjectProvider } from '@/contexts/ProjectContext';
 import { useKanbanAPI } from '@/hooks/useKanbanAPI';
 import GlobalWebSocketManager from '@/components/GlobalWebSocketManager';
@@ -15,7 +16,17 @@ import CardModal from '@/components/CardModal';
 import ProjectSelector from '@/components/ProjectSelector';
 import AuthModal from '@/components/AuthModal';
 import ProjectSettingsModal from '@/components/ProjectSettingsModal';
+import OrganizationSetup from '@/components/OrganizationSetup';
+import CompanySetup from '@/components/CompanySetup';
 import { Card, User, Project } from '@/types';
+
+interface Company {
+  id: string;
+  name: string;
+  slug: string;
+  domain?: string;
+  plan: string;
+}
 
 // Disable static generation for this page
 export async function getServerSideProps() {
@@ -26,14 +37,18 @@ export async function getServerSideProps() {
 
 function KanbanApp() {
   const { user } = useAuth();
+  const { organizations, loading: orgLoading, refreshOrganizations } = useOrganization();
   const { currentProject, selectProject, createProject, projects, fetchProjects } = useProject();
   const [showProjectSelector, setShowProjectSelector] = useState(false);
+  const [showOrgSetup, setShowOrgSetup] = useState(false);
+  const [companies, setCompanies] = useState<Company[]>([]);
+  const [companyLoading, setCompanyLoading] = useState(true);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [isCardModalOpen, setIsCardModalOpen] = useState(false);
   const [editingCard, setEditingCard] = useState<Card | undefined>();
   const [newCardColumnId, setNewCardColumnId] = useState<string>('');  
   const [isProjectSettingsOpen, setIsProjectSettingsOpen] = useState(false);
-  const [projectSettingsTab, setProjectSettingsTab] = useState<'general' | 'members' | 'requests' | 'columns' | 'invites' | 'integrations'>('general');
+  const [projectSettingsTab, setProjectSettingsTab] = useState<'general' | 'members' | 'requests' | 'columns' | 'labels' | 'milestones' | 'invites' | 'integrations'>('general');
   const [allUsers, setAllUsers] = useState<User[]>([]);
 
   // 사용자 정보 가져오기
@@ -50,6 +65,30 @@ function KanbanApp() {
 
     fetchUsers();
   }, []);
+
+  // 회사 정보 가져오기
+  useEffect(() => {
+    const fetchCompanies = async () => {
+      try {
+        const response = await fetch('/api/companies', {
+          credentials: 'include'
+        });
+        const data = await response.json();
+        console.log('[Index] Initial companies fetch:', data);
+        setCompanies(data.companies || []);
+      } catch (error) {
+        console.error('Failed to fetch companies:', error);
+      } finally {
+        setCompanyLoading(false);
+      }
+    };
+
+    if (user) {
+      fetchCompanies();
+    } else {
+      setCompanyLoading(false);
+    }
+  }, [user]);
 
   // hooks는 항상 같은 순서로 호출되어야 함
   const {
@@ -71,6 +110,59 @@ function KanbanApp() {
   } = useKanbanAPI(currentProject?.projectId, user);
 
   // 전역 WebSocket 이벤트 처리는 GlobalWebSocketManager에서 담당
+
+  // 회사/조직 로딩 중
+  if (companyLoading || orgLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600 dark:text-gray-400">로딩 중...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // 회사가 없으면 회사 생성 화면 먼저 표시
+  if (companies.length === 0) {
+    return (
+      <>
+        <Head>
+          <title>회사 등록 - 프로젝트 관리 보드</title>
+        </Head>
+        <CompanySetup
+          onComplete={async (_companyId) => {
+            // 회사 목록 새로고침
+            console.log('[Index] Company created, refreshing companies...');
+            const response = await fetch('/api/companies', {
+              credentials: 'include'
+            });
+            const data = await response.json();
+            console.log('[Index] Companies fetched:', data);
+            setCompanies(data.companies || []);
+          }}
+        />
+      </>
+    );
+  }
+
+  // 조직이 없으면 조직 생성 화면 표시
+  if (organizations.length === 0 || showOrgSetup) {
+    return (
+      <>
+        <Head>
+          <title>조직 설정 - 프로젝트 관리 보드</title>
+        </Head>
+        <OrganizationSetup
+          companyId={companies[0]?.id || ''}
+          onComplete={async () => {
+            await refreshOrganizations();
+            setShowOrgSetup(false);
+          }}
+        />
+      </>
+    );
+  }
 
   // 프로젝트가 선택되지 않았거나 프로젝트 선택기를 표시해야 할 때
   if (!currentProject || showProjectSelector) {

@@ -5,6 +5,9 @@ export interface User {
   avatar: string;
   password?: string; // 클라이언트에서는 보통 제외
   role?: 'admin' | 'user';
+  companyId?: string;
+  companyRole?: 'owner' | 'admin' | 'member';
+  status?: 'active' | 'invited' | 'disabled';
   createdAt?: Date;
 }
 
@@ -65,6 +68,8 @@ export interface Project {
   name: string;
   description?: string;
   ownerId: string;
+  companyId?: string;  // Company ID (tenant)
+  organizationId?: string;  // Organization ID (team/department)
   members: User[];  // UI용으로 User[] 사용 (API에서 변환해서 보냄)
   createdAt: Date;
   updatedAt: Date;
@@ -105,7 +110,7 @@ export interface FilterState {
   priorities: Priority[];
 }
 
-export type ViewMode = 'kanban' | 'calendar' | 'gantt' | 'table' | 'manual';
+export type ViewMode = 'kanban' | 'calendar' | 'gantt' | 'table' | 'manual' | 'dashboard';
 
 export interface KanbanState {
   board: Board;

@@ -49,7 +49,7 @@ async function handleGet(req: ApiRequest, res: NextApiResponse, projectId: strin
   if (!membershipCheck) return;
 
   const { projects } = getRepositories();
-  const project = projects.findById(projectId);
+  const project = await projects.findById(projectId);
 
   if (!project) {
     return sendNotFound(res, 'Project', req.requestId);
@@ -69,7 +69,7 @@ async function handlePatch(req: ApiRequest, res: NextApiResponse, projectId: str
   const updates = validateBody(req, updateProjectSchema);
   const { projects } = getRepositories();
 
-  const updatedProject = projects.update(projectId, updates);
+  const updatedProject = await projects.update(projectId, updates);
 
   if (!updatedProject) {
     return sendNotFound(res, 'Project', req.requestId);
@@ -87,7 +87,7 @@ async function handleDelete(req: ApiRequest, res: NextApiResponse, projectId: st
   if (!isOwner) return;
 
   const { projects } = getRepositories();
-  const deleted = projects.delete(projectId);
+  const deleted = await projects.delete(projectId);
 
   if (!deleted) {
     return sendNotFound(res, 'Project', req.requestId);

@@ -30,7 +30,7 @@ export default withErrorHandler(async (req: NextApiRequest, res: NextApiResponse
   switch (req.method) {
     case 'GET': {
       // 프로젝트 알림 설정 조회
-      const settings = notificationSettings.getProjectSettings(session.user.id, projectId);
+      const settings = await notificationSettings.getProjectSettings(session.user.id, projectId);
 
       return res.status(200).json({ settings });
     }
@@ -39,7 +39,7 @@ export default withErrorHandler(async (req: NextApiRequest, res: NextApiResponse
       // 프로젝트 알림 설정 업데이트
       const validatedInput = validate(notificationSettingsSchema, req.body);
 
-      const updatedSettings = notificationSettings.updateProjectSettings(
+      const updatedSettings = await notificationSettings.updateProjectSettings(
         session.user.id,
         projectId,
         validatedInput
@@ -58,7 +58,7 @@ export default withErrorHandler(async (req: NextApiRequest, res: NextApiResponse
 
     case 'DELETE': {
       // 프로젝트 알림 설정 삭제 (전역 설정으로 복원)
-      const deleted = notificationSettings.deleteProjectSettings(session.user.id, projectId);
+      const deleted = await notificationSettings.deleteProjectSettings(session.user.id, projectId);
 
       if (deleted) {
         // 이벤트 로깅

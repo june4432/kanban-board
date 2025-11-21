@@ -8,7 +8,6 @@ import { NextApiRequest, NextApiResponse } from 'next';
 import { withErrorHandler } from '@/lib/error-handler';
 import { requireCardAccess } from '@/lib/auth-helpers';
 import { CommentRepository } from '@/lib/repositories/comment.repository';
-import { getDatabase } from '@/lib/database';
 import { commentSchema, validate } from '@/lib/validation';
 import { logEvent } from '@/lib/logger';
 import { ValidationError } from '@/lib/errors';
@@ -29,12 +28,11 @@ export default withErrorHandler(async (req: NextApiRequest, res: NextApiResponse
   if (!auth) return;
 
   const { session, projectId } = auth;
-  const db = getDatabase();
-  const commentRepo = new CommentRepository(db);
+  const commentRepo = new CommentRepository();
 
   if (req.method === 'GET') {
     // 댓글 목록 조회
-    const comments = commentRepo.findByCardId(cardId);
+    const comments = await commentRepo.findByCardId(cardId);
 
     return res.status(200).json({ comments });
   }
@@ -43,7 +41,7 @@ export default withErrorHandler(async (req: NextApiRequest, res: NextApiResponse
     // 댓글 생성
     const validatedData = validate(commentSchema, req.body);
 
-    const comment = commentRepo.create({
+    const comment = await commentRepo.create({
       cardId,
       userId: session.user.id,
       content: validatedData.content,

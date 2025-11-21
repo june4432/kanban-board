@@ -151,7 +151,7 @@ async function handleJoinProject(
     const socketRes = res as NextApiResponseWithSocket;
     if (socketRes.socket?.server?.io) {
       const { projects } = getRepositories();
-      const projectData = projects.findById(invitation.project_id);
+      const projectData = await projects.findById(invitation.project_id);
 
       if (projectData) {
         const eventData = {

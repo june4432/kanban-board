@@ -7,8 +7,8 @@
  * - Soft delete
  */
 
-import { Database } from 'better-sqlite3';
 import { v4 as uuidv4 } from 'uuid';
+import { query, queryOne, queryAll } from '@/lib/postgres';
 
 export interface Comment {
   id: string;
@@ -38,22 +38,20 @@ export interface CreateCommentInput {
 }
 
 export class CommentRepository {
-  constructor(private db: Database) {}
+  constructor() { }
 
   /**
    * 새 댓글 생성
    */
-  create(input: CreateCommentInput): Comment {
+  async create(input: CreateCommentInput): Promise<Comment> {
     const id = uuidv4();
 
-    const stmt = this.db.prepare(`
+    await query(`
       INSERT INTO comments (id, card_id, user_id, content, parent_id)
-      VALUES (?, ?, ?, ?, ?)
-    `);
+      VALUES ($1, $2, $3, $4, $5)
+    `, [id, input.cardId, input.userId, input.content, input.parentId || null]);
 
-    stmt.run(id, input.cardId, input.userId, input.content, input.parentId || null);
-
-    const comment = this.findById(id);
+    const comment = await this.findById(id);
     if (!comment) {
       throw new Error('Failed to create comment');
     }
@@ -64,8 +62,8 @@ export class CommentRepository {
   /**
    * ID로 댓글 조회
    */
-  findById(id: string): Comment | null {
-    const stmt = this.db.prepare(`
+  async findById(id: string): Promise<Comment | null> {
+    const row = await queryOne(`
       SELECT
         c.id,
         c.card_id,
@@ -81,10 +79,9 @@ export class CommentRepository {
         u.avatar as user_avatar
       FROM comments c
       JOIN users u ON c.user_id = u.id
-      WHERE c.id = ? AND c.deleted_at IS NULL
-    `);
+      WHERE c.id = $1 AND c.deleted_at IS NULL
+    `, [id]);
 
-    const row = stmt.get(id) as any;
     if (!row) return null;
 
     return this.mapRowToComment(row);
@@ -93,8 +90,8 @@ export class CommentRepository {
   /**
    * 카드의 모든 댓글 조회 (대댓글 포함)
    */
-  findByCardId(cardId: string): Comment[] {
-    const stmt = this.db.prepare(`
+  async findByCardId(cardId: string): Promise<Comment[]> {
+    const rows = await queryAll(`
       SELECT
         c.id,
         c.card_id,
@@ -110,12 +107,11 @@ export class CommentRepository {
         u.avatar as user_avatar
       FROM comments c
       JOIN users u ON c.user_id = u.id
-      WHERE c.card_id = ? AND c.deleted_at IS NULL
+      WHERE c.card_id = $1 AND c.deleted_at IS NULL
       ORDER BY c.created_at ASC
-    `);
+    `, [cardId]);
 
-    const rows = stmt.all(cardId) as any[];
-    const comments = rows.map(row => this.mapRowToComment(row));
+    const comments = rows.map((row: any) => this.mapRowToComment(row));
 
     // 대댓글 구조화
     return this.buildCommentTree(comments);
@@ -124,16 +120,14 @@ export class CommentRepository {
   /**
    * 댓글 수정
    */
-  update(id: string, content: string): Comment | null {
-    const stmt = this.db.prepare(`
+  async update(id: string, content: string): Promise<Comment | null> {
+    const result = await query(`
       UPDATE comments
-      SET content = ?, updated_at = CURRENT_TIMESTAMP
-      WHERE id = ? AND deleted_at IS NULL
-    `);
+      SET content = $1, updated_at = CURRENT_TIMESTAMP
+      WHERE id = $2 AND deleted_at IS NULL
+    `, [content, id]);
 
-    const result = stmt.run(content, id);
-
-    if (result.changes === 0) {
+    if ((result as any).rowCount === 0) {
       return null;
     }
 
@@ -143,45 +137,42 @@ export class CommentRepository {
   /**
    * 댓글 소프트 삭제
    */
-  softDelete(id: string): boolean {
-    const stmt = this.db.prepare(`
+  async softDelete(id: string): Promise<boolean> {
+    const result = await query(`
       UPDATE comments
       SET deleted_at = CURRENT_TIMESTAMP
-      WHERE id = ?
-    `);
+      WHERE id = $1
+    `, [id]);
 
-    const result = stmt.run(id);
-    return result.changes > 0;
+    return (result as any).rowCount > 0;
   }
 
   /**
    * 댓글 하드 삭제 (실제 삭제)
    */
-  hardDelete(id: string): boolean {
-    const stmt = this.db.prepare('DELETE FROM comments WHERE id = ?');
-    const result = stmt.run(id);
-    return result.changes > 0;
+  async hardDelete(id: string): Promise<boolean> {
+    const result = await query('DELETE FROM comments WHERE id = $1', [id]);
+    return (result as any).rowCount > 0;
   }
 
   /**
    * 카드의 댓글 수 조회
    */
-  countByCardId(cardId: string): number {
-    const stmt = this.db.prepare(`
+  async countByCardId(cardId: string): Promise<number> {
+    const result = await queryOne(`
       SELECT COUNT(*) as count
       FROM comments
-      WHERE card_id = ? AND deleted_at IS NULL
-    `);
+      WHERE card_id = $1 AND deleted_at IS NULL
+    `, [cardId]);
 
-    const result = stmt.get(cardId) as any;
-    return result.count;
+    return result?.count || 0;
   }
 
   /**
    * 사용자의 모든 댓글 조회
    */
-  findByUserId(userId: string, limit: number = 50): Comment[] {
-    const stmt = this.db.prepare(`
+  async findByUserId(userId: string, limit: number = 50): Promise<Comment[]> {
+    const rows = await queryAll(`
       SELECT
         c.id,
         c.card_id,
@@ -197,13 +188,12 @@ export class CommentRepository {
         u.avatar as user_avatar
       FROM comments c
       JOIN users u ON c.user_id = u.id
-      WHERE c.user_id = ? AND c.deleted_at IS NULL
+      WHERE c.user_id = $1 AND c.deleted_at IS NULL
       ORDER BY c.created_at DESC
-      LIMIT ?
-    `);
+      LIMIT $2
+    `, [userId, limit]);
 
-    const rows = stmt.all(userId, limit) as any[];
-    return rows.map(row => this.mapRowToComment(row));
+    return rows.map((row: any) => this.mapRowToComment(row));
   }
 
   /**
