@@ -70,3 +70,6 @@ uploads/
 data/kanban.db
 data/kanban.db-shm
 data/kanban.db-wal
+
+# MCP Server memory files
+.serena/

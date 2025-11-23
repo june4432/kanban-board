@@ -5,7 +5,11 @@
       "Bash(scripts/migrate-to-sqlite.ts)",
       "Bash(timeout 15 npm run dev)",
       "Bash(PGPASSWORD='kanban2025!' psql:*)",
-      "Bash(timeout 10 npm run dev)"
+      "Bash(timeout 10 npm run dev)",
+      "mcp__serena__list_memories",
+      "mcp__serena__activate_project",
+      "Bash(git log:*)",
+      "Bash(git add:*)"
     ],
     "deny": [],
     "ask": []

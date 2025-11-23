@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 프로젝트 개요
 
-Next.js 14, TypeScript, Socket.IO로 구축된 **실시간 협업 칸반보드 시스템**입니다. 다중 프로젝트 지원, 실시간 카드 동기화, 파일 시스템 기반 JSON 데이터 저장소를 사용합니다.
+Next.js 14, TypeScript, Socket.IO로 구축된 **실시간 협업 칸반보드 시스템**입니다. 다중 프로젝트 지원, 실시간 카드 동기화, PostgreSQL 데이터베이스를 사용합니다.
 
 ## 개발 명령어
 
@@ -54,21 +54,30 @@ npx tsc --noEmit # 타입 체크 (파일 생성 없이)
 
 3. **데이터 흐름 패턴**:
    ```
-   사용자 액션 → API 호출 (HTTP) → 서버가 JSON 업데이트 → 서버가 Socket 이벤트 발행 →
+   사용자 액션 → API 호출 (HTTP) → 서버가 DB 업데이트 → 서버가 Socket 이벤트 발행 →
    다른 클라이언트가 이벤트 수신 → 로컬 상태 업데이트
    ```
 
-### 파일 기반 데이터 저장소
+### PostgreSQL 데이터베이스
 
-모든 데이터는 `data/` 디렉토리의 JSON 파일로 저장됩니다:
-- `kanban-boards.json`: 보드 컬럼, 카드, 라벨, 마일스톤 (`projectId`로 키잉)
-- `projects.json`: 프로젝트 메타데이터, 멤버, 가입 요청
-- `users.json`: 사용자 계정, 프로필
+모든 데이터는 PostgreSQL 데이터베이스에 저장됩니다:
+- **Users**: 사용자 계정, 프로필, 회사/조직 정보
+- **Companies**: 회사 정보 (엔터프라이즈 계층 구조)
+- **Organizations**: 조직 정보 (회사 하위 단위)
+- **Projects**: 프로젝트 메타데이터, 멤버, 설정
+- **Boards**: 칸반 보드 설정 (프로젝트별)
+- **Columns**: 보드 컬럼 (To Do, In Progress, Done 등)
+- **Cards**: 작업 카드, 담당자, 라벨, 마일스톤
+- **Comments**: 카드 댓글
+- **Attachments**: 카드 첨부파일
+- **Audit Logs**: 감사 로그 (RBAC)
 
 **중요사항**:
-- 데이터베이스 없음 - Node.js `fs` 모듈을 통한 직접 파일 시스템 읽기/쓰기
-- 데이터 구조는 보드와 프로젝트 간 연결 키로 `projectId` 사용
-- API 라우트가 파일 잠금 및 동시 접근 처리
+- PostgreSQL 연결은 `lib/postgres.ts`의 connection pool을 통해 관리
+- Repository 패턴 사용: `lib/repositories/` 디렉토리
+- 데이터베이스 설정은 `.env` 파일의 `POSTGRES_*` 환경변수로 관리
+- 트랜잭션 지원: `withTransaction` 헬퍼 함수 사용
+- 기본 관리자 계정: `admin@admin.com` / `admin`
 
 ### 타입 시스템 (`types/index.ts`)
 
@@ -210,8 +219,9 @@ useEffect(() => {
 ## 중요 참고사항
 
 1. **React Strict Mode가 꺼져있음**: 이중 렌더링이 WebSocket 연결 문제를 일으킴
-2. **외부 데이터베이스 없음**: 모든 지속성은 JSON 파일을 통해 - 동시 쓰기 주의
+2. **PostgreSQL 데이터베이스 사용**: Repository 패턴을 통한 데이터 접근, connection pool 관리
 3. **사용자 컨텍스트 지속성**: 사용자는 localStorage에 저장됨 (HTTP-only 쿠키 아님)
 4. **이벤트 룸 타겟팅**: 항상 특정 룸(`project-{id}` 또는 `user-{id}`)으로 발행, 절대 전역 브로드캐스트 금지
 5. **뷰 모드**: 애플리케이션은 4가지 뷰 모드 지원 - kanban(기본), calendar, gantt, manual
 6. **WIP 제한**: 컬럼에는 진행 중인 작업 제한이 있음 (현재 코드에서는 강제되지 않음)
+7. **엔터프라이즈 계층 구조**: 회사(Company) → 조직(Organization) → 프로젝트(Project) 3단계 계층
