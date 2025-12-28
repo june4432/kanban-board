@@ -4,6 +4,7 @@
  */
 
 import { NextApiRequest, NextApiResponse } from 'next';
+import { ProjectAccessResult } from '../utils/project-access';
 
 // ============================================================================
 // Auth Types
@@ -22,10 +23,10 @@ export interface AuthSession {
 
 export interface ApiRequest extends NextApiRequest {
   user?: AuthUser;
-  organizationId?: string;
   requestId?: string;
   apiKeyScopes?: string[]; // For API key authentication - available scopes
   isApiKeyAuth?: boolean; // True if authenticated via API key (vs session)
+  projectAccess?: ProjectAccessResult; // Group-based project access result
 }
 
 // ============================================================================
@@ -187,7 +188,7 @@ export interface BaseFilters {
 }
 
 export interface ProjectFilters extends BaseFilters {
-  organizationId?: string;
+  companyId?: string;
   ownerId?: string;
   isPublic?: boolean;
 }

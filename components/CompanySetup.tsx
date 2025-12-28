@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Building, Users, Briefcase, ArrowRight, Building2 } from 'lucide-react';
+import { Building, Users, Briefcase, ArrowRight, Building2, LogOut } from 'lucide-react';
+import { signOut } from 'next-auth/react';
 
 interface CompanySetupProps {
   onComplete: (companyId: string) => void;
@@ -43,7 +44,7 @@ const CompanySetup: React.FC<CompanySetupProps> = ({ onComplete }) => {
     setError(null);
 
     try {
-      const response = await fetch('/api/companies', {
+      const response = await fetch('/api/v1/companies', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -54,13 +55,15 @@ const CompanySetup: React.FC<CompanySetupProps> = ({ onComplete }) => {
         })
       });
 
+      const responseData = await response.json();
+      
       if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error?.message || data.error || '회사 생성에 실패했습니다.');
+        throw new Error(responseData.error?.message || '회사 생성에 실패했습니다.');
       }
 
-      const data = await response.json();
-      onComplete(data.company?.id || data.id);
+      // V1 API returns { data: { company }, meta: {...} }
+      const company = responseData.data?.company || responseData.company;
+      onComplete(company?.id || company);
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -71,6 +74,15 @@ const CompanySetup: React.FC<CompanySetupProps> = ({ onComplete }) => {
   if (step === 'welcome') {
     return (
       <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-blue-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center p-4">
+        {/* Logout button */}
+        <button
+          onClick={() => signOut({ callbackUrl: '/auth/signin' })}
+          className="absolute top-4 right-4 flex items-center gap-2 px-4 py-2 text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+        >
+          <LogOut className="w-4 h-4" />
+          <span>로그아웃</span>
+        </button>
+        
         <div className="max-w-2xl w-full">
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8 md:p-12">
             <div className="text-center mb-8">
@@ -150,6 +162,15 @@ const CompanySetup: React.FC<CompanySetupProps> = ({ onComplete }) => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-blue-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center p-4">
+      {/* Logout button */}
+      <button
+        onClick={() => signOut({ callbackUrl: '/auth/signin' })}
+        className="absolute top-4 right-4 flex items-center gap-2 px-4 py-2 text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+      >
+        <LogOut className="w-4 h-4" />
+        <span>로그아웃</span>
+      </button>
+
       <div className="max-w-md w-full">
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8">
           <div className="text-center mb-6">

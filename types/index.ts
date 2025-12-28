@@ -17,6 +17,8 @@ export interface AuthUser {
   email: string;
   avatar: string;
   role: 'admin' | 'user';
+  companyId?: string;
+  companyRole?: 'owner' | 'admin' | 'member';
 }
 
 export interface Label {

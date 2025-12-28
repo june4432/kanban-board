@@ -1,8 +1,7 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '../../../auth/[...nextauth]';
-import { getDatabase } from '@/lib/database';
-import { ApiKeyService } from '@/lib/services/api-key.service';
+import { getApiKeyService } from '@/lib/services/api-key.service';
 import { withErrorHandler } from '@/lib/error-handler';
 import { UnauthorizedError, NotFoundError, ValidationError } from '@/lib/errors';
 
@@ -29,12 +28,11 @@ export default withErrorHandler(async (req: NextApiRequest, res: NextApiResponse
     throw new ValidationError('Invalid API key ID');
   }
 
-  const db = getDatabase();
-  const apiKeyService = new ApiKeyService(db);
+  const apiKeyService = getApiKeyService();
   const userId = session.user.id;
 
   // Revoke the API key
-  const revoked = apiKeyService.revokeApiKey(id, userId);
+  const revoked = await apiKeyService.revokeApiKey(id, userId);
 
   if (!revoked) {
     throw new NotFoundError('API key');

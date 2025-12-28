@@ -8,6 +8,7 @@ interface AuthContextType {
   signup: (name: string, email: string, password: string) => Promise<{ success: boolean; message?: string }>;
   logout: () => void;
   loading: boolean;
+  refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -102,8 +103,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUser(null);
   };
 
+  const refreshUser = async () => {
+    try {
+      const response = await fetch('/api/v1/users/me');
+      if (response.ok) {
+        const data = await response.json();
+        if (data.data?.user) {
+          const authUser: AuthUser = {
+            id: data.data.user.id,
+            name: data.data.user.name || '',
+            email: data.data.user.email || '',
+            avatar: data.data.user.avatar || '',
+            role: data.data.user.role || 'user',
+            companyId: data.data.user.companyId,
+            companyRole: data.data.user.companyRole,
+          };
+          setUser(authUser);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to refresh user:', error);
+    }
+  };
+
   return (
-    <AuthContext.Provider value={{ user, login, signup, logout, loading }}>
+    <AuthContext.Provider value={{ user, login, signup, logout, loading, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );

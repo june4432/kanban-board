@@ -2,7 +2,7 @@ import { NextApiRequest, NextApiResponse } from 'next';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/pages/api/auth/[...nextauth]';
 import { ProjectRepository } from './repositories/project.repository';
-import { getDatabase } from './database';
+import { queryOne } from './postgres';
 
 export interface AuthSession {
   user: {
@@ -99,18 +99,16 @@ export async function requireCardAccess(
   const session = await requireAuth(req, res);
   if (!session) return null;
 
-  const db = getDatabase();
-
-  // 카드가 속한 프로젝트 ID 조회
-  const query = `
+  // 카드가 속한 프로젝트 ID 조회 (PostgreSQL)
+  const sql = `
     SELECT b.project_id
     FROM cards c
     JOIN columns col ON c.column_id = col.id
-    JOIN boards b ON col.board_id = b.board_id
-    WHERE c.id = ?
+    JOIN boards b ON col.board_id = b.id
+    WHERE c.id = $1
   `;
 
-  const result = db.prepare(query).get(cardId) as { project_id: string } | undefined;
+  const result = await queryOne<{ project_id: string }>(sql, [cardId]);
 
   if (!result) {
     res.status(404).json({ error: 'Card not found' });
@@ -120,7 +118,7 @@ export async function requireCardAccess(
   const projectId = result.project_id;
   const projectRepo = new ProjectRepository();
 
-  const isMember = projectRepo.isMember(projectId, session.user.id);
+  const isMember = await projectRepo.isMember(projectId, session.user.id);
   if (!isMember) {
     res.status(403).json({ error: 'Access denied. You are not a member of this project.' });
     return null;

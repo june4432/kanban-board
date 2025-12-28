@@ -1,8 +1,7 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '../../auth/[...nextauth]';
-import { getDatabase } from '@/lib/database';
-import { ApiKeyService } from '@/lib/services/api-key.service';
+import { getApiKeyService } from '@/lib/services/api-key.service';
 import { withErrorHandler } from '@/lib/error-handler';
 import { UnauthorizedError } from '@/lib/errors';
 import { z } from 'zod';
@@ -34,27 +33,34 @@ export default withErrorHandler(async (req: NextApiRequest, res: NextApiResponse
     throw new UnauthorizedError('Authentication required');
   }
 
-  const db = getDatabase();
-  const apiKeyService = new ApiKeyService(db);
+  const apiKeyService = getApiKeyService();
   const userId = session.user.id;
 
   switch (req.method) {
     case 'GET': {
       // List user's API keys
-      const apiKeys = apiKeyService.listUserApiKeys(userId);
+      const apiKeys = await apiKeyService.listUserApiKeys(userId);
 
-      // Remove sensitive data before sending
-      const sanitizedKeys = apiKeys.map(key => ({
-        id: key.id,
-        name: key.name,
-        keyPrefix: key.keyPrefix,
-        scopes: key.scopes.split(','),
-        isActive: key.isActive === 1,
-        lastUsedAt: key.lastUsedAt,
-        usageCount: key.usageCount,
-        createdAt: key.createdAt,
-        expiresAt: key.expiresAt,
-      }));
+      // Parse scopes and sanitize
+      const sanitizedKeys = apiKeys.map(key => {
+        let scopes: string[];
+        try {
+          scopes = typeof key.scopes === 'string' ? JSON.parse(key.scopes) : key.scopes;
+        } catch {
+          scopes = String(key.scopes).split(',');
+        }
+        return {
+          id: key.id,
+          name: key.name,
+          keyPrefix: key.keyPrefix,
+          scopes,
+          isActive: key.isActive,
+          lastUsedAt: key.lastUsedAt,
+          usageCount: key.usageCount,
+          createdAt: key.createdAt,
+          expiresAt: key.expiresAt,
+        };
+      });
 
       return res.status(200).json({ apiKeys: sanitizedKeys });
     }
@@ -68,7 +74,7 @@ export default withErrorHandler(async (req: NextApiRequest, res: NextApiResponse
       const userAgent = req.headers['user-agent'];
 
       // Generate API key
-      const { apiKey, secret } = apiKeyService.generateApiKey({
+      const { apiKey, secret } = await apiKeyService.generateApiKey({
         userId,
         name: input.name,
         scopes: input.scopes,
@@ -78,14 +84,22 @@ export default withErrorHandler(async (req: NextApiRequest, res: NextApiResponse
         environment: input.environment,
       });
 
+      // Parse scopes
+      let scopes: string[];
+      try {
+        scopes = typeof apiKey.scopes === 'string' ? JSON.parse(apiKey.scopes) : apiKey.scopes;
+      } catch {
+        scopes = String(apiKey.scopes).split(',');
+      }
+
       // Return the API key WITH the secret (only time it's ever shown!)
       return res.status(201).json({
         apiKey: {
           id: apiKey.id,
           name: apiKey.name,
           keyPrefix: apiKey.keyPrefix,
-          scopes: apiKey.scopes.split(','),
-          isActive: apiKey.isActive === 1,
+          scopes,
+          isActive: apiKey.isActive,
           lastUsedAt: apiKey.lastUsedAt,
           usageCount: apiKey.usageCount,
           createdAt: apiKey.createdAt,

@@ -2,9 +2,8 @@ import { v4 as uuidv4 } from 'uuid';
 import { Project } from '@/types';
 import { query, queryOne, queryAll, withTransaction } from '@/lib/postgres';
 
-// Default IDs for backward compatibility
+// Default company ID for backward compatibility (will be removed when company setup is mandatory)
 const DEFAULT_COMPANY_ID = 'company-default';
-const DEFAULT_ORG_ID = 'org-default';
 
 export class ProjectRepository {
   constructor() { }
@@ -20,13 +19,13 @@ export class ProjectRepository {
     color?: string;
     isPublic?: boolean;
     companyId?: string;
-    organizationId?: string;
+    organizationId?: string; // Optional - legacy support
     columns?: Array<{ title: string; wipLimit: number }>;
   }): Promise<Project> {
     const projectId = data.id || uuidv4();
     const boardId = uuidv4();
     const companyId = data.companyId || DEFAULT_COMPANY_ID;
-    const organizationId = data.organizationId || DEFAULT_ORG_ID;
+    const organizationId = data.organizationId || null; // Optional
     const slug = data.name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
 
     await withTransaction(async (client) => {
@@ -411,5 +410,17 @@ export class ProjectRepository {
     await query(`
       UPDATE invitations SET status = 'rejected' WHERE id = $1
     `, [requestId]);
+  }
+
+  /**
+   * Get member role in a project
+   */
+  async getMemberRole(projectId: string, userId: string): Promise<string | null> {
+    const row = await queryOne(`
+      SELECT role FROM project_members
+      WHERE project_id = $1 AND user_id = $2
+    `, [projectId, userId]);
+
+    return row?.role || null;
   }
 }

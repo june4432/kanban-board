@@ -21,6 +21,7 @@ import {
   projectFiltersSchema,
 } from '@/lib/api-v1/utils/validation';
 import { getRepositories } from '@/lib/repositories';
+import { getAccessibleProjectIds } from '@/lib/api-v1/utils/project-access';
 import { v4 as uuidv4 } from 'uuid';
 
 async function handler(req: ApiRequest, res: NextApiResponse) {
@@ -65,13 +66,16 @@ async function handleGet(req: ApiRequest, res: NextApiResponse) {
     );
   }
 
-  // Filter by user membership (only show projects user has access to)
+  // Filter by user access (direct membership, group-based, or public)
   if (req.user) {
+    // Get all project IDs the user can access (direct + group-based)
+    const accessibleIds = await getAccessibleProjectIds(req.user.id);
+    const accessibleIdSet = new Set(accessibleIds);
+
     allProjects = allProjects.filter(
       (p) =>
-        p.ownerId === req.user!.id ||
-        p.members.some((m) => m.id === req.user!.id) ||
-        p.isPublic
+        accessibleIdSet.has(p.projectId) || // Direct or group-based access
+        p.isPublic // Public projects
     );
   } else {
     // Not authenticated, only show public projects
@@ -140,6 +144,7 @@ async function handlePost(req: ApiRequest, res: NextApiResponse) {
     ownerId: req.user.id,
     color: data.color || '#3b82f6',
     isPublic: data.isPublic || false,
+    organizationId: data.organizationId,
   });
 
   sendCreated(res, newProject, req.requestId);

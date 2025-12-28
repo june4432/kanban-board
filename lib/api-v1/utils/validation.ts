@@ -166,6 +166,8 @@ export const createProjectSchema = z.object({
   description: validators.description,
   color: validators.color,
   isPublic: validators.boolean,
+  companyId: idSchema.optional(),
+  organizationId: idSchema.optional(), // Legacy - optional
 });
 
 export const updateProjectSchema = z.object({
@@ -176,7 +178,7 @@ export const updateProjectSchema = z.object({
 });
 
 export const projectFiltersSchema = paginationSchema.extend({
-  organizationId: idSchema.optional(),
+  companyId: idSchema.optional(),
   ownerId: idSchema.optional(),
   isPublic: z.coerce.boolean().optional(),
   search: z.string().optional(),

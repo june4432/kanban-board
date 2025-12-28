@@ -164,6 +164,7 @@ async function handlePost(req: ApiRequest, res: NextApiResponse) {
     milestoneId: undefined,
     priority: data.priority || 'medium',
     dueDate: data.dueDate ? new Date(data.dueDate) : undefined,
+    createdBy: req.user!.id,
   });
 
   // Note: WebSocket notifications would be sent here in production

@@ -1,6 +1,6 @@
 import React from 'react';
 import { ViewMode, User, Project } from '@/types';
-import { LayoutGrid, Calendar, BarChart3, Table, BookOpen, Settings, ChevronLeft, ChevronRight, LogOut, Key, Home, Building2, FileText } from 'lucide-react';
+import { LayoutGrid, Calendar, BarChart3, Table, BookOpen, Settings, ChevronLeft, ChevronRight, LogOut, Key, Home, Building2, FileText, User as UserIcon } from 'lucide-react';
 import { ThemeToggleDropdown } from '@/components/ThemeToggle';
 import { useRouter } from 'next/router';
 
@@ -44,9 +44,10 @@ const Sidebar: React.FC<SidebarProps> = ({
 
   // 설정 페이지 여부 확인
   const isApiKeysPage = router.pathname === '/settings/api-keys';
-  const isOrganizationsPage = router.pathname.startsWith('/settings/organizations');
+  const isGroupsPage = router.pathname.startsWith('/settings/groups');
+  const isProfilePage = router.pathname === '/settings/profile';
   const isApiDocsPage = router.pathname === '/api-docs';
-  const isSettingsPage = isApiKeysPage || isOrganizationsPage || isApiDocsPage;
+  const isSettingsPage = isApiKeysPage || isGroupsPage || isProfilePage || isApiDocsPage;
 
   const actionItems = [
     // 설정 페이지에서는 홈 버튼 표시
@@ -58,8 +59,10 @@ const Sidebar: React.FC<SidebarProps> = ({
   ];
 
   const managementItems = [
-    // 조직 관리 (항상 표시)
-    { id: 'organizations', icon: Building2, label: '조직 관리', onClick: () => router.push('/settings/organizations') },
+    // 프로필 설정
+    { id: 'profile', icon: UserIcon, label: '프로필 설정', onClick: () => router.push('/settings/profile') },
+    // 그룹 관리 (항상 표시)
+    { id: 'groups', icon: Building2, label: '그룹 관리', onClick: () => router.push('/settings/groups') },
     // API Keys (항상 표시)
     { id: 'api-keys', icon: Key, label: 'API Keys', onClick: () => router.push('/settings/api-keys') },
     // API Docs (항상 표시)
@@ -121,25 +124,12 @@ const Sidebar: React.FC<SidebarProps> = ({
                   {navItems.map((item) => {
                     const Icon = item.icon;
                     // 대시보드 페이지일 때도 활성화 상태 표시
-                    const isActive =
-                      (viewMode === item.id) ||
-                      (item.id === 'dashboard' && router.pathname.includes('/dashboard'));
+                    const isActive = viewMode === item.id;
 
                     const handleClick = () => {
-                      if (item.id === 'dashboard') {
-                        // 대시보드로 이동
-                        if (projectId) {
-                          router.push(`/projects/${projectId}/dashboard`);
-                        }
-                      } else {
-                        // 다른 뷰 모드로 이동
-                        if (onViewModeChange) {
-                          onViewModeChange(item.id as ViewMode);
-                        } else {
-                          // 대시보드 페이지 등에서 메인 페이지로 이동
-                          // 쿼리 파라미터로 view 모드 전달
-                          router.push(`/?view=${item.id}`);
-                        }
+                      // 모든 뷰 모드 (대시보드 포함)를 동일하게 처리
+                      if (onViewModeChange) {
+                        onViewModeChange(item.id as ViewMode);
                       }
                     };
 
@@ -235,8 +225,9 @@ const Sidebar: React.FC<SidebarProps> = ({
 
                 // 활성화 상태 로직
                 let isActive = false;
+                if (item.id === 'profile') isActive = router.pathname === '/settings/profile';
                 if (item.id === 'api-keys') isActive = router.pathname === '/settings/api-keys';
-                if (item.id === 'organizations') isActive = router.pathname.startsWith('/settings/organizations');
+                if (item.id === 'groups') isActive = router.pathname.startsWith('/settings/groups');
                 if (item.id === 'api-docs') isActive = router.pathname === '/api-docs';
 
                 return (

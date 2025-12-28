@@ -84,6 +84,60 @@ export interface Organization {
   updatedAt: string;
 }
 
+export interface Comment {
+  id: string;
+  cardId: string;
+  userId: string;
+  userName?: string;
+  userAvatar?: string;
+  content: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Attachment {
+  id: string;
+  cardId: string;
+  userId: string;
+  userName?: string;
+  fileName: string;
+  fileType?: string;
+  fileSize?: number;
+  fileUrl: string;
+  createdAt: string;
+}
+
+export interface AuditLog {
+  id: string;
+  userId: string;
+  userName: string;
+  action: 'create' | 'update' | 'delete' | 'move';
+  resourceType: string;
+  resourceId: string;
+  projectId?: string;
+  changes?: any;
+  createdAt: string;
+}
+
+export interface User {
+  id: string;
+  name: string;
+  email: string;
+  avatarUrl?: string;
+  companyId?: string;
+  companyRole?: string;
+}
+
+export interface Company {
+  id: string;
+  name: string;
+  slug: string;
+  domain?: string;
+  plan: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface Board {
   boardId: string;
   projectId: string;
@@ -257,6 +311,78 @@ class ApiClient {
         body: JSON.stringify(data),
       });
     },
+
+    delete: async (projectId: string): Promise<void> => {
+      await fetch(`${clientConfig.baseUrl}/projects/${projectId}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+    },
+
+    leave: async (projectId: string): Promise<ApiResponse<{ message: string; project: Project }>> => {
+      return this.request<{ message: string; project: Project }>(`/projects/${projectId}/leave`, {
+        method: 'DELETE',
+      });
+    },
+
+    join: async (projectId: string, message?: string): Promise<ApiResponse<{ message: string }>> => {
+      return this.request<{ message: string }>(`/projects/${projectId}/join`, {
+        method: 'POST',
+        body: JSON.stringify({ message }),
+      });
+    },
+
+    getJoinRequests: async (projectId: string): Promise<ApiResponse<{ requests: any[] }>> => {
+      return this.request<{ requests: any[] }>(`/projects/${projectId}/join-requests`);
+    },
+
+    approveJoinRequest: async (projectId: string, requestId: string): Promise<ApiResponse<{ message: string }>> => {
+      return this.request<{ message: string }>(`/projects/${projectId}/join-requests/${requestId}/approve`, {
+        method: 'POST',
+      });
+    },
+
+    rejectJoinRequest: async (projectId: string, requestId: string): Promise<ApiResponse<{ message: string }>> => {
+      return this.request<{ message: string }>(`/projects/${projectId}/join-requests/${requestId}/reject`, {
+        method: 'POST',
+      });
+    },
+
+    getMembers: async (projectId: string): Promise<ApiResponse<{ members: any[] }>> => {
+      return this.request<{ members: any[] }>(`/projects/${projectId}/members`);
+    },
+
+    addMember: async (projectId: string, userId: string, role?: string): Promise<ApiResponse<{ message: string }>> => {
+      return this.request<{ message: string }>(`/projects/${projectId}/members`, {
+        method: 'POST',
+        body: JSON.stringify({ userId, role }),
+      });
+    },
+
+    updateMember: async (projectId: string, userId: string, role: string): Promise<ApiResponse<{ message: string }>> => {
+      return this.request<{ message: string }>(`/projects/${projectId}/members/${userId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ role }),
+      });
+    },
+
+    removeMember: async (projectId: string, userId: string): Promise<void> => {
+      await fetch(`${clientConfig.baseUrl}/projects/${projectId}/members/${userId}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+    },
+
+    inviteMember: async (projectId: string, email: string, role?: string): Promise<ApiResponse<{ invite: any }>> => {
+      return this.request<{ invite: any }>(`/projects/${projectId}/members/invite`, {
+        method: 'POST',
+        body: JSON.stringify({ email, role }),
+      });
+    },
+
+    getDashboard: async (projectId: string): Promise<ApiResponse<any>> => {
+      return this.request<any>(`/projects/${projectId}/dashboard`);
+    },
   };
 
   // ============================================================================
@@ -335,6 +461,56 @@ class ApiClient {
         credentials: 'include',
       });
     },
+
+    // Comments
+    getComments: async (cardId: string): Promise<ApiResponse<{ comments: Comment[] }>> => {
+      return this.request<{ comments: Comment[] }>(`/cards/${cardId}/comments`);
+    },
+
+    createComment: async (cardId: string, content: string): Promise<ApiResponse<{ comment: Comment }>> => {
+      return this.request<{ comment: Comment }>(`/cards/${cardId}/comments`, {
+        method: 'POST',
+        body: JSON.stringify({ content }),
+      });
+    },
+
+    updateComment: async (cardId: string, commentId: string, content: string): Promise<ApiResponse<{ comment: Comment }>> => {
+      return this.request<{ comment: Comment }>(`/cards/${cardId}/comments/${commentId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ content }),
+      });
+    },
+
+    deleteComment: async (cardId: string, commentId: string): Promise<void> => {
+      await fetch(`${clientConfig.baseUrl}/cards/${cardId}/comments/${commentId}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+    },
+
+    // Attachments
+    getAttachments: async (cardId: string): Promise<ApiResponse<{ attachments: Attachment[] }>> => {
+      return this.request<{ attachments: Attachment[] }>(`/cards/${cardId}/attachments`);
+    },
+
+    createAttachment: async (cardId: string, data: {
+      fileName: string;
+      fileType?: string;
+      fileSize?: number;
+      fileUrl: string;
+    }): Promise<ApiResponse<{ attachment: Attachment }>> => {
+      return this.request<{ attachment: Attachment }>(`/cards/${cardId}/attachments`, {
+        method: 'POST',
+        body: JSON.stringify(data),
+      });
+    },
+
+    deleteAttachment: async (cardId: string, attachmentId: string): Promise<void> => {
+      await fetch(`${clientConfig.baseUrl}/cards/${cardId}/attachments/${attachmentId}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+    },
   };
 
   // ============================================================================
@@ -385,6 +561,124 @@ class ApiClient {
 
     getMembers: async (orgId: string): Promise<ApiResponse<any[]>> => {
       return this.request<any[]>(`/organizations/${orgId}/members`);
+    },
+
+    addMember: async (orgId: string, userId: string, role?: string): Promise<ApiResponse<{ message: string }>> => {
+      return this.request<{ message: string }>(`/organizations/${orgId}/members`, {
+        method: 'POST',
+        body: JSON.stringify({ userId, role }),
+      });
+    },
+
+    removeMember: async (orgId: string, userId: string): Promise<void> => {
+      await fetch(`${clientConfig.baseUrl}/organizations/${orgId}/members/${userId}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+    },
+  };
+
+  // ============================================================================
+  // Users API
+  // ============================================================================
+
+  users = {
+    list: async (): Promise<ApiResponse<User[]>> => {
+      return this.request<User[]>('/users');
+    },
+
+    get: async (userId: string): Promise<ApiResponse<User>> => {
+      return this.request<User>(`/users/${userId}`);
+    },
+
+    getMe: async (): Promise<ApiResponse<User>> => {
+      return this.request<User>('/users/me');
+    },
+
+    update: async (userId: string, data: {
+      name?: string;
+      avatarUrl?: string;
+    }): Promise<ApiResponse<User>> => {
+      return this.request<User>(`/users/${userId}`, {
+        method: 'PATCH',
+        body: JSON.stringify(data),
+      });
+    },
+  };
+
+  // ============================================================================
+  // Companies API
+  // ============================================================================
+
+  companies = {
+    list: async (): Promise<ApiResponse<Company[]>> => {
+      return this.request<Company[]>('/companies');
+    },
+
+    get: async (companyId: string): Promise<ApiResponse<Company>> => {
+      return this.request<Company>(`/companies/${companyId}`);
+    },
+
+    create: async (data: {
+      name: string;
+      slug?: string;
+      domain?: string;
+      plan?: string;
+    }): Promise<ApiResponse<Company>> => {
+      return this.request<Company>('/companies', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      });
+    },
+
+    update: async (companyId: string, data: {
+      name?: string;
+      domain?: string;
+      plan?: string;
+    }): Promise<ApiResponse<Company>> => {
+      return this.request<Company>(`/companies/${companyId}`, {
+        method: 'PATCH',
+        body: JSON.stringify(data),
+      });
+    },
+  };
+
+  // ============================================================================
+  // Audit Logs API
+  // ============================================================================
+
+  auditLogs = {
+    list: async (params?: {
+      projectId?: string;
+      userId?: string;
+      resourceType?: string;
+      action?: string;
+      startDate?: string;
+      endDate?: string;
+      limit?: number;
+      offset?: number;
+    }): Promise<ApiResponse<{ logs: AuditLog[]; pagination: any }>> => {
+      const query = new URLSearchParams(params as any).toString();
+      return this.request<{ logs: AuditLog[]; pagination: any }>(`/audit-logs${query ? `?${query}` : ''}`);
+    },
+
+    get: async (logId: string): Promise<ApiResponse<{ log: AuditLog }>> => {
+      return this.request<{ log: AuditLog }>(`/audit-logs/${logId}`);
+    },
+
+    getStatistics: async (projectId: string, days?: number): Promise<ApiResponse<{
+      projectId: string;
+      period: { days: number; startDate: string; endDate: string };
+      totalActions: number;
+      actionsByType: Record<string, number>;
+      actionsByUser: Record<string, number>;
+      recentActivity: AuditLog[];
+    }>> => {
+      const query = new URLSearchParams({
+        projectId,
+        ...(days && { days: days.toString() })
+      }).toString();
+      return this.request<any>(`/audit-logs/statistics?${query}`);
     },
   };
 }

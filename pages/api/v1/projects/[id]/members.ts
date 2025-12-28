@@ -49,7 +49,7 @@ async function handlePost(req: ApiRequest, res: NextApiResponse, projectId: stri
     return sendForbidden(res, 'User not authenticated', req.requestId);
   }
 
-  const { projects, users, organizations } = getRepositories();
+  const { projects, users } = getRepositories();
 
   // Get project
   const project = await projects.findById(projectId);
@@ -77,19 +77,6 @@ async function handlePost(req: ApiRequest, res: NextApiResponse, projectId: stri
       [{ field: 'userId', message: 'Invalid user ID' }],
       req.requestId
     );
-  }
-
-  // Check if user is in the same organization
-  if (project.organizationId) {
-    const isOrgMember = organizations.isMember(project.organizationId, data.userId);
-    if (!isOrgMember) {
-      return sendValidationError(
-        res,
-        'User is not a member of the project organization',
-        [{ field: 'userId', message: 'User must be a member of the organization first' }],
-        req.requestId
-      );
-    }
   }
 
   // Check if already a member

@@ -173,6 +173,8 @@ export const useKanbanAPI = (projectId?: string, user?: User | null) => {
       const response = await api.projects.getBoard(projectId);
 
       console.log('📦 Received board data:', response.data);
+      console.log('🏷️ Labels in response:', (response.data as any)?.labels);
+      console.log('🎯 Milestones in response:', (response.data as any)?.milestones);
 
       setBoard(response.data as any);
       console.log('✅ Board state updated successfully');

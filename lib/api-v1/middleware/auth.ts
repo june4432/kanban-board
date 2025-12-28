@@ -9,8 +9,7 @@ import { authOptions } from '@/pages/api/auth/[...nextauth]';
 import { ApiRequest, AuthSession } from '../types';
 import { sendUnauthorized, sendForbidden, sendNotFound } from '../utils/response';
 import { ProjectRepository } from '@/lib/repositories/project.repository';
-import { getDatabase } from '@/lib/database';
-import { ApiKeyService } from '@/lib/services/api-key.service';
+import { queryOne } from '@/lib/postgres';
 
 /**
  * Authenticate user from session OR API key
@@ -24,22 +23,43 @@ export async function authenticate(
   const authHeader = req.headers.authorization;
   if (authHeader?.startsWith('Bearer ')) {
     const apiKey = authHeader.substring(7);
+    const keyPrefix = apiKey.substring(0, 15); // 'sk_live_' or 'sk_test_' + few chars
+    
+    // Hash the API key for comparison
+    const crypto = await import('crypto');
+    const keyHash = crypto.createHash('sha256').update(apiKey).digest('hex');
 
-    const db = getDatabase();
-    const apiKeyService = new ApiKeyService(db);
+    // Validate API key with PostgreSQL
+    const apiKeyRecord = await queryOne<{
+      id: string;
+      user_id: string;
+      scopes: string;
+      is_active: boolean;
+      expires_at: string | null;
+    }>(
+      `SELECT id, user_id, scopes, is_active, expires_at 
+       FROM api_keys 
+       WHERE key_hash = $1 AND key_prefix = $2`,
+      [keyHash, keyPrefix.substring(0, 10)]
+    );
 
-    const validationResult = apiKeyService.validateApiKey(apiKey);
+    if (apiKeyRecord && apiKeyRecord.is_active) {
+      // Check expiration
+      if (apiKeyRecord.expires_at && new Date(apiKeyRecord.expires_at) < new Date()) {
+        sendUnauthorized(res, 'API key has expired', req.requestId);
+        return false;
+      }
 
-    if (validationResult.valid && validationResult.apiKey) {
-      // API Key is valid - fetch user details
-      const userId = validationResult.apiKey.userId;
-
-      const user = db.prepare('SELECT id, name, email, avatar FROM users WHERE id = ?').get(userId) as {
+      // Fetch user details
+      const user = await queryOne<{
         id: string;
         name: string;
         email: string;
-        avatar: string;
-      } | undefined;
+        avatar_url: string;
+      }>(
+        'SELECT id, name, email, avatar_url FROM users WHERE id = $1',
+        [apiKeyRecord.user_id]
+      );
 
       if (!user) {
         sendUnauthorized(res, 'User not found', req.requestId);
@@ -51,17 +71,22 @@ export async function authenticate(
         id: user.id,
         name: user.name,
         email: user.email,
-        image: user.avatar,
+        image: user.avatar_url,
       };
 
       // Parse and attach API key scopes
-      const scopes = validationResult.apiKey.scopes.split(',').map(s => s.trim());
-      req.apiKeyScopes = scopes;
+      const scopes = typeof apiKeyRecord.scopes === 'string' 
+        ? JSON.parse(apiKeyRecord.scopes) 
+        : apiKeyRecord.scopes;
+      req.apiKeyScopes = Array.isArray(scopes) ? scopes : [];
       req.isApiKeyAuth = true;
 
-      // Update usage stats
+      // Update usage stats (fire and forget)
       const ipAddress = (req.headers['x-forwarded-for'] as string) || req.socket?.remoteAddress;
-      apiKeyService.updateLastUsed(validationResult.apiKey.id, ipAddress);
+      queryOne(
+        `UPDATE api_keys SET last_used_at = NOW(), last_used_ip = $1 WHERE id = $2`,
+        [ipAddress || null, apiKeyRecord.id]
+      ).catch(console.error);
 
       return true;
     }
@@ -165,18 +190,16 @@ export async function requireCardAccess(
     return null;
   }
 
-  const db = getDatabase();
-
-  // Get project ID from card
-  const query = `
+  // Get project ID from card (PostgreSQL)
+  const sql = `
     SELECT b.project_id
     FROM cards c
     JOIN columns col ON c.column_id = col.id
-    JOIN boards b ON col.board_id = b.board_id
-    WHERE c.id = ?
+    JOIN boards b ON col.board_id = b.id
+    WHERE c.id = $1
   `;
 
-  const result = db.prepare(query).get(cardId) as { project_id: string } | undefined;
+  const result = await queryOne<{ project_id: string }>(sql, [cardId]);
 
   if (!result) {
     sendNotFound(res, 'Card', req.requestId);
@@ -186,7 +209,7 @@ export async function requireCardAccess(
   const projectId = result.project_id;
   const projectRepo = new ProjectRepository();
 
-  const isMember = projectRepo.isMember(projectId, req.user.id);
+  const isMember = await projectRepo.isMember(projectId, req.user.id);
   if (!isMember) {
     sendForbidden(
       res,

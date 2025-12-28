@@ -192,10 +192,21 @@ export class CardRepository {
     labels?: string[];
     milestoneId?: string;
     dueDate?: Date;
+    createdBy: string;
   }): Promise<Card> {
     const id = uuidv4();
 
     return await withTransaction(async (client) => {
+      // Get board_id and project_id from column
+      const columnResult = await client.query(
+        'SELECT col.board_id, b.project_id FROM columns col JOIN boards b ON col.board_id = b.id WHERE col.id = $1',
+        [data.columnId]
+      );
+      if (columnResult.rows.length === 0) {
+        throw new Error('Column not found');
+      }
+      const { board_id: boardId, project_id: projectId } = columnResult.rows[0];
+
       // Get max position
       const posResult = await client.query(
         'SELECT COALESCE(MAX(position), -1) as max_pos FROM cards WHERE column_id = $1',
@@ -205,17 +216,20 @@ export class CardRepository {
 
       // Insert card
       await client.query(`
-        INSERT INTO cards (id, column_id, title, description, priority, position, due_date, milestone_id)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        INSERT INTO cards (id, column_id, board_id, project_id, title, description, priority, position, due_date, milestone_id, created_by)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
       `, [
         id,
         data.columnId,
+        boardId,
+        projectId,
         data.title,
         data.description || '',
         data.priority || 'medium',
         position,
         data.dueDate || null,
-        data.milestoneId || null
+        data.milestoneId || null,
+        data.createdBy
       ]);
 
       // Add assignees
@@ -238,9 +252,54 @@ export class CardRepository {
         }
       }
 
-      const created = await this.findById(id);
-      if (!created) throw new Error('Failed to create card');
-      return created;
+      // Query within the same transaction to get the created card
+      const cardResult = await client.query('SELECT * FROM cards WHERE id = $1', [id]);
+      if (cardResult.rows.length === 0) {
+        throw new Error('Failed to create card');
+      }
+
+      // Get assignees within transaction
+      const assigneesResult = await client.query(
+        'SELECT user_id FROM card_assignees WHERE card_id = $1',
+        [id]
+      );
+
+      // Get labels within transaction
+      const labelsResult = await client.query(
+        'SELECT l.* FROM labels l JOIN card_labels cl ON l.id = cl.label_id WHERE cl.card_id = $1',
+        [id]
+      );
+
+      const row = cardResult.rows[0];
+      return {
+        id: row.id,
+        columnId: row.column_id,
+        boardId: row.board_id,
+        projectId: row.project_id,
+        title: row.title,
+        description: row.description || '',
+        position: row.position,
+        priority: row.priority || 'medium',
+        startDate: row.start_date,
+        dueDate: row.due_date,
+        completedAt: row.completed_at,
+        estimatedHours: row.estimated_hours,
+        actualHours: row.actual_hours,
+        storyPoints: row.story_points,
+        milestoneId: row.milestone_id,
+        createdBy: row.created_by,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+        assignees: assigneesResult.rows.map((r: { user_id: string }) => r.user_id),
+        labels: labelsResult.rows.map((l: any) => ({
+          id: l.id,
+          name: l.name,
+          color: l.color,
+        })),
+        checklist: [],
+        comments: [],
+        attachments: [],
+      } as Card;
     });
   }
 

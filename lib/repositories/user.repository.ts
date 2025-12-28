@@ -3,8 +3,8 @@ import { v4 as uuidv4 } from 'uuid';
 import { User } from '@/types';
 import { query, queryOne, queryAll } from '@/lib/postgres';
 
-// Default company ID for new users (set during migration)
-const DEFAULT_COMPANY_ID = 'company-default';
+// Note: company_id is nullable - users can sign up without a company
+// and create/join one through the onboarding flow
 
 export class UserRepository {
   constructor() { }
@@ -18,12 +18,13 @@ export class UserRepository {
     email: string;
     password: string;
     role?: 'admin' | 'user';
-    companyId?: string;
+    companyId?: string | null;
     companyRole?: 'owner' | 'admin' | 'member';
   }): Promise<User> {
     const hashedPassword = await bcrypt.hash(data.password, 10);
     const id = data.id || uuidv4();
-    const companyId = data.companyId || DEFAULT_COMPANY_ID;
+    // companyId can be null - user will create/join a company through onboarding
+    const companyId = data.companyId || null;
 
     const avatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(
       data.name
@@ -32,7 +33,7 @@ export class UserRepository {
     await query(`
       INSERT INTO users (id, company_id, name, email, password_hash, avatar_url, company_role, status)
       VALUES ($1, $2, $3, $4, $5, $6, $7, 'active')
-    `, [id, companyId, data.name, data.email, hashedPassword, avatar, data.companyRole || 'member']);
+    `, [id, companyId, data.name, data.email, hashedPassword, avatar, data.companyRole || null]);
 
     return (await this.findById(id))!;
   }
@@ -113,6 +114,10 @@ export class UserRepository {
     if (data.avatar !== undefined) {
       fields.push(`avatar_url = $${idx++}`);
       values.push(data.avatar);
+    }
+    if (data.companyId !== undefined) {
+      fields.push(`company_id = $${idx++}`);
+      values.push(data.companyId);
     }
     if (data.companyRole !== undefined) {
       fields.push(`company_role = $${idx++}`);

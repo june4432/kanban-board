@@ -1,7 +1,7 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '../auth/[...nextauth]';
-import { getDatabase } from '@/lib/database';
+import { queryOne, query } from '@/lib/postgres';
 import { getRepositories } from '@/lib/repositories';
 
 // WebSocket server extension type
@@ -18,13 +18,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponseW
     return res.status(400).json({ error: 'Invalid invite token' });
   }
 
-  const db = getDatabase();
-
   switch (req.method) {
     case 'GET':
-      return handleGetInviteInfo(req, res, db, inviteToken);
+      return handleGetInviteInfo(res, inviteToken);
     case 'POST':
-      return handleJoinProject(req, res, db, inviteToken);
+      return handleJoinProject(req, res, inviteToken);
     default:
       res.setHeader('Allow', ['GET', 'POST']);
       return res.status(405).json({ error: 'Method not allowed' });
@@ -32,26 +30,31 @@ export default async function handler(req: NextApiRequest, res: NextApiResponseW
 }
 
 // 초대 링크 정보 조회 (로그인 필요 없음)
-function handleGetInviteInfo(
-  _req: NextApiRequest,
+async function handleGetInviteInfo(
   res: NextApiResponse,
-  db: any,
   inviteToken: string
 ) {
   try {
-    const invitation = db.prepare(`
+    const invitation = await queryOne<{
+      project_name: string;
+      project_description: string;
+      project_color: string;
+      invited_by_name: string;
+      expires_at: string;
+      status: string;
+    }>(`
       SELECT
         i.*,
         p.name as project_name,
         p.description as project_description,
         p.color as project_color,
         u.name as invited_by_name
-      FROM project_invitations i
-      JOIN projects p ON i.project_id = p.project_id
-      JOIN users u ON i.created_by = u.id
-      WHERE i.invite_token = ?
-      AND i.is_active = 1
-    `).get(inviteToken);
+      FROM invitations i
+      JOIN projects p ON i.project_id = p.id
+      JOIN users u ON i.invited_by = u.id
+      WHERE i.token = $1
+      AND i.status = 'pending'
+    `, [inviteToken]);
 
     if (!invitation) {
       return res.status(404).json({ error: 'Invalid or expired invitation' });
@@ -62,20 +65,12 @@ function handleGetInviteInfo(
       return res.status(410).json({ error: 'Invitation has expired' });
     }
 
-    // 사용 횟수 확인
-    if (invitation.max_uses && invitation.current_uses >= invitation.max_uses) {
-      return res.status(410).json({ error: 'Invitation has reached maximum uses' });
-    }
-
     return res.status(200).json({
       projectName: invitation.project_name,
       projectDescription: invitation.project_description,
       projectColor: invitation.project_color,
       invitedBy: invitation.invited_by_name,
       expiresAt: invitation.expires_at,
-      usesRemaining: invitation.max_uses
-        ? invitation.max_uses - invitation.current_uses
-        : null
     });
   } catch (error) {
     console.error('Error getting invitation info:', error);
@@ -87,7 +82,6 @@ function handleGetInviteInfo(
 async function handleJoinProject(
   req: NextApiRequest,
   res: NextApiResponseWithSocket,
-  db: any,
   inviteToken: string
 ) {
   const session = await getServerSession(req, res, authOptions);
@@ -96,11 +90,16 @@ async function handleJoinProject(
   }
 
   try {
-    const invitation = db.prepare(`
-      SELECT * FROM project_invitations
-      WHERE invite_token = ?
-      AND is_active = 1
-    `).get(inviteToken);
+    const invitation = await queryOne<{
+      id: string;
+      project_id: string;
+      expires_at: string;
+      status: string;
+    }>(`
+      SELECT * FROM invitations
+      WHERE token = $1
+      AND status = 'pending'
+    `, [inviteToken]);
 
     if (!invitation) {
       return res.status(404).json({ error: 'Invalid or inactive invitation' });
@@ -111,39 +110,33 @@ async function handleJoinProject(
       return res.status(410).json({ error: 'Invitation has expired' });
     }
 
-    // 사용 횟수 확인
-    if (invitation.max_uses && invitation.current_uses >= invitation.max_uses) {
-      return res.status(410).json({ error: 'Invitation has reached maximum uses' });
-    }
-
     // 이미 멤버인지 확인
-    const existingMember = db.prepare(`
-      SELECT * FROM project_members
-      WHERE project_id = ? AND user_id = ?
-    `).get(invitation.project_id, (session.user as any).id);
+    const existingMember = await queryOne(`
+      SELECT project_id FROM project_members
+      WHERE project_id = $1 AND user_id = $2
+    `, [invitation.project_id, (session.user as any).id]);
 
     if (existingMember) {
       return res.status(400).json({ error: 'Already a member of this project' });
     }
 
     // 프로젝트에 멤버로 추가
-    db.prepare(`
-      INSERT INTO project_members (project_id, user_id, role)
-      VALUES (?, ?, 'member')
-    `).run(invitation.project_id, (session.user as any).id);
+    await query(`
+      INSERT INTO project_members (project_id, user_id, role, joined_at)
+      VALUES ($1, $2, 'member', NOW())
+    `, [invitation.project_id, (session.user as any).id]);
 
-    // 사용 횟수 증가
-    db.prepare(`
-      UPDATE project_invitations
-      SET current_uses = current_uses + 1,
-          updated_at = CURRENT_TIMESTAMP
-      WHERE id = ?
-    `).run(invitation.id);
+    // 초대 상태 업데이트
+    await query(`
+      UPDATE invitations
+      SET status = 'accepted', accepted_at = NOW()
+      WHERE id = $1
+    `, [invitation.id]);
 
     // 프로젝트 정보 조회
-    const project = db.prepare(`
-      SELECT * FROM projects WHERE project_id = ?
-    `).get(invitation.project_id);
+    const project = await queryOne(`
+      SELECT * FROM projects WHERE id = $1
+    `, [invitation.project_id]);
 
     const newMemberName = session.user.name || session.user.email || '알 수 없는 사용자';
 

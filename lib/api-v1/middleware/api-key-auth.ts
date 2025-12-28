@@ -1,6 +1,6 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { getDatabase } from '@/lib/database';
-import { ApiKeyService } from '@/lib/services/api-key.service';
+import { queryOne, query } from '@/lib/postgres';
+import crypto from 'crypto';
 import { UnauthorizedError, ForbiddenError } from '@/lib/errors';
 
 /**
@@ -66,39 +66,58 @@ export async function authenticateWithApiKey(
     return null;
   }
 
-  const db = getDatabase();
-  const apiKeyService = new ApiKeyService(db);
+  // Extract prefix and hash the key
+  const keyPrefix = apiKey.substring(0, 10);
+  const keyHash = crypto.createHash('sha256').update(apiKey).digest('hex');
 
-  // Validate API key
-  const validation = apiKeyService.validateApiKey(apiKey);
-
-  if (!validation.valid || !validation.apiKey) {
-    throw new UnauthorizedError(validation.reason || 'Invalid API key');
-  }
-
-  const { apiKey: keyRecord } = validation;
-
-  // Update last used timestamp (async, non-blocking)
-  const ipAddress = (req.headers['x-forwarded-for'] as string) || req.socket.remoteAddress;
-  apiKeyService.updateLastUsed(keyRecord.id, ipAddress);
-
-  // Log usage (async, non-blocking)
-  const method = req.method || 'GET';
-  const endpoint = req.url || '/';
-  apiKeyService.logUsage(
-    keyRecord.id,
-    method,
-    endpoint,
-    200, // Will be updated with actual status in response
-    ipAddress,
-    req.headers['user-agent']
+  // Validate API key with PostgreSQL
+  const keyRecord = await queryOne<{
+    id: string;
+    user_id: string;
+    scopes: string;
+    is_active: boolean;
+    expires_at: string | null;
+  }>(
+    `SELECT id, user_id, scopes, is_active, expires_at 
+     FROM api_keys 
+     WHERE key_hash = $1 AND key_prefix = $2`,
+    [keyHash, keyPrefix]
   );
 
-  // Parse scopes
-  const scopes = keyRecord.scopes.split(',').map(s => s.trim());
+  if (!keyRecord) {
+    throw new UnauthorizedError('Invalid API key');
+  }
+
+  if (!keyRecord.is_active) {
+    throw new UnauthorizedError('API key is revoked');
+  }
+
+  if (keyRecord.expires_at && new Date(keyRecord.expires_at) < new Date()) {
+    throw new UnauthorizedError('API key has expired');
+  }
+
+  // Update last used timestamp (async, non-blocking)
+  const ipAddress = (req.headers['x-forwarded-for'] as string) || req.socket?.remoteAddress;
+  query(
+    `UPDATE api_keys SET last_used_at = NOW(), last_used_ip = $1 WHERE id = $2`,
+    [ipAddress || null, keyRecord.id]
+  ).catch(console.error);
+
+  // Parse scopes (stored as JSON array or comma-separated string)
+  let scopes: string[];
+  try {
+    scopes = typeof keyRecord.scopes === 'string' 
+      ? JSON.parse(keyRecord.scopes) 
+      : keyRecord.scopes;
+    if (!Array.isArray(scopes)) {
+      scopes = String(keyRecord.scopes).split(',').map(s => s.trim());
+    }
+  } catch {
+    scopes = String(keyRecord.scopes).split(',').map(s => s.trim());
+  }
 
   return {
-    userId: keyRecord.userId,
+    userId: keyRecord.user_id,
     apiKeyId: keyRecord.id,
     scopes,
     method: 'api-key',

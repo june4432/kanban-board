@@ -2,7 +2,7 @@ import '@/styles/globals.css';
 import type { AppProps } from 'next/app';
 import { SessionProvider } from 'next-auth/react';
 import { AuthProvider } from '@/contexts/AuthContext';
-import { OrganizationProvider } from '@/contexts/OrganizationContext';
+import { GroupProvider } from '@/contexts/GroupContext';
 import { ToastProvider, useToast } from '@/contexts/ToastContext';
 import { ThemeProvider } from '@/contexts/ThemeContext';
 import ToastContainer from '@/components/ToastContainer';
@@ -59,10 +59,10 @@ export default function App({ Component, pageProps: { session, ...pageProps } }:
         <ToastProvider>
           <ApiConfigWrapper>
             <AuthProvider>
-              <OrganizationProvider>
-                <Component {...pageProps} />
-                <ToastContainer />
-              </OrganizationProvider>
+              <GroupProvider>
+                  <Component {...pageProps} />
+                  <ToastContainer />
+                </GroupProvider>
             </AuthProvider>
           </ApiConfigWrapper>
         </ToastProvider>

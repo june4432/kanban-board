@@ -5,7 +5,6 @@ import { useAuth } from '@/contexts/AuthContext';
 import AuthModal from '@/components/AuthModal';
 import { ThemeToggleDropdown } from '@/components/ThemeToggle';
 import Sidebar from '@/components/Sidebar';
-import OrganizationSwitcher from '@/components/OrganizationSwitcher';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -130,10 +129,7 @@ const Layout: React.FC<LayoutProps> = ({
                 <h1 className="text-base sm:text-lg md:text-xl font-bold text-card-foreground flex-shrink-0">
                   프로젝트 관리 보드
                 </h1>
-                {/* Organization Switcher */}
-                <div className="hidden sm:block flex-shrink-0">
-                  <OrganizationSwitcher />
-                </div>
+                
                 {currentProject && (
                   <div className="relative flex-shrink min-w-0" ref={dropdownRef}>
                     <button

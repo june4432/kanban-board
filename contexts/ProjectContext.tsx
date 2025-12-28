@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { Project, AuthUser } from '@/types';
+import { api } from '@/lib/api/v1-client';
 
 interface ProjectContextType {
   currentProject: Project | null;
@@ -29,23 +30,20 @@ export function ProjectProvider({ children, user }: ProjectProviderProps) {
   const fetchProjects = async () => {
     try {
       setLoading(true);
-      // 디버깅을 위한 로그
       console.log('Fetching projects for user:', user);
       console.log('User ID:', user.id);
-      
-      // 인증된 사용자의 프로젝트만 가져오기
-      const url = `/api/projects/my?userId=${user.id}`;
-      console.log('API URL:', url);
-      
-      const response = await fetch(url);
-      const data = await response.json();
-      console.log('API Response:', data);
-      
-      setProjects(data.projects || []);
-      
+
+      // V1 API 사용
+      const response = await api.projects.list({ pageSize: 100 });
+      const projectList = response.data || [];
+
+      console.log('API Response:', projectList);
+
+      setProjects(projectList as unknown as Project[]);
+
       // 사용자의 프로젝트가 있으면 첫 번째 프로젝트를 자동 선택
-      if (data.projects?.length > 0) {
-        setCurrentProject(data.projects[0]);
+      if (projectList.length > 0) {
+        setCurrentProject(projectList[0] as unknown as Project);
       } else {
         // 프로젝트가 없으면 null로 설정 (ProjectSelector 표시)
         setCurrentProject(null);

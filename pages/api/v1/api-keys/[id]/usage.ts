@@ -1,8 +1,7 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '../../../auth/[...nextauth]';
-import { getDatabase } from '@/lib/database';
-import { ApiKeyService } from '@/lib/services/api-key.service';
+import { getApiKeyService } from '@/lib/services/api-key.service';
 import { withErrorHandler } from '@/lib/error-handler';
 import { UnauthorizedError, NotFoundError, ValidationError } from '@/lib/errors';
 
@@ -29,8 +28,7 @@ export default withErrorHandler(async (req: NextApiRequest, res: NextApiResponse
     throw new ValidationError('Invalid API key ID');
   }
 
-  const db = getDatabase();
-  const apiKeyService = new ApiKeyService(db);
+  const apiKeyService = getApiKeyService();
   const userId = session.user.id;
 
   // Parse days parameter (default: 30)
@@ -41,7 +39,7 @@ export default withErrorHandler(async (req: NextApiRequest, res: NextApiResponse
 
   try {
     // Get usage statistics
-    const stats = apiKeyService.getUsageStats(id, userId, daysNum);
+    const stats = await apiKeyService.getUsageStats(id, userId, daysNum);
 
     return res.status(200).json({
       apiKeyId: id,

@@ -139,21 +139,28 @@ const GanttView: React.FC<GanttViewProps> = ({ cards, onCardClick }) => {
       
       <div className="flex-1 overflow-auto w-full">
         {/* Timeline Header */}
-        <div className="flex border-b border-border" style={{ minWidth: `${256 + timelineHeader.length * 80}px` }}>
+        <div className="flex border-b border-border" style={{ minWidth: `${256 + timelineHeader.length * 100}px` }}>
           <div className="flex-shrink-0 p-3 bg-muted font-medium text-sm text-foreground border-r border-border min-h-20 flex items-center" style={{ width: '256px' }}>
             작업
           </div>
-          <div className="flex" style={{ width: `${timelineHeader.length * 80}px` }}>
+          <div className="flex" style={{ width: `${timelineHeader.length * 100}px` }}>
             {timelineHeader.map((week, index) => (
-              <div 
-                key={index} 
-                className="w-20 flex-shrink-0 p-2 bg-muted text-center text-xs text-muted-foreground border-r border-border min-h-20 flex items-center justify-center"
-                style={{ width: '80px' }}
+              <div
+                key={index}
+                className="flex-shrink-0 p-2 bg-muted text-center text-xs text-muted-foreground border-r border-border min-h-20 flex flex-col items-center justify-center"
+                style={{ width: '100px' }}
               >
                 {(() => {
                   try {
-                    const weekDate = week instanceof Date ? week : new Date(week);
-                    return format(weekDate, 'MM/dd');
+                    const weekStart = week instanceof Date ? week : new Date(week);
+                    const weekEnd = addDays(weekStart, 6);
+                    return (
+                      <>
+                        <span className="font-medium text-foreground">{format(weekStart, 'MM/dd')}</span>
+                        <span className="text-muted-foreground/70">~</span>
+                        <span className="font-medium text-foreground">{format(weekEnd, 'MM/dd')}</span>
+                      </>
+                    );
                   } catch {
                     return '--/--';
                   }
@@ -166,7 +173,7 @@ const GanttView: React.FC<GanttViewProps> = ({ cards, onCardClick }) => {
         {/* Gantt Chart Body */}
         <div className="relative">
           {chartData.map((task) => (
-            <div key={task.id} className="flex border-b border-border/50 hover:bg-accent/50 min-h-20" style={{ minWidth: `${256 + timelineHeader.length * 80}px` }}>
+            <div key={task.id} className="flex border-b border-border/50 hover:bg-accent/50 min-h-20" style={{ minWidth: `${256 + timelineHeader.length * 100}px` }}>
               {/* Task Info */}
               <div className="flex-shrink-0 p-3 border-r border-border flex flex-col justify-center min-h-20" style={{ width: '256px' }}>
                 <div
@@ -192,31 +199,32 @@ const GanttView: React.FC<GanttViewProps> = ({ cards, onCardClick }) => {
               </div>
 
               {/* Timeline Bars */}
-              <div className="relative min-h-20" style={{ width: `${timelineHeader.length * 80}px` }}>
+              <div className="relative min-h-20" style={{ width: `${timelineHeader.length * 100}px` }}>
                 {/* 세로선들 - 전체 타임라인 너비에 맞춰 확장 */}
-                <div className="absolute top-0 left-0 bottom-0 flex" style={{ width: `${timelineHeader.length * 80}px` }}>
+                <div className="absolute top-0 left-0 bottom-0 flex" style={{ width: `${timelineHeader.length * 100}px` }}>
                   {timelineHeader.map((_week, weekIndex) => (
                     <div
                       key={weekIndex}
-                      className="w-20 flex-shrink-0 border-r border-border/30 h-full"
-                      style={{ width: '80px' }}
+                      className="flex-shrink-0 border-r border-border/30 h-full"
+                      style={{ width: '100px' }}
                     />
                   ))}
                 </div>
-                
+
                 {/* Task Bar */}
-                <div 
+                <div
                   className="absolute top-1/2 transform -translate-y-1/2 h-8 rounded cursor-pointer transition-all hover:shadow-md"
                   style={{
-                    left: `${Math.max(0, (task.startOffset || 0) / 7) * 80}px`,
-                    width: `${Math.max(20, ((task.duration || 1) / 7) * 80)}px`,
+                    left: `${Math.max(0, (task.startOffset || 0) / 7) * 100}px`,
+                    // 종료일의 전체 하루를 시각적으로 포함하기 위해 하루치(100/7 ≈ 14px) 추가
+                    width: `${Math.max(25, ((task.duration || 1) / 7) * 100 + (100 / 7))}px`,
                     backgroundColor: getBackgroundColor(task.priority || 'medium'),
                     border: `2px solid ${getProgressColor(task.priority || 'medium')}`
                   }}
                   onClick={() => onCardClick(task.id)}
                 >
                   {/* Progress Bar */}
-                  <div 
+                  <div
                     className="h-full rounded-sm"
                     style={{
                       width: `${Math.max(0, Math.min(100, task.progress || 0))}%`,
@@ -224,7 +232,7 @@ const GanttView: React.FC<GanttViewProps> = ({ cards, onCardClick }) => {
                       opacity: 0.8
                     }}
                   />
-                  
+
                   {/* Task Label */}
                   <div className="absolute inset-0 flex items-center px-2">
                     <span className="text-xs font-medium text-foreground truncate">

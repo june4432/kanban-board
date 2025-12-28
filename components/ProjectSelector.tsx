@@ -19,18 +19,13 @@ const ProjectSelector: React.FC<ProjectSelectorProps> = ({
   onProjectCreate: _onProjectCreate
 }) => {
   const { logout } = useAuth();
-  
-  // 전역 WebSocket 이벤트 처리는 GlobalWebSocketManager에서 담당
-  
-  
+
   const [myProjects, setMyProjects] = useState<Project[]>([]);
   const [publicProjects, setPublicProjects] = useState<Project[]>([]);
-  const [organizations, setOrganizations] = useState<any[]>([]);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState<'my' | 'public'>('my');
-  const [selectedOrgFilter, setSelectedOrgFilter] = useState<string>('all');
   const [settingsProject, setSettingsProject] = useState<Project | null>(null);
   const [projectSettingsTab, setProjectSettingsTab] = useState<'general' | 'members' | 'requests' | 'columns' | 'labels' | 'milestones' | 'invites' | 'integrations'>('general');
   const [formData, setFormData] = useState({
@@ -38,7 +33,6 @@ const ProjectSelector: React.FC<ProjectSelectorProps> = ({
     description: '',
     color: '#3b82f6',
     isPublic: false,
-    organizationId: '',
     columnTemplate: 'default' as 'default' | 'simple' | 'scrum' | 'custom',
     customColumns: [
       { title: 'Backlog', wipLimit: 10 },
@@ -50,26 +44,7 @@ const ProjectSelector: React.FC<ProjectSelectorProps> = ({
 
   useEffect(() => {
     fetchProjects();
-    fetchOrganizations();
   }, [user.id]);
-
-  const fetchOrganizations = async () => {
-    try {
-      const response = await fetch('/api/v1/organizations');
-      if (response.ok) {
-        const result = await response.json();
-        setOrganizations(result.data || []);
-        // Set default organization if available
-        if (result.data && result.data.length > 0 && !formData.organizationId) {
-          setFormData(prev => ({ ...prev, organizationId: result.data[0].id }));
-        }
-      }
-    } catch (error) {
-      console.error('Failed to fetch organizations:', error);
-    }
-  };
-
-  // 프로젝트 참여 신청은 전체 브로드캐스트이므로 별도 룸 참여 불필요
 
   const fetchProjects = async () => {
     try {
@@ -78,7 +53,6 @@ const ProjectSelector: React.FC<ProjectSelectorProps> = ({
         api.projects.list({ page: 1, pageSize: 100, isPublic: true })
       ]);
 
-      // 내 프로젝트는 서버에서 자동으로 필터링됨 (세션 기반)
       setMyProjects(myResponse.data as any || []);
       setPublicProjects(publicResponse.data as any || []);
     } catch (error) {
@@ -144,19 +118,12 @@ const ProjectSelector: React.FC<ProjectSelectorProps> = ({
   const handleCreateProject = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!formData.organizationId) {
-      alert('조직을 선택해주세요');
-      return;
-    }
-
     try {
-      // Note: columns는 v1 API에서 아직 지원되지 않으므로 나중에 추가 필요
       const response = await api.projects.create({
         name: formData.name,
         description: formData.description,
         color: formData.color,
-        isPublic: formData.isPublic,
-        organizationId: formData.organizationId
+        isPublic: formData.isPublic
       });
 
       const newProject = response.data as any;
@@ -167,7 +134,6 @@ const ProjectSelector: React.FC<ProjectSelectorProps> = ({
         description: '',
         color: '#3b82f6',
         isPublic: false,
-        organizationId: organizations.length > 0 ? organizations[0].id : '',
         columnTemplate: 'default',
         customColumns: [
           { title: 'Backlog', wipLimit: 10 },
@@ -185,22 +151,24 @@ const ProjectSelector: React.FC<ProjectSelectorProps> = ({
 
   const handleJoinRequest = async (projectId: string) => {
     const message = prompt('참여 신청 메시지를 입력하세요 (선택사항):');
-    
+
     try {
-      const response = await fetch(`/api/projects/${projectId}/join`, {
+      const response = await fetch(`/api/v1/projects/${projectId}/join`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          userId: user.id,
           message: message || ''
         }),
       });
 
       if (response.ok) {
         alert('참여 신청이 완료되었습니다. 프로젝트 관리자의 승인을 기다려주세요.');
-        fetchProjects(); // 상태 업데이트
+        fetchProjects();
+      } else {
+        const errorData = await response.json();
+        alert(errorData.error?.message || '참여 신청에 실패했습니다.');
       }
     } catch (error) {
       console.error('Failed to send join request:', error);
@@ -208,7 +176,6 @@ const ProjectSelector: React.FC<ProjectSelectorProps> = ({
   };
 
   const isUserInProject = (project: Project) => {
-    // 프로젝트 소유자이거나 멤버인지 확인
     return project.ownerId === user.id || project.members.some(member => member.id === user.id);
   };
 
@@ -219,28 +186,16 @@ const ProjectSelector: React.FC<ProjectSelectorProps> = ({
   };
 
   const filteredMyProjects = myProjects.filter(project => {
-    // 검색어 필터링
     const matchesSearch = project.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (project.description || '').toLowerCase().includes(searchQuery.toLowerCase());
-
-    // 조직 필터링
-    const matchesOrg = selectedOrgFilter === 'all' || project.organizationId === selectedOrgFilter;
-
-    return matchesSearch && matchesOrg;
+    return matchesSearch;
   });
 
   const filteredPublicProjects = publicProjects.filter(project => {
-    // 검색어 필터링
     const matchesSearch = project.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (project.description || '').toLowerCase().includes(searchQuery.toLowerCase());
-
-    // 조직 필터링
-    const matchesOrg = selectedOrgFilter === 'all' || project.organizationId === selectedOrgFilter;
-
-    // 이미 가입된 프로젝트는 제외
     const notJoined = !isUserInProject(project);
-
-    return matchesSearch && matchesOrg && notJoined;
+    return matchesSearch && notJoined;
   });
 
   if (loading) {
@@ -266,7 +221,7 @@ const ProjectSelector: React.FC<ProjectSelectorProps> = ({
                 <p className="text-sm text-muted-foreground">팀과 함께 협업하세요</p>
               </div>
             </div>
-            
+
             {/* User Menu */}
             <div className="flex items-center space-x-3">
               <div className="flex items-center space-x-3 px-4 py-2 bg-muted rounded-full hover:bg-accent transition-colors">
@@ -280,7 +235,7 @@ const ProjectSelector: React.FC<ProjectSelectorProps> = ({
                   <div className="text-muted-foreground text-xs">{user.email}</div>
                 </div>
               </div>
-              
+
               <button
                 onClick={logout}
                 className="p-2 text-muted-foreground hover:text-foreground hover:bg-accent rounded-full transition-colors"
@@ -299,13 +254,13 @@ const ProjectSelector: React.FC<ProjectSelectorProps> = ({
         <div className="mb-8">
           <div className="text-center mb-6">
             <h2 className="text-2xl font-bold text-foreground mb-2">
-              {filteredMyProjects.length === 0 && activeTab === 'my' 
-                ? '프로젝트를 시작해보세요' 
+              {filteredMyProjects.length === 0 && activeTab === 'my'
+                ? '프로젝트를 시작해보세요'
                 : '프로젝트 선택'
               }
             </h2>
             <p className="text-muted-foreground max-w-2xl mx-auto">
-              {filteredMyProjects.length === 0 && activeTab === 'my' 
+              {filteredMyProjects.length === 0 && activeTab === 'my'
                 ? '새로운 프로젝트를 생성하거나 팀원들과 함께 공개 프로젝트에 참여할 수 있습니다.'
                 : '참여 중인 프로젝트를 선택하거나 새로운 프로젝트를 만들어보세요.'
               }
@@ -315,14 +270,13 @@ const ProjectSelector: React.FC<ProjectSelectorProps> = ({
 
         {/* Action Bar */}
         <div className="relative mb-8">
-          {/* Background with subtle gradient */}
           <div className="absolute inset-0 bg-gradient-to-r from-accent/30 to-accent/10 rounded-2xl"></div>
-          
+
           <div className="relative bg-card/80 backdrop-blur-sm rounded-2xl shadow-lg border border-border/20 p-8">
             <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-6 lg:space-y-0 lg:space-x-8">
-              
+
               {/* Search Section */}
-              <div className="flex-1 max-w-lg space-y-3">
+              <div className="flex-1 max-w-lg">
                 <div className="relative group">
                   <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                     <Search className="h-5 w-5 text-muted-foreground group-focus-within:text-primary transition-colors" />
@@ -345,27 +299,12 @@ const ProjectSelector: React.FC<ProjectSelectorProps> = ({
                     </div>
                   )}
                 </div>
-
-                {/* Organization Filter */}
-                <div className="flex items-center gap-2">
-                  <label className="text-sm font-medium text-foreground whitespace-nowrap">조직 필터:</label>
-                  <select
-                    value={selectedOrgFilter}
-                    onChange={(e) => setSelectedOrgFilter(e.target.value)}
-                    className="flex-1 px-4 py-2 bg-input/60 border border-border/50 rounded-lg focus:outline-none focus:ring-2 focus:ring-ring text-foreground text-sm transition-all"
-                  >
-                    <option value="all">전체 조직</option>
-                    {organizations.map(org => (
-                      <option key={org.id} value={org.id}>{org.name}</option>
-                    ))}
-                  </select>
-                </div>
               </div>
 
               {/* Create Button */}
               <div className="flex-shrink-0">
-          <button
-            onClick={() => setShowCreateForm(true)}
+                <button
+                  onClick={() => setShowCreateForm(true)}
                   className="group relative inline-flex items-center justify-center space-x-3 px-8 py-4 bg-gradient-to-r from-blue-600 via-blue-700 to-purple-600 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all duration-200 transform hover:-translate-y-1 hover:scale-105"
                 >
                   <div className="absolute inset-0 bg-gradient-to-r from-blue-700 via-purple-600 to-purple-700 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-200"></div>
@@ -411,7 +350,7 @@ const ProjectSelector: React.FC<ProjectSelectorProps> = ({
               }`}>
                 {filteredPublicProjects.length}
               </span>
-          </button>
+            </button>
           </div>
         </div>
 
@@ -427,76 +366,55 @@ const ProjectSelector: React.FC<ProjectSelectorProps> = ({
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="md:col-span-2">
                     <label className="block text-sm font-semibold text-foreground mb-2">
-                  프로젝트 이름 *
-                </label>
-                <input
-                  type="text"
-                  value={formData.name}
-                  onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                      프로젝트 이름 *
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.name}
+                      onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
                       className="w-full px-4 py-3 bg-input border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:bg-background transition-all text-foreground placeholder:text-muted-foreground"
                       placeholder="멋진 프로젝트 이름을 지어주세요"
-                  required
-                />
-              </div>
-
-                  <div className="md:col-span-2">
-                    <label className="block text-sm font-semibold text-foreground mb-2">
-                      소속 조직 *
-                    </label>
-                    <select
-                      value={formData.organizationId}
-                      onChange={(e) => setFormData(prev => ({ ...prev, organizationId: e.target.value }))}
-                      className="w-full px-4 py-3 bg-input border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:bg-background transition-all text-foreground"
                       required
-                    >
-                      {organizations.length === 0 ? (
-                        <option value="">조직이 없습니다 (조직을 먼저 생성해주세요)</option>
-                      ) : (
-                        organizations.map(org => (
-                          <option key={org.id} value={org.id}>{org.name}</option>
-                        ))
-                      )}
-                    </select>
-                    <p className="text-xs text-muted-foreground mt-2">프로젝트가 속할 조직을 선택해주세요</p>
+                    />
                   </div>
 
                   <div className="md:col-span-2">
                     <label className="block text-sm font-semibold text-foreground mb-2">
                       프로젝트 설명
-                </label>
-                <textarea
-                  value={formData.description}
-                  onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-                  rows={3}
+                    </label>
+                    <textarea
+                      value={formData.description}
+                      onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                      rows={3}
                       className="w-full px-4 py-3 bg-input border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:bg-background transition-all resize-none text-foreground placeholder:text-muted-foreground"
                       placeholder="프로젝트에 대해 간단히 설명해주세요"
-                />
-              </div>
-                  
-              <div>
+                    />
+                  </div>
+
+                  <div>
                     <label className="block text-sm font-semibold text-foreground mb-2">
                       테마 색상
-                </label>
+                    </label>
                     <div className="flex items-center space-x-3">
                       <div className="relative">
-                  <input
-                    type="color"
-                    value={formData.color}
-                    onChange={(e) => setFormData(prev => ({ ...prev, color: e.target.value }))}
+                        <input
+                          type="color"
+                          value={formData.color}
+                          onChange={(e) => setFormData(prev => ({ ...prev, color: e.target.value }))}
                           className="w-12 h-12 rounded-xl border-2 border-border cursor-pointer bg-background hover:border-primary transition-colors"
                           style={{ colorScheme: 'dark' }}
-                  />
+                        />
                       </div>
-                  <input
-                    type="text"
-                    value={formData.color}
-                    onChange={(e) => setFormData(prev => ({ ...prev, color: e.target.value }))}
+                      <input
+                        type="text"
+                        value={formData.color}
+                        onChange={(e) => setFormData(prev => ({ ...prev, color: e.target.value }))}
                         className="flex-1 px-4 py-3 bg-input border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:bg-background transition-all text-foreground placeholder:text-muted-foreground"
                         placeholder="#3b82f6"
-                  />
-                </div>
-              </div>
-                  
+                      />
+                    </div>
+                  </div>
+
                   <div>
                     <label className="block text-sm font-semibold text-foreground mb-2">
                       공개 설정
@@ -656,23 +574,23 @@ const ProjectSelector: React.FC<ProjectSelectorProps> = ({
                     </div>
                   )}
                 </div>
-                
+
                 <div className="flex flex-col sm:flex-row gap-3 pt-4">
-                <button
-                  type="submit"
+                  <button
+                    type="submit"
                     className="flex-1 sm:flex-none px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all font-medium shadow-lg hover:shadow-xl"
-                >
+                  >
                     프로젝트 생성
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowCreateForm(false)}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowCreateForm(false)}
                     className="flex-1 sm:flex-none px-6 py-3 bg-secondary text-secondary-foreground rounded-xl hover:bg-secondary/80 transition-colors font-medium"
-                >
-                  취소
-                </button>
-              </div>
-            </form>
+                  >
+                    취소
+                  </button>
+                </div>
+              </form>
             </div>
           </div>
         )}
@@ -683,35 +601,35 @@ const ProjectSelector: React.FC<ProjectSelectorProps> = ({
             const userInProject = isUserInProject(project);
             const userRequested = hasUserRequested(project);
             const isOwner = project.ownerId === user.id;
-            
+
             return (
-            <div
-              key={project.projectId}
+              <div
+                key={project.projectId}
                 className="bg-background rounded-xl shadow-sm hover:shadow-lg transition-all duration-300 border border-border overflow-hidden group"
               >
                 {/* Header with color stripe */}
-                <div 
+                <div
                   className="h-2"
                   style={{ backgroundColor: project.color }}
                 />
-                
+
                 {/* Card Content */}
                 <div className="p-6">
                   {/* Top section: Icon, Title, Actions */}
-              <div className="flex items-start justify-between mb-4">
-                    <div 
+                  <div className="flex items-start justify-between mb-4">
+                    <div
                       className={`flex items-start space-x-4 flex-1 ${userInProject ? 'cursor-pointer' : ''}`}
                       onClick={() => userInProject && onProjectSelect(project)}
                     >
-                  <div 
+                      <div
                         className="w-12 h-12 rounded-xl flex items-center justify-center shadow-sm"
                         style={{ backgroundColor: `${project.color}15` }}
-                  >
-                    <FolderOpen 
+                      >
+                        <FolderOpen
                           className="w-6 h-6"
-                      style={{ color: project.color }}
-                    />
-                  </div>
+                          style={{ color: project.color }}
+                        />
+                      </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center space-x-2 mb-2">
                           <h3 className="text-xl font-bold text-foreground truncate">{project.name}</h3>
@@ -727,28 +645,28 @@ const ProjectSelector: React.FC<ProjectSelectorProps> = ({
                             </div>
                           )}
                         </div>
-                    {project.description && (
+                        {project.description && (
                           <p className="text-muted-foreground text-sm line-clamp-2 leading-relaxed">{project.description}</p>
-                    )}
-                  </div>
-                </div>
-                  
+                        )}
+                      </div>
+                    </div>
+
                     <div className="flex items-center space-x-2">
                       {activeTab === 'my' && isOwner && (
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
                             setSettingsProject(project);
-                  }}
+                          }}
                           className="p-2 text-muted-foreground hover:text-foreground hover:bg-accent rounded-lg transition-colors opacity-0 group-hover:opacity-100"
                           title="프로젝트 설정"
-                >
-                  <Settings className="w-4 h-4" />
-                </button>
+                        >
+                          <Settings className="w-4 h-4" />
+                        </button>
                       )}
                     </div>
                   </div>
-                  
+
                   {/* Project Stats */}
                   <div className="flex items-center justify-between py-3 border-t border-border">
                     <div className="flex items-center space-x-4 text-sm text-muted-foreground">
@@ -760,14 +678,14 @@ const ProjectSelector: React.FC<ProjectSelectorProps> = ({
                         <span>{new Date(project.createdAt).toLocaleDateString('ko-KR')}</span>
                       </div>
                     </div>
-                    
+
                     {isOwner && (
                       <div className="flex items-center space-x-1 px-2 py-1 bg-primary/10 text-primary rounded-full text-xs">
                         <span>관리자</span>
                       </div>
                     )}
-              </div>
-              
+                  </div>
+
                   {/* Action Buttons */}
                   <div className="space-y-2">
                     {activeTab === 'public' && !userInProject && (
@@ -813,16 +731,16 @@ const ProjectSelector: React.FC<ProjectSelectorProps> = ({
               <>
                 <h3 className="text-lg font-medium text-foreground mb-2">내 프로젝트가 없습니다</h3>
                 <p className="text-muted-foreground mb-6">첫 번째 프로젝트를 생성하거나 다른 프로젝트에 참여해보세요</p>
-                
+
                 <div className="flex flex-col sm:flex-row gap-3 justify-center items-center">
-            <button
-              onClick={() => setShowCreateForm(true)}
+                  <button
+                    onClick={() => setShowCreateForm(true)}
                     className="inline-flex items-center space-x-2 px-6 py-3 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
                   >
                     <Plus className="w-4 h-4" />
                     <span>새 프로젝트 생성</span>
                   </button>
-                  
+
                   <button
                     onClick={() => setActiveTab('public')}
                     className="inline-flex items-center space-x-2 px-6 py-3 bg-secondary text-secondary-foreground rounded-lg hover:bg-secondary/80 transition-colors"
@@ -838,12 +756,12 @@ const ProjectSelector: React.FC<ProjectSelectorProps> = ({
                   {searchQuery ? '검색 결과가 없습니다' : '공개 프로젝트가 없습니다'}
                 </h3>
                 <p className="text-muted-foreground mb-4">
-                  {searchQuery 
-                    ? '다른 검색어를 시도해보세요' 
+                  {searchQuery
+                    ? '다른 검색어를 시도해보세요'
                     : '아직 공개된 프로젝트가 없습니다. 새 프로젝트를 생성해보세요!'
                   }
                 </p>
-                
+
                 {!searchQuery && (
                   <button
                     onClick={() => {
@@ -851,10 +769,10 @@ const ProjectSelector: React.FC<ProjectSelectorProps> = ({
                       setShowCreateForm(true);
                     }}
                     className="inline-flex items-center space-x-2 px-6 py-3 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
-            >
-              <Plus className="w-4 h-4" />
+                  >
+                    <Plus className="w-4 h-4" />
                     <span>첫 번째 프로젝트 생성하기</span>
-            </button>
+                  </button>
                 )}
               </>
             )}
@@ -869,7 +787,7 @@ const ProjectSelector: React.FC<ProjectSelectorProps> = ({
             isOpen={!!settingsProject}
             onClose={() => {
               setSettingsProject(null);
-              setProjectSettingsTab('general'); // 모달 닫을 때 탭 리셋
+              setProjectSettingsTab('general');
             }}
             onProjectUpdate={(updatedProject) => {
               setMyProjects(prev =>
@@ -882,8 +800,6 @@ const ProjectSelector: React.FC<ProjectSelectorProps> = ({
             onTabChange={setProjectSettingsTab}
           />
         )}
-        
-        {/* Toast Container */}
       </div>
     </div>
   );

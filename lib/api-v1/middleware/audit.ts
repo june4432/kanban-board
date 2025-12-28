@@ -30,13 +30,13 @@ export function auditLog(action: AuditAction, resourceType: string) {
                 // Fallback to specific ID params
                 else if (req.query.projectId) resourceId = req.query.projectId as string;
                 else if (req.query.cardId) resourceId = req.query.cardId as string;
-                else if (req.query.organizationId) resourceId = req.query.organizationId as string;
+                else if (req.query.groupId) resourceId = req.query.groupId as string;
 
                 // Prepare audit log entry
                 if (req.user) {
                     // Async write to audit log (don't await to avoid blocking response)
                     auditLogs.create({
-                        organizationId: req.organizationId || (req.user as any).organizationId, // Fallback if not in request
+                        organizationId: (req.user as any).companyId || undefined, // Use companyId as fallback
                         userId: req.user.id,
                         userName: req.user.name || req.user.email,
                         action,

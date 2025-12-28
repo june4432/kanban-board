@@ -48,9 +48,8 @@ const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
   const [isCreatingInvite, setIsCreatingInvite] = useState(false);
   const [newInviteExpiresIn, setNewInviteExpiresIn] = useState<number | null>(null);
   const [newInviteMaxUses, setNewInviteMaxUses] = useState<number | null>(null);
-  const [organizationMembers, setOrganizationMembers] = useState<any[]>([]);
-  const [memberSearchQuery, setMemberSearchQuery] = useState('');
-  const [loadingOrgMembers, setLoadingOrgMembers] = useState(false);
+  
+  
   const [milestones, setMilestones] = useState<Milestone[]>([]);
   const [loadingMilestones, setLoadingMilestones] = useState(false);
   const [labels, setLabels] = useState<Label[]>([]);
@@ -111,12 +110,7 @@ const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
     }
   }, [isOpen, activeTab, isOwner]);
 
-  // Fetch organization members when members tab is activated
-  useEffect(() => {
-    if (isOpen && activeTab === 'members' && isOwner && project.organizationId) {
-      fetchOrganizationMembers();
-    }
-  }, [isOpen, activeTab, isOwner, project.organizationId]);
+  
 
   // Fetch milestones when milestones tab is activated
   useEffect(() => {
@@ -134,9 +128,10 @@ const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
 
   const fetchUsers = async () => {
     try {
-      const response = await fetch('/api/users');
-      const data = await response.json();
-      setUsers(data.users || []);
+      const response = await fetch('/api/v1/users');
+      const responseData = await response.json();
+      // V1 API returns { data: [...users], meta: {...} }
+      setUsers(responseData.data || responseData.users || []);
     } catch (error) {
       console.error('Failed to fetch users:', error);
     }
@@ -146,18 +141,20 @@ const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
     console.log('[DEBUG] fetchColumns called for projectId:', project.projectId);
     setLoadingColumns(true);
     try {
-      const url = `/api/projects/${project.projectId}/board`;
+      const url = `/api/v1/projects/${project.projectId}/board`;
       console.log('[DEBUG] Fetching from URL:', url);
       const response = await fetch(url);
       console.log('[DEBUG] Response status:', response.status);
-      const data = await response.json();
-      console.log('[DEBUG] Response data:', data);
-      if (data.board?.columns) {
-        console.log('[DEBUG] Setting columns:', data.board.columns.length);
-        setColumns(data.board.columns);
+      const responseData = await response.json();
+      console.log('[DEBUG] Response data:', responseData);
+      // V1 API returns { data: { board }, meta: {...} }
+      const board = responseData.data || responseData.board;
+      if (board?.columns) {
+        console.log('[DEBUG] Setting columns:', board.columns.length);
+        setColumns(board.columns);
         // Initialize WIP limits
         const limits: Record<string, number> = {};
-        data.board.columns.forEach((col: Column) => {
+        board.columns.forEach((col: Column) => {
           limits[col.id] = col.wipLimit;
         });
         setWipLimits(limits);
@@ -179,7 +176,7 @@ const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
   const fetchInvitations = async () => {
     setLoadingInvitations(true);
     try {
-      const response = await fetch(`/api/projects/${project.projectId}/invites`);
+      const response = await fetch(`/api/v1/projects/${project.projectId}/invites`);
       if (response.ok) {
         const data = await response.json();
         setInvitations(data.invitations || []);
@@ -200,14 +197,13 @@ const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
 
   const createInvitation = async () => {
     try {
-      const response = await fetch(`/api/projects/${project.projectId}/invites`, {
+      const response = await fetch(`/api/v1/projects/${project.projectId}/invites`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
           expiresIn: newInviteExpiresIn,
-          maxUses: newInviteMaxUses,
         }),
       });
 
@@ -243,7 +239,7 @@ const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
 
   const deleteInvitation = async (inviteId: string) => {
     try {
-      const response = await fetch(`/api/projects/${project.projectId}/invites/${inviteId}`, {
+      const response = await fetch(`/api/v1/projects/${project.projectId}/invites/${inviteId}`, {
         method: 'DELETE',
       });
 
@@ -296,7 +292,7 @@ const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
 
     setSearchingUsers(true);
     try {
-      const response = await fetch(`/api/users/search?q=${encodeURIComponent(query)}`);
+      const response = await fetch(`/api/v1/users/search?q=${encodeURIComponent(query)}`);
       if (response.ok) {
         const data = await response.json();
         setUserSearchResults(data.users || []);
@@ -318,7 +314,7 @@ const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
   // 사용자 초대
   const inviteUserToProject = async (userId: string, userName: string) => {
     try {
-      const response = await fetch(`/api/projects/${project.projectId}/members/invite`, {
+      const response = await fetch(`/api/v1/projects/${project.projectId}/members/invite`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -364,15 +360,12 @@ const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
 
     setLoading(true);
     try {
-      const response = await fetch(`/api/projects/${project.projectId}`, {
+      const response = await fetch(`/api/v1/projects/${project.projectId}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          ...settings,
-          userId: currentUser.id
-        }),
+        body: JSON.stringify(settings),
       });
 
       if (response.ok) {
@@ -402,17 +395,20 @@ const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
 
   const handleJoinRequestResponse = async (requestId: string, action: 'approve' | 'reject') => {
     try {
-      const response = await fetch(`/api/projects/${project.projectId}/requests/${requestId}`, {
-        method: 'PATCH',
+      const response = await fetch(`/api/v1/projects/${project.projectId}/join-requests/${requestId}/${action}`, {
+        method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ action, userId: currentUser.id }),
       });
 
       if (response.ok) {
-        const data = await response.json();
-        onProjectUpdate(data.project);
+        const responseData = await response.json();
+        // V1 API returns { data: { project }, meta: {...} }
+        const updatedProject = responseData.data?.project || responseData.project;
+        if (updatedProject) {
+          onProjectUpdate(updatedProject);
+        }
         addToast({
           type: 'success',
           title: action === 'approve' ? '가입 승인' : '가입 거부',
@@ -442,17 +438,17 @@ const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
     }
 
     try {
-      const response = await fetch(`/api/projects/${project.projectId}/members/${memberId}`, {
+      const response = await fetch(`/api/v1/projects/${project.projectId}/members/${memberId}`, {
         method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ userId: currentUser.id }),
       });
 
       if (response.ok) {
-        const data = await response.json();
-        onProjectUpdate(data.project);
+        const responseData = await response.json();
+        // V1 API returns { data: { project }, meta: {...} }
+        const updatedProject = responseData.data?.project || responseData.project;
+        if (updatedProject) {
+          onProjectUpdate(updatedProject);
+        }
         addToast({
           type: 'success',
           title: '멤버 제거',
@@ -470,85 +466,17 @@ const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
     }
   };
 
-  const fetchOrganizationMembers = async () => {
-    if (!project.organizationId) return;
-
-    setLoadingOrgMembers(true);
-    try {
-      const response = await fetch(`/api/v1/organizations/${project.organizationId}/members`);
-      if (response.ok) {
-        const data = await response.json();
-        setOrganizationMembers(data.data || []);
-      }
-    } catch (error) {
-      console.error('Failed to fetch organization members:', error);
-      addToast({
-        type: 'error',
-        title: '로드 실패',
-        message: '조직 멤버 목록을 불러오는데 실패했습니다.',
-        duration: 3000
-      });
-    } finally {
-      setLoadingOrgMembers(false);
-    }
-  };
-
-  const addMember = async (userId: string) => {
-    if (!isOwner) {
-      addToast({
-        type: 'error',
-        title: '권한 없음',
-        message: '프로젝트 소유자만 멤버를 추가할 수 있습니다.',
-        duration: 3000
-      });
-      return;
-    }
-
-    try {
-      const response = await fetch(`/api/v1/projects/${project.projectId}/members`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ userId }),
-      });
-
-      if (response.ok) {
-        // Refresh project data
-        const projectResponse = await fetch(`/api/v1/projects/${project.projectId}`);
-        if (projectResponse.ok) {
-          const projectData = await projectResponse.json();
-          onProjectUpdate(projectData.data);
-          addToast({
-            type: 'success',
-            title: '멤버 추가',
-            message: '멤버가 프로젝트에 추가되었습니다.',
-            duration: 3000
-          });
-          // Refresh organization members list
-          fetchOrganizationMembers();
-        }
-      } else {
-        const error = await response.json();
-        throw new Error(error.error?.message || '멤버 추가에 실패했습니다.');
-      }
-    } catch (error: any) {
-      addToast({
-        type: 'error',
-        title: '추가 실패',
-        message: error.message || '멤버 추가 중 오류가 발생했습니다.',
-        duration: 5000
-      });
-    }
-  };
+  
 
   const fetchMilestones = async () => {
     setLoadingMilestones(true);
     try {
-      const response = await fetch(`/api/projects/${project.projectId}/board`);
+      const response = await fetch(`/api/v1/projects/${project.projectId}/board`);
       if (response.ok) {
-        const data = await response.json();
-        setMilestones(data.board?.milestones || []);
+        const responseData = await response.json();
+        // V1 API returns { data: { board }, meta: {...} }
+        const board = responseData.data || responseData.board;
+        setMilestones(board?.milestones || []);
       }
     } catch (error) {
       console.error('Failed to fetch milestones:', error);
@@ -566,10 +494,12 @@ const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
   const fetchLabels = async () => {
     setLoadingLabels(true);
     try {
-      const response = await fetch(`/api/projects/${project.projectId}/board`);
+      const response = await fetch(`/api/v1/projects/${project.projectId}/board`);
       if (response.ok) {
-        const data = await response.json();
-        setLabels(data.board?.labels || []);
+        const responseData = await response.json();
+        // V1 API returns { data: { board }, meta: {...} }
+        const board = responseData.data || responseData.board;
+        setLabels(board?.labels || []);
       }
     } catch (error) {
       console.error('Failed to fetch labels:', error);
@@ -948,7 +878,7 @@ const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
     console.log(`[DEBUG] Saving WIP limit for column ${columnId}: ${newLimit}`);
 
     try {
-      const response = await fetch(`/api/projects/${project.projectId}/columns/${columnId}`, {
+      const response = await fetch(`/api/v1/projects/${project.projectId}/columns/${columnId}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -1011,7 +941,7 @@ const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
     }
 
     try {
-      const response = await fetch(`/api/projects/${project.projectId}/columns/${columnId}`, {
+      const response = await fetch(`/api/v1/projects/${project.projectId}/columns/${columnId}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -1092,7 +1022,7 @@ const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
     }
 
     try {
-      const response = await fetch(`/api/projects/${project.projectId}/columns`, {
+      const response = await fetch(`/api/v1/projects/${project.projectId}/columns`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1155,7 +1085,7 @@ const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
     if (!confirmed) return;
 
     try {
-      const response = await fetch(`/api/projects/${project.projectId}/columns/${columnId}`, {
+      const response = await fetch(`/api/v1/projects/${project.projectId}/columns/${columnId}`, {
         method: 'DELETE',
       });
 
@@ -1217,7 +1147,7 @@ const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
         position: index
       }));
 
-      const response = await fetch(`/api/projects/${project.projectId}/columns/reorder`, {
+      const response = await fetch(`/api/v1/projects/${project.projectId}/columns/reorder`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -1786,90 +1716,6 @@ const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
                     </div>
                   )}
                 </div>
-
-                {/* 조직 멤버 추가 섹션 */}
-                {isOwner && project.organizationId && (
-                  <div className="mt-8 pt-6 border-t border-border">
-                    <h3 className="text-base sm:text-lg font-medium text-card-foreground mb-4">조직 멤버 추가</h3>
-
-                    {/* 검색 */}
-                    <div className="mb-4">
-                      <input
-                        type="text"
-                        placeholder="이름 또는 이메일로 검색..."
-                        value={memberSearchQuery}
-                        onChange={(e) => setMemberSearchQuery(e.target.value)}
-                        className="w-full px-4 py-2 bg-input border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-foreground placeholder:text-muted-foreground"
-                      />
-                    </div>
-
-                    {/* 조직 멤버 목록 */}
-                    <div className="space-y-2 max-h-64 overflow-y-auto">
-                      {loadingOrgMembers ? (
-                        <div className="text-center py-4 text-sm text-muted-foreground">
-                          조직 멤버를 불러오는 중...
-                        </div>
-                      ) : (
-                        organizationMembers
-                          .filter(orgMember => {
-                            // 이미 프로젝트 멤버인 경우 제외
-                            const isAlreadyMember = project.members?.some(m => m.id === orgMember.userId);
-                            if (isAlreadyMember) return false;
-
-                            // 검색어 필터링
-                            if (memberSearchQuery) {
-                              const query = memberSearchQuery.toLowerCase();
-                              return (
-                                orgMember.userName.toLowerCase().includes(query) ||
-                                orgMember.userEmail.toLowerCase().includes(query)
-                              );
-                            }
-                            return true;
-                          })
-                          .map((orgMember) => (
-                            <div key={orgMember.userId} className="flex items-center justify-between p-3 bg-muted rounded-lg hover:bg-accent transition-colors">
-                              <div className="flex items-center space-x-3 min-w-0 flex-1">
-                                <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                                  <Users className="w-5 h-5 text-primary" />
-                                </div>
-                                <div className="min-w-0 flex-1">
-                                  <div className="font-medium text-card-foreground text-sm truncate">
-                                    {orgMember.userName}
-                                  </div>
-                                  <div className="text-xs text-muted-foreground truncate">
-                                    {orgMember.userEmail}
-                                  </div>
-                                </div>
-                              </div>
-                              <button
-                                onClick={() => addMember(orgMember.userId)}
-                                className="px-4 py-2 text-sm bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors flex items-center gap-2"
-                              >
-                                <UserPlus className="w-4 h-4" />
-                                <span>추가</span>
-                              </button>
-                            </div>
-                          ))
-                      )}
-                      {!loadingOrgMembers && organizationMembers.filter(orgMember => {
-                        const isAlreadyMember = project.members?.some(m => m.id === orgMember.userId);
-                        if (isAlreadyMember) return false;
-                        if (memberSearchQuery) {
-                          const query = memberSearchQuery.toLowerCase();
-                          return (
-                            orgMember.userName.toLowerCase().includes(query) ||
-                            orgMember.userEmail.toLowerCase().includes(query)
-                          );
-                        }
-                        return true;
-                      }).length === 0 && (
-                          <div className="text-center py-4 text-sm text-muted-foreground">
-                            {memberSearchQuery ? '검색 결과가 없습니다.' : '추가할 수 있는 조직 멤버가 없습니다.'}
-                          </div>
-                        )}
-                    </div>
-                  </div>
-                )}
               </div>
             </div>
           )}

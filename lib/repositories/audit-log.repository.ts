@@ -3,13 +3,15 @@ import { v4 as uuidv4 } from 'uuid';
 
 export interface AuditLog {
     id: string;
-    organizationId?: string;
+    organizationId?: string; // Legacy - maps to organization_id column
+    companyId?: string; // Alias for organizationId (same DB column)
     userId: string;
     userName: string;
     action: 'create' | 'update' | 'delete' | 'move' | 'view' | 'export' | 'login' | 'logout';
     resourceType: string;
     resourceId: string;
     projectId?: string;
+    groupId?: string; // New - for group-related actions
     changes?: any;
     ipAddress?: string;
     userAgent?: string;
@@ -18,13 +20,15 @@ export interface AuditLog {
 }
 
 export interface CreateAuditLogParams {
-    organizationId?: string;
+    organizationId?: string; // Legacy - will be stored as organization_id
+    companyId?: string; // Preferred - same column as organizationId
     userId: string;
     userName: string;
     action: AuditLog['action'];
     resourceType: string;
     resourceId: string;
     projectId?: string;
+    groupId?: string; // For group-related actions
     changes?: any;
     ipAddress?: string;
     userAgent?: string;
@@ -32,11 +36,13 @@ export interface CreateAuditLogParams {
 }
 
 export interface AuditLogFilters {
-    organizationId?: string;
+    organizationId?: string; // Legacy
+    companyId?: string; // Preferred - same as organizationId
     userId?: string;
     resourceType?: string;
     resourceId?: string;
     projectId?: string;
+    groupId?: string;
     action?: string;
     startDate?: Date;
     endDate?: Date;
@@ -47,10 +53,13 @@ export interface AuditLogFilters {
 export class AuditLogRepository {
     async create(params: CreateAuditLogParams): Promise<AuditLog> {
         const id = uuidv4();
+        // Use companyId as preferred, fallback to organizationId (same DB column)
+        const orgId = params.companyId || params.organizationId;
+
         const sql = `
       INSERT INTO audit_logs (
-        id, organization_id, user_id, user_name, action, 
-        resource_type, resource_id, project_id, changes, 
+        id, organization_id, user_id, user_name, action,
+        resource_type, resource_id, project_id, changes,
         ip_address, user_agent, request_id
       )
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
@@ -59,7 +68,7 @@ export class AuditLogRepository {
 
         const values = [
             id,
-            params.organizationId,
+            orgId,
             params.userId,
             params.userName,
             params.action,
@@ -144,17 +153,26 @@ export class AuditLogRepository {
         return {
             id: row.id,
             organizationId: row.organization_id,
+            companyId: row.organization_id, // Alias for organizationId
             userId: row.user_id,
             userName: row.user_name,
             action: row.action,
             resourceType: row.resource_type,
             resourceId: row.resource_id,
             projectId: row.project_id,
+            groupId: row.group_id, // New field for group-related actions
             changes: row.changes,
             ipAddress: row.ip_address,
             userAgent: row.user_agent,
             requestId: row.request_id,
             createdAt: row.created_at,
         };
+    }
+
+    /**
+     * Find audit logs by company (alias for findByOrganization)
+     */
+    async findByCompany(companyId: string, filters: AuditLogFilters = {}): Promise<{ logs: AuditLog[], total: number }> {
+        return this.findByOrganization(companyId, filters);
     }
 }
