@@ -6,7 +6,38 @@ import { query, queryOne, queryAll, withTransaction } from '@/lib/postgres';
 const DEFAULT_COMPANY_ID = 'company-default';
 
 export class ProjectRepository {
+  private static projectColumnsCache: Set<string> | null = null;
+  private static boardColumnsCache: Set<string> | null = null;
+
   constructor() { }
+
+  private async getColumns(tableName: string): Promise<Set<string>> {
+    const rows = await queryAll<{ column_name: string }>(
+      `SELECT column_name
+       FROM information_schema.columns
+       WHERE table_schema = 'public' AND table_name = $1`,
+      [tableName]
+    );
+    return new Set(rows.map((r) => r.column_name));
+  }
+
+  private async getProjectColumns(): Promise<Set<string>> {
+    if (!ProjectRepository.projectColumnsCache) {
+      ProjectRepository.projectColumnsCache = await this.getColumns('projects');
+    }
+    return ProjectRepository.projectColumnsCache;
+  }
+
+  private async getBoardColumns(): Promise<Set<string>> {
+    if (!ProjectRepository.boardColumnsCache) {
+      ProjectRepository.boardColumnsCache = await this.getColumns('boards');
+    }
+    return ProjectRepository.boardColumnsCache;
+  }
+
+  private static toPlaceholders(start: number, count: number): string {
+    return Array.from({ length: count }, (_, idx) => `$${start + idx}`).join(', ');
+  }
 
   /**
    * Create a new project with initial board setup
@@ -19,31 +50,64 @@ export class ProjectRepository {
     color?: string;
     isPublic?: boolean;
     companyId?: string;
-    organizationId?: string; // Optional - legacy support
     columns?: Array<{ title: string; wipLimit: number }>;
   }): Promise<Project> {
+    const projectCols = await this.getProjectColumns();
+    const boardCols = await this.getBoardColumns();
+
+    const projectPk = projectCols.has('id') ? 'id' : 'project_id';
+    const publicCol = projectCols.has('visibility')
+      ? 'visibility'
+      : projectCols.has('is_public')
+        ? 'is_public'
+        : null;
+    const hasStatus = projectCols.has('status');
+    const hasSlug = projectCols.has('slug');
+    const hasCompany = projectCols.has('company_id');
+
     const projectId = data.id || uuidv4();
     const boardId = uuidv4();
     const companyId = data.companyId || DEFAULT_COMPANY_ID;
-    const organizationId = data.organizationId || null; // Optional
     const slug = data.name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
 
     await withTransaction(async (client) => {
-      // Create project
-      await client.query(`
-        INSERT INTO projects (id, company_id, organization_id, name, slug, description, owner_id, color, visibility, status)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'active')
-      `, [
+      const projectInsertCols: string[] = [projectPk, 'name', 'description', 'owner_id', 'color'];
+      const projectInsertValues: any[] = [
         projectId,
-        companyId,
-        organizationId,
         data.name,
-        `${slug}-${Date.now()}`,
         data.description || null,
         data.ownerId,
         data.color || '#3b82f6',
-        data.isPublic ? 'public' : 'private'
-      ]);
+      ];
+
+      if (hasCompany) {
+        projectInsertCols.push('company_id');
+        projectInsertValues.push(companyId);
+      }
+
+      if (hasSlug) {
+        projectInsertCols.push('slug');
+        projectInsertValues.push(`${slug}-${Date.now()}`);
+      }
+
+      if (publicCol === 'visibility') {
+        projectInsertCols.push('visibility');
+        projectInsertValues.push(data.isPublic ? 'public' : 'private');
+      } else if (publicCol === 'is_public') {
+        projectInsertCols.push('is_public');
+        projectInsertValues.push(Boolean(data.isPublic));
+      }
+
+      if (hasStatus) {
+        projectInsertCols.push('status');
+        projectInsertValues.push('active');
+      }
+
+      // Create project
+      await client.query(`
+        INSERT INTO projects (${projectInsertCols.join(', ')})
+        VALUES (${ProjectRepository.toPlaceholders(1, projectInsertValues.length)})
+      `, projectInsertValues);
 
       // Add owner as member
       await client.query(`
@@ -51,11 +115,23 @@ export class ProjectRepository {
         VALUES ($1, $2, 'owner')
       `, [projectId, data.ownerId]);
 
+      const boardPk = boardCols.has('id') ? 'id' : 'board_id';
+      const boardInsertCols = [boardPk, 'project_id'];
+      const boardInsertValues: any[] = [boardId, projectId];
+      if (boardCols.has('name')) {
+        boardInsertCols.push('name');
+        boardInsertValues.push('Main Board');
+      }
+      if (boardCols.has('type')) {
+        boardInsertCols.push('type');
+        boardInsertValues.push('kanban');
+      }
+
       // Create board
       await client.query(`
-        INSERT INTO boards (id, project_id, name, type)
-        VALUES ($1, $2, 'Main Board', 'kanban')
-      `, [boardId, projectId]);
+        INSERT INTO boards (${boardInsertCols.join(', ')})
+        VALUES (${ProjectRepository.toPlaceholders(1, boardInsertValues.length)})
+      `, boardInsertValues);
 
       // Create columns
       const columns = data.columns || [
@@ -83,9 +159,16 @@ export class ProjectRepository {
    * Find project by ID with members
    */
   async findById(projectId: string): Promise<Project | null> {
-    // Support both new 'id' and legacy 'project_id' columns
+    const projectCols = await this.getProjectColumns();
+    const projectPk = projectCols.has('id') ? 'id' : 'project_id';
+    const publicCol = projectCols.has('visibility')
+      ? 'visibility'
+      : projectCols.has('is_public')
+        ? 'is_public'
+        : null;
+
     const project = await queryOne(`
-      SELECT * FROM projects WHERE id = $1
+      SELECT * FROM projects WHERE ${projectPk} = $1
     `, [projectId]);
 
     if (!project) return null;
@@ -109,14 +192,18 @@ export class ProjectRepository {
     `, [projectId]);
 
     return {
-      projectId: project.id,
+      projectId: project[projectPk],
       name: project.name,
       description: project.description,
       ownerId: project.owner_id,
       color: project.color,
-      isPublic: project.visibility === 'public',
+      isPublic:
+        publicCol === 'visibility'
+          ? project.visibility === 'public'
+          : publicCol === 'is_public'
+            ? Boolean(project.is_public)
+            : false,
       companyId: project.company_id,
-      organizationId: project.organization_id,
       createdAt: new Date(project.created_at),
       updatedAt: new Date(project.updated_at),
       members: members.map((m: any) => ({
@@ -149,8 +236,12 @@ export class ProjectRepository {
    * Get all projects
    */
   async findAll(): Promise<Project[]> {
+    const projectCols = await this.getProjectColumns();
+    const projectPk = projectCols.has('id') ? 'id' : 'project_id';
+    const whereStatus = projectCols.has('status') ? `WHERE status = 'active'` : '';
+
     const projectIds = await queryAll(`
-      SELECT id FROM projects WHERE status = 'active' ORDER BY created_at DESC
+      SELECT ${projectPk} as id FROM projects ${whereStatus} ORDER BY created_at DESC
     `);
 
     const projects = await Promise.all(
@@ -164,11 +255,15 @@ export class ProjectRepository {
    * Get projects by user ID (as owner or member)
    */
   async findByUserId(userId: string): Promise<Project[]> {
+    const projectCols = await this.getProjectColumns();
+    const projectPk = projectCols.has('id') ? 'id' : 'project_id';
+    const whereStatus = projectCols.has('status') ? `AND p.status = 'active'` : '';
+
     const projectIds = await queryAll(`
-      SELECT DISTINCT p.id, p.created_at
+      SELECT DISTINCT p.${projectPk} as id, p.created_at
       FROM projects p
-      LEFT JOIN project_members pm ON p.id = pm.project_id
-      WHERE (p.owner_id = $1 OR pm.user_id = $2) AND p.status = 'active'
+      LEFT JOIN project_members pm ON p.${projectPk} = pm.project_id
+      WHERE (p.owner_id = $1 OR pm.user_id = $2) ${whereStatus}
       ORDER BY p.created_at DESC
     `, [userId, userId]);
 
@@ -183,24 +278,13 @@ export class ProjectRepository {
    * Get projects by company
    */
   async findByCompany(companyId: string): Promise<Project[]> {
+    const projectCols = await this.getProjectColumns();
+    const projectPk = projectCols.has('id') ? 'id' : 'project_id';
+    const whereStatus = projectCols.has('status') ? `AND status = 'active'` : '';
+
     const projectIds = await queryAll(`
-      SELECT id FROM projects WHERE company_id = $1 AND status = 'active' ORDER BY created_at DESC
+      SELECT ${projectPk} as id FROM projects WHERE company_id = $1 ${whereStatus} ORDER BY created_at DESC
     `, [companyId]);
-
-    const projects = await Promise.all(
-      projectIds.map((row: any) => this.findById(row.id))
-    );
-
-    return projects.filter((p): p is Project => p !== null);
-  }
-
-  /**
-   * Get projects by organization
-   */
-  async findByOrganization(organizationId: string): Promise<Project[]> {
-    const projectIds = await queryAll(`
-      SELECT id FROM projects WHERE organization_id = $1 AND status = 'active' ORDER BY created_at DESC
-    `, [organizationId]);
 
     const projects = await Promise.all(
       projectIds.map((row: any) => this.findById(row.id))
@@ -213,8 +297,17 @@ export class ProjectRepository {
    * Get public projects
    */
   async findPublicProjects(): Promise<Project[]> {
+    const projectCols = await this.getProjectColumns();
+    const projectPk = projectCols.has('id') ? 'id' : 'project_id';
+    const publicWhere = projectCols.has('visibility')
+      ? `visibility = 'public'`
+      : projectCols.has('is_public')
+        ? `is_public = true`
+        : `false`;
+    const statusWhere = projectCols.has('status') ? `AND status = 'active'` : '';
+
     const projectIds = await queryAll(`
-      SELECT id FROM projects WHERE visibility = 'public' AND status = 'active' ORDER BY created_at DESC
+      SELECT ${projectPk} as id FROM projects WHERE ${publicWhere} ${statusWhere} ORDER BY created_at DESC
     `);
 
     const projects = await Promise.all(
@@ -234,6 +327,9 @@ export class ProjectRepository {
     isPublic: boolean;
     status: string;
   }>): Promise<Project | null> {
+    const projectCols = await this.getProjectColumns();
+    const projectPk = projectCols.has('id') ? 'id' : 'project_id';
+
     const fields: string[] = [];
     const values: any[] = [];
     let idx = 1;
@@ -251,10 +347,15 @@ export class ProjectRepository {
       values.push(data.color);
     }
     if (data.isPublic !== undefined) {
-      fields.push(`visibility = $${idx++}`);
-      values.push(data.isPublic ? 'public' : 'private');
+      if (projectCols.has('visibility')) {
+        fields.push(`visibility = $${idx++}`);
+        values.push(data.isPublic ? 'public' : 'private');
+      } else if (projectCols.has('is_public')) {
+        fields.push(`is_public = $${idx++}`);
+        values.push(Boolean(data.isPublic));
+      }
     }
-    if (data.status !== undefined) {
+    if (data.status !== undefined && projectCols.has('status')) {
       fields.push(`status = $${idx++}`);
       values.push(data.status);
     }
@@ -269,7 +370,7 @@ export class ProjectRepository {
     await query(`
       UPDATE projects
       SET ${fields.join(', ')}
-      WHERE id = $${idx}
+      WHERE ${projectPk} = $${idx}
     `, values);
 
     return this.findById(projectId);
@@ -279,9 +380,19 @@ export class ProjectRepository {
    * Delete project (soft delete)
    */
   async delete(projectId: string): Promise<boolean> {
-    const result = await query(`
-      UPDATE projects SET status = 'deleted', updated_at = CURRENT_TIMESTAMP WHERE id = $1
-    `, [projectId]);
+    const projectCols = await this.getProjectColumns();
+    const projectPk = projectCols.has('id') ? 'id' : 'project_id';
+
+    const result = projectCols.has('status')
+      ? await query(
+        `UPDATE projects SET status = 'deleted', updated_at = CURRENT_TIMESTAMP WHERE ${projectPk} = $1`,
+        [projectId]
+      )
+      : await query(
+        `DELETE FROM projects WHERE ${projectPk} = $1`,
+        [projectId]
+      );
+
     return (result as any).rowCount > 0;
   }
 

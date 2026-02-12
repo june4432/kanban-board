@@ -12,6 +12,7 @@ const customJestConfig = {
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/$1',
   },
+  modulePathIgnorePatterns: ['<rootDir>/.next/'],
   testPathIgnorePatterns: ['<rootDir>/.next/', '<rootDir>/node_modules/'],
   transformIgnorePatterns: [
     '/node_modules/(?!(jose|openid-client|next-auth|uuid|@panva)/)',

@@ -1,5 +1,6 @@
 import pino from 'pino';
 import { AppError } from './errors';
+export { AppError } from './errors';
 
 /**
  * 구조화된 로깅 시스템
@@ -36,16 +37,20 @@ export function logError(error: unknown, context: string, metadata?: object): vo
   if (error instanceof AppError) {
     // Operational Error - 예상 가능한 에러
     const level = error.statusCode >= 500 ? 'error' : 'warn';
+    const payload: Record<string, unknown> = {
+      context,
+      statusCode: error.statusCode,
+      message: error.message,
+      isOperational: error.isOperational,
+      ...metadata,
+    };
+    if (error.code) {
+      payload.code = error.code;
+    }
+
     logger[level](
-      {
-        context,
-        statusCode: error.statusCode,
-        code: error.code,
-        message: error.message,
-        isOperational: error.isOperational,
-        ...metadata,
-      },
-      `${error.code || 'OPERATIONAL_ERROR'} in ${context}`
+      payload,
+      `Operational error in ${context}`
     );
   } else if (error instanceof Error) {
     // Programming Error - 예상하지 못한 에러
@@ -124,10 +129,15 @@ export function logEvent(event: string, metadata?: object): void {
  */
 export function sanitizeError(error: unknown): { message: string; statusCode: number; code?: string } {
   if (error instanceof AppError) {
-    return {
+    const result: { message: string; statusCode: number; code?: string } = {
       message: error.message,
       statusCode: error.statusCode,
-      code: error.code,
+    };
+    if (error.code) {
+      result.code = error.code;
+    }
+    return {
+      ...result,
     };
   }
 
@@ -136,13 +146,11 @@ export function sanitizeError(error: unknown): { message: string; statusCode: nu
       return {
         message: error.message,
         statusCode: 500,
-        code: 'INTERNAL_ERROR',
       };
     } else {
       return {
         message: 'Internal server error',
         statusCode: 500,
-        code: 'INTERNAL_ERROR',
       };
     }
   }
@@ -150,7 +158,6 @@ export function sanitizeError(error: unknown): { message: string; statusCode: nu
   return {
     message: 'An unexpected error occurred',
     statusCode: 500,
-    code: 'UNKNOWN_ERROR',
   };
 }
 

@@ -3,17 +3,46 @@ import { Board, Column, Card, Label, Milestone, Priority } from '@/types';
 import { query, queryOne, queryAll, withTransaction } from '@/lib/postgres';
 
 export class BoardRepository {
+  private static projectColumnsCache: Set<string> | null = null;
+  private static boardColumnsCache: Set<string> | null = null;
+
   constructor() { }
+
+  private async getTableColumns(tableName: string): Promise<Set<string>> {
+    const rows = await queryAll<{ column_name: string }>(
+      `SELECT column_name
+       FROM information_schema.columns
+       WHERE table_schema = 'public' AND table_name = $1`,
+      [tableName]
+    );
+    return new Set(rows.map((r) => r.column_name));
+  }
+
+  private async getProjectPk(): Promise<'id' | 'project_id'> {
+    if (!BoardRepository.projectColumnsCache) {
+      BoardRepository.projectColumnsCache = await this.getTableColumns('projects');
+    }
+    return BoardRepository.projectColumnsCache.has('id') ? 'id' : 'project_id';
+  }
+
+  private async getBoardPk(): Promise<'id' | 'board_id'> {
+    if (!BoardRepository.boardColumnsCache) {
+      BoardRepository.boardColumnsCache = await this.getTableColumns('boards');
+    }
+    return BoardRepository.boardColumnsCache.has('id') ? 'id' : 'board_id';
+  }
 
   /**
    * Get board by project ID with all related data
    */
   async findByProjectId(projectId: string): Promise<Board | null> {
+    const boardPk = await this.getBoardPk();
+
     // Get board (new schema uses 'id', old used 'board_id')
     const board = await queryOne('SELECT * FROM boards WHERE project_id = $1', [projectId]);
     if (!board) return null;
 
-    const boardId = board.id;
+    const boardId = board[boardPk];
 
     // Get columns
     const columns = await this.getColumns(boardId);
@@ -119,26 +148,27 @@ export class BoardRepository {
   }
 
   /**
-   * Get labels for a project (hierarchical: company -> organization -> project)
+   * Get labels for a project (hierarchical: company -> project)
    */
   private async getLabels(projectId: string): Promise<Label[]> {
+    const projectPk = await this.getProjectPk();
+
     // Get project info
     const project = await queryOne(`
-      SELECT id, company_id, organization_id
-      FROM projects WHERE id = $1
+      SELECT ${projectPk} as id, company_id
+      FROM projects WHERE ${projectPk} = $1
     `, [projectId]);
 
     if (!project) return [];
 
-    // Get labels from all hierarchy levels
+    // Get labels from company and project levels
     const labels = await queryAll(`
       SELECT * FROM labels
       WHERE
         (scope = 'company' AND company_id = $1) OR
-        (scope = 'organization' AND organization_id = $2) OR
-        (scope = 'project' AND project_id = $3)
+        (scope = 'project' AND project_id = $2)
       ORDER BY scope, name ASC
-    `, [project.company_id, project.organization_id, projectId]);
+    `, [project.company_id, projectId]);
 
     return labels.map((l: any) => ({
       id: l.id,
@@ -148,26 +178,27 @@ export class BoardRepository {
   }
 
   /**
-   * Get milestones for a project (hierarchical: company -> organization -> project)
+   * Get milestones for a project (hierarchical: company -> project)
    */
   private async getMilestones(projectId: string): Promise<Milestone[]> {
+    const projectPk = await this.getProjectPk();
+
     // Get project info
     const project = await queryOne(`
-      SELECT id, company_id, organization_id
-      FROM projects WHERE id = $1
+      SELECT ${projectPk} as id, company_id
+      FROM projects WHERE ${projectPk} = $1
     `, [projectId]);
 
     if (!project) return [];
 
-    // Get milestones from all hierarchy levels
+    // Get milestones from company and project levels
     const milestones = await queryAll(`
       SELECT * FROM milestones
       WHERE
         (scope = 'company' AND company_id = $1) OR
-        (scope = 'organization' AND organization_id = $2) OR
-        (scope = 'project' AND project_id = $3)
+        (scope = 'project' AND project_id = $2)
       ORDER BY scope, due_date ASC
-    `, [project.company_id, project.organization_id, projectId]);
+    `, [project.company_id, projectId]);
 
     return milestones.map((m: any) => ({
       id: m.id,
@@ -182,27 +213,27 @@ export class BoardRepository {
    */
   async createLabel(
     projectId: string,
-    data: { name: string; color: string; scope?: 'company' | 'organization' | 'project' }
+    data: { name: string; color: string; scope?: 'company' | 'project' }
   ): Promise<Label> {
+    const projectPk = await this.getProjectPk();
     const id = uuidv4();
     const scope = data.scope || 'project';
 
     // Get project info for hierarchy IDs
     const project = await queryOne(`
-      SELECT id, company_id, organization_id
-      FROM projects WHERE id = $1
+      SELECT ${projectPk} as id, company_id
+      FROM projects WHERE ${projectPk} = $1
     `, [projectId]);
 
     if (!project) throw new Error('Project not found');
 
     await query(`
-      INSERT INTO labels (id, scope, company_id, organization_id, project_id, name, color)
-      VALUES ($1, $2, $3, $4, $5, $6, $7)
+      INSERT INTO labels (id, scope, company_id, project_id, name, color)
+      VALUES ($1, $2, $3, $4, $5, $6)
     `, [
       id,
       scope,
       scope === 'company' ? project.company_id : null,
-      scope === 'organization' ? project.organization_id : null,
       scope === 'project' ? projectId : null,
       data.name,
       data.color
@@ -257,27 +288,27 @@ export class BoardRepository {
    */
   async createMilestone(
     projectId: string,
-    data: { name: string; dueDate: Date; description?: string; scope?: 'company' | 'organization' | 'project' }
+    data: { name: string; dueDate: Date; description?: string; scope?: 'company' | 'project' }
   ): Promise<Milestone> {
+    const projectPk = await this.getProjectPk();
     const id = uuidv4();
     const scope = data.scope || 'project';
 
     // Get project info for hierarchy IDs
     const project = await queryOne(`
-      SELECT id, company_id, organization_id
-      FROM projects WHERE id = $1
+      SELECT ${projectPk} as id, company_id
+      FROM projects WHERE ${projectPk} = $1
     `, [projectId]);
 
     if (!project) throw new Error('Project not found');
 
     await query(`
-      INSERT INTO milestones (id, scope, company_id, organization_id, project_id, name, description, due_date)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      INSERT INTO milestones (id, scope, company_id, project_id, name, description, due_date)
+      VALUES ($1, $2, $3, $4, $5, $6, $7)
     `, [
       id,
       scope,
       scope === 'company' ? project.company_id : null,
-      scope === 'organization' ? project.organization_id : null,
       scope === 'project' ? projectId : null,
       data.name,
       data.description || null,
@@ -418,7 +449,8 @@ export class BoardRepository {
    * Get board ID by project ID
    */
   async getBoardIdByProjectId(projectId: string): Promise<string | null> {
-    const board = await queryOne('SELECT id FROM boards WHERE project_id = $1', [projectId]);
+    const boardPk = await this.getBoardPk();
+    const board = await queryOne(`SELECT ${boardPk} as id FROM boards WHERE project_id = $1`, [projectId]);
     return board?.id || null;
   }
 

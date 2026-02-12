@@ -1,4 +1,5 @@
-import NextAuth, { NextAuthOptions } from 'next-auth';
+import NextAuth from 'next-auth/next';
+import type { NextAuthOptions } from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
 import { getRepositories } from '@/lib/repositories';
 
@@ -55,4 +56,7 @@ export const authOptions: NextAuthOptions = {
   secret: process.env.NEXTAUTH_SECRET,
 };
 
-export default NextAuth(authOptions);
+export default async function auth(req: any, res: any) {
+  const handler = NextAuth(authOptions);
+  return handler(req, res);
+}

@@ -8,6 +8,7 @@ import dynamic from 'next/dynamic';
 import { useEffect, useState } from 'react';
 import 'swagger-ui-react/swagger-ui.css';
 import Head from 'next/head';
+import Link from 'next/link';
 
 const SwaggerUI = dynamic(() => import('swagger-ui-react'), { ssr: false });
 
@@ -50,18 +51,18 @@ export default function ApiDocs() {
             <p className="text-blue-100 text-sm mt-1">RESTful API v1 - Interactive Documentation</p>
           </div>
           <div className="flex gap-3">
-            <a
+            <Link
               href="/"
               className="inline-flex items-center px-4 py-2 bg-white text-blue-600 rounded-md hover:bg-blue-50 transition-colors text-sm font-medium"
             >
               ← Back to App
-            </a>
-            <a
+            </Link>
+            <Link
               href="/settings/api-keys"
               className="inline-flex items-center px-4 py-2 bg-blue-800 text-white rounded-md hover:bg-blue-900 transition-colors text-sm font-medium"
             >
               🔑 API Keys
-            </a>
+            </Link>
           </div>
         </div>
       </div>

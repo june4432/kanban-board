@@ -7,16 +7,45 @@
 
 export class AppError extends Error {
   constructor(
-    public statusCode: number,
-    public message: string,
-    public code?: string,
-    public isOperational: boolean = true
+    messageOrStatusCode: string | number,
+    statusCodeOrMessage: number | string = 500,
+    codeOrIsOperational?: string | boolean,
+    isOperationalParam: boolean = true
   ) {
+    let statusCode: number;
+    let message: string;
+    let code: string | undefined;
+    let isOperational: boolean;
+
+    // Backward-compatible signature support:
+    // 1) new AppError(message, statusCode?, isOperational?)
+    // 2) new AppError(statusCode, message, code?, isOperational?)
+    if (typeof messageOrStatusCode === 'string') {
+      message = messageOrStatusCode;
+      statusCode = typeof statusCodeOrMessage === 'number' ? statusCodeOrMessage : 500;
+      code = undefined;
+      isOperational = typeof codeOrIsOperational === 'boolean' ? codeOrIsOperational : true;
+    } else {
+      statusCode = messageOrStatusCode;
+      message = typeof statusCodeOrMessage === 'string' ? statusCodeOrMessage : 'Application error';
+      code = typeof codeOrIsOperational === 'string' ? codeOrIsOperational : undefined;
+      isOperational =
+        typeof codeOrIsOperational === 'boolean' ? codeOrIsOperational : isOperationalParam;
+    }
+
     super(message);
+    this.statusCode = statusCode;
+    this.message = message;
+    this.code = code;
+    this.isOperational = isOperational;
     this.name = this.constructor.name;
     Object.setPrototypeOf(this, AppError.prototype);
     Error.captureStackTrace(this, this.constructor);
   }
+
+  public statusCode: number;
+  public code?: string;
+  public isOperational: boolean;
 }
 
 /**

@@ -8,15 +8,10 @@
 import { Pool } from 'pg';
 import * as fs from 'fs';
 import * as path from 'path';
+import { getPostgresConfig } from './_postgres-config';
 
 // Database configuration
-const pool = new Pool({
-  host: process.env.POSTGRES_HOST || 'june4432.ipdisk.co.kr',
-  port: parseInt(process.env.POSTGRES_PORT || '5432'),
-  database: process.env.POSTGRES_DB || 'kanbandb',
-  user: process.env.POSTGRES_USER || 'kanban',
-  password: process.env.POSTGRES_PASSWORD || 'kanban2025!',
-});
+const pool = new Pool(getPostgresConfig());
 
 // Default company for migration
 const DEFAULT_COMPANY = {
